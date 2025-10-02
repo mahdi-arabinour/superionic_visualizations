@@ -1,1 +1,277 @@
 
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Sunburst — Read data.json (no upload)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:#0f1115; color:#e8e8ea; height:100vh; display:flex; flex-direction:column; }
+  header { padding:10px 14px; background:#171a20; display:flex; gap:12px; flex-wrap:wrap; align-items:center; border-bottom:1px solid #262a32; }
+  input,select,button { background:#11141a; border:1px solid #30343c; color:#e8e8ea; padding:6px 10px; border-radius:8px; }
+  #wrap { flex:1; min-height:0; display:flex; padding:12px 14px; gap:12px; }
+  #chartCard { flex:1; display:grid; grid-template-columns: 1fr 340px; gap:14px; }
+  .chartBody { background:#101626; border:1px dashed #333a49; border-radius:12px; min-height:640px; position:relative; }
+  svg { width:100%; height:100%; display:block; }
+  .legend { background:#0f141f; border:1px solid #2a3240; border-radius:12px; padding:10px; overflow:auto; }
+  .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
+  .legendGroup { display:flex; flex-direction:column; gap:6px; }
+  .ionRow { display:grid; grid-template-columns: 18px 1fr 18px; gap:10px; align-items:center; padding:6px 8px; border-radius:8px; user-select:none; }
+  .ionRow:hover { background:#0f1726; }
+  .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(255,255,255,.35); }
+  .ionName { cursor:pointer; }
+  .chev { width:18px; text-align:center; cursor:pointer; color:#a9b3c8; }
+  .sublist { margin-left: 26px; display:none; }
+  .sublist.open { display:block; }
+  .famRow { display:grid; grid-template-columns: 14px 1fr; gap:8px; align-items:center; padding:4px 6px; border-radius:6px; cursor:pointer; }
+  .famRow:hover { background:#0c1322; }
+  .smSwatch { width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,.28); }
+  .badge { font-size:12px; color:#93c5fd; }
+  .tooltip { position:fixed; pointer-events:none; background:rgba(0,0,0,.9); color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3; display:none; z-index:10; box-shadow:0 6px 18px rgba(0,0,0,.45); }
+  .dimmed { opacity: .18; transition: opacity .15s ease; }
+  .highlight { opacity: 1; transition: opacity .15s ease; }
+</style>
+</head>
+<body>
+  <header>
+    <strong>Sunburst</strong>
+    <!-- Removed upload controls -->
+    <label>Default σ:<input type="number" id="defaultCond" step="0.000001" value="0.000001"/></label>
+    <label>Scale:<select id="scaleMode"><option value="log" selected>Log</option><option value="linear">Linear</option></select></label>
+    <span class="badge" id="stats"></span>
+  </header>
+
+  <div id="wrap">
+    <div id="chartCard">
+      <div id="chart" class="chartBody"></div>
+      <div id="legend" class="legend">
+        <h4>Legend</h4>
+        <div class="legendGroup"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script>
+    const chartEl   = document.getElementById('chart');
+    const legendEl  = document.getElementById('legend');
+    const tooltip   = document.getElementById('tooltip');
+    const defaultCondEl = document.getElementById('defaultCond');
+    const scaleModeEl   = document.getElementById('scaleMode');
+    const statsEl  = document.getElementById('stats');
+
+    let dataObj = null;
+    let root = null;
+    let gArcs = null;
+
+    const highlightedIons = new Set();
+    const highlightedFams = new Set();
+
+    // --- NEW: Auto-load data.json ---
+    // Expects a hierarchy object:
+    // { "IonA": { "Family1": [ { "conductivity_S_per_cm": 0.12 }, ... ], ... }, ... }
+    fetch('data.json', { cache: 'no-store' })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(raw => {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+          throw new Error('Expected hierarchy object at top-level (not an array).');
+        }
+        dataObj = raw;
+        draw();
+      })
+      .catch(e => {
+        console.error(e);
+        alert('Failed to load data.json. Ensure it is in the same folder and properly formatted.');
+      });
+
+    [defaultCondEl, scaleModeEl].forEach(el => el.addEventListener('change', draw));
+    window.addEventListener('resize', () => requestAnimationFrame(draw));
+
+    function obj2children(obj){
+      return Object.entries(obj).map(([k,v])=>{
+        if(Array.isArray(v)) return {name:k, values:v};
+        return {name:k, children:obj2children(v)};
+      });
+    }
+
+    function computeLeafCond(h, def){
+      h.each(n=>{
+        if(n.data && n.data.values){
+          const vals = n.data.values
+            .map(v => (v && typeof v.conductivity_S_per_cm === 'number') ? v.conductivity_S_per_cm : NaN)
+            .filter(Number.isFinite);
+          n.data.cond = vals.length ? d3.max(vals) : def;
+        }
+      });
+    }
+
+    function draw(){
+      if(!dataObj) return;
+      chartEl.innerHTML = '';
+      const rect = chartEl.getBoundingClientRect();
+      const side = Math.floor(Math.min(rect.width || 800, rect.height || 640));
+      const defCond = Math.max(1e-12, Number(defaultCondEl.value) || 1e-6);
+      const mode = scaleModeEl.value;
+
+      const data = { name:'root', children: obj2children(dataObj) };
+      root = d3.hierarchy(data, d=>d.children).sum(()=>1);
+      computeLeafCond(root, defCond);
+
+      const svg = d3.select(chartEl).append('svg')
+        .attr('width','100%').attr('height','100%')
+        .attr('viewBox', `${-side/2} ${-side/2} ${side} ${side}`);
+
+      const ringThickness = Math.max(36, side * 0.06);
+      const leafBase      = Math.max(10, side * 0.02);
+      const extraLeafMax  = Math.max(110, side * 0.20);
+
+      d3.partition().size([2*Math.PI, (root.height + 1) * ringThickness])(root);
+
+      const leaves = root.leaves();
+      let condVals = leaves.map(l => l.data.cond || defCond).filter(Number.isFinite);
+      if (!condVals.length) condVals = [defCond];
+      let [cmin, cmax] = d3.extent(condVals);
+      if (!(cmax > cmin)) { cmin = cmin*0.8; cmax = cmax*1.2; }
+
+      const baseScale = (mode==='linear'
+        ? d3.scaleLinear().domain([cmin, cmax])
+        : d3.scaleLog().domain([Math.max(cmin, 1e-12), Math.max(cmax, 1e-12)]));
+      const condScale = baseScale.range([0, extraLeafMax]).clamp(true);
+
+      const ions = (root.children || []).map(d=>d.data.name);
+      const colorIon = d3.scaleOrdinal(ions, d3.quantize(t => d3.interpolateRainbow(t), Math.max(3, ions.length)));
+
+      const arc = d3.arc()
+        .startAngle(d=>d.x0)
+        .endAngle(d=>d.x1)
+        .padAngle(d=>Math.min(0.006, (d.x1-d.x0)/6))
+        .padRadius(side * 0.45)
+        .innerRadius(d=>d.y0)
+        .outerRadius(d=> d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || defCond));
+
+      const g = svg.append('g');
+      gArcs = g;
+
+      const paths = g.selectAll('path')
+        .data(root.descendants().filter(d=>d.depth>0))
+        .join('path')
+        .attr('d', arc)
+        .attr('fill', d => { let a=d; while(a.depth>1) a=a.parent; return colorIon(a.data.name); })
+        .attr('stroke','#fff').attr('stroke-opacity',0.35).attr('stroke-width', Math.max(0.6, side*0.0012));
+
+      // tag with ion & family for highlight logic
+      paths.each(function(d){
+        let ion=d; while(ion && ion.depth>1) ion=ion.parent;
+        let fam=d; while(fam && fam.depth>2) fam=fam.parent;
+        this.dataset.ion = ion?.data?.name || '';
+        this.dataset.family = fam?.data?.name || '';
+      });
+
+      // tooltips
+      paths.on('mousemove', (evt, d) => {
+        const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
+        let html = `<strong>${trail}</strong>`;
+        if (!d.children) {
+          const c = d.data.cond || defCond;
+          html += `<br/>σ: ${Number.isFinite(c) ? c.toExponential(3) : '(default)'} S·cm⁻¹`;
+        }
+        tooltip.style.display = 'block';
+        tooltip.innerHTML = html;
+        tooltip.style.left = (evt.clientX + 10) + 'px';
+        tooltip.style.top  = (evt.clientY + 10) + 'px';
+      }).on('mouseleave', () => { tooltip.style.display = 'none'; });
+
+      buildLegend(root, colorIon);
+      applyHighlight();
+
+      // stats
+      const ionCount = (root.children||[]).length;
+      const famCount = d3.sum(root.children||[], n => (n.children||[]).length);
+      statsEl.textContent = `Ions: ${ionCount} | Families: ${famCount}`;
+    }
+
+    function buildLegend(root, colorIon){
+      const group = legendEl.querySelector('.legendGroup');
+      group.innerHTML = '';
+
+      (root.children || []).forEach(ionNode => {
+        const ion = ionNode.data.name;
+
+        // Ion row: swatch + name + chevron
+        const row = document.createElement('div'); row.className='ionRow';
+        const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(ion);
+        const nm  = document.createElement('div'); nm.className='ionName'; nm.textContent = ion;
+        const cv  = document.createElement('div'); cv.className='chev'; cv.textContent = '▸';
+        row.appendChild(sw); row.appendChild(nm); row.appendChild(cv);
+        group.appendChild(row);
+
+        // Sublist of families (collapsed by default)
+        const sub = document.createElement('div'); sub.className='sublist';
+        const fams = (ionNode.children||[]).map(n=>n.data.name);
+        fams.forEach((fam, i) => {
+          const li = document.createElement('div'); li.className='famRow';
+          const sm = document.createElement('div'); sm.className='smSwatch';
+          sm.style.background = d3.color(colorIon(ion)).brighter(0.5 + (i/(Math.max(2,fams.length)-1||1))*0.9).formatRgb();
+          const sn = document.createElement('div'); sn.textContent = fam;
+          li.appendChild(sm); li.appendChild(sn);
+          sub.appendChild(li);
+
+          // Toggle family highlight on click
+          li.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (highlightedFams.has(fam)) highlightedFams.delete(fam); else highlightedFams.add(fam);
+            applyHighlight();
+          });
+        });
+        group.appendChild(sub);
+
+        // Expand/collapse on chevron click
+        cv.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const open = sub.classList.toggle('open');
+          cv.textContent = open ? '▾' : '▸';
+        });
+
+        // Toggle ion highlight when clicking the name/swatch area
+        nm.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (highlightedIons.has(ion)) highlightedIons.delete(ion); else highlightedIons.add(ion);
+          applyHighlight();
+        });
+        sw.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (highlightedIons.has(ion)) highlightedIons.delete(ion); else highlightedIons.add(ion);
+          applyHighlight();
+        });
+      });
+    }
+
+    function applyHighlight(){
+      if (!gArcs) return;
+      const paths = gArcs.selectAll('path');
+      const hasIon = highlightedIons.size > 0;
+      const hasFam = highlightedFams.size > 0;
+
+      if (!hasIon && !hasFam){
+        paths.classed('dimmed', false).classed('highlight', false);
+        return;
+      }
+      paths.each(function(){
+        const ion = this.dataset.ion;
+        const fam = this.dataset.family;
+        const ionOk = !hasIon || highlightedIons.has(ion);
+        const famOk = !hasFam || highlightedFams.has(fam);
+        const on = ionOk && famOk;
+        this.classList.toggle('highlight', on);
+        this.classList.toggle('dimmed', !on);
+      });
+    }
+  </script>
+</body>
+</html>
