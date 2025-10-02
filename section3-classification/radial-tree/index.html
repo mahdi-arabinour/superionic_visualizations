@@ -1,1 +1,204 @@
 
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<head>
+  <title>Radial Tidy Tree with Conductivity Leaves</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body { background:#111; color:#ddd; font-family:sans-serif; }
+    svg { width:100vw; height:100vh; }
+    aside {
+      position:fixed; top:10px; left:10px;
+      background:#222; padding:10px; border-radius:6px;
+      font-size:12px; max-height:95vh; overflow:auto;
+    }
+    .lbl-ion { fill:#fff; font-weight:bold; }
+    .lbl-struct { fill:#aaa; font-weight:400; }
+    .lbl-doping { fill:#aaa; font-weight:300; }
+    .lbl-formula { fill:#ccc; font-weight:300; }
+    .link { fill:none; stroke:#555; stroke-opacity:0.6; }
+    .node circle { r:2; fill:#999; }
+  </style>
+</head>
+<body>
+  <aside>
+    <h3>Filter ions</h3>
+    <button id="selectAllBtn">Select All</button>
+    <button id="clearAllBtn">Clear</button>
+    <select id="ionSelect" multiple></select>
+
+    <h3>Labels</h3>
+    <label><input type="checkbox" id="showIonLbl" checked> Ions</label><br>
+    <label><input type="checkbox" id="showStructLbl"> Structure</label><br>
+    <label><input type="checkbox" id="showDopingLbl"> Doping</label><br>
+    <label><input type="checkbox" id="showFormulaLbl" checked> Formula</label><br>
+  </aside>
+
+  <svg></svg>
+
+  <script>
+  const DEFAULT_CSV_PATH = "data.csv";  // 👈 repo file
+
+  const svg = d3.select("svg");
+  const width = window.innerWidth, height = window.innerHeight;
+  const g = svg.append("g").attr("transform",`translate(${width/2},${height/2})`);
+  const radius = Math.min(width, height) / 2 - 40;
+
+  let DATA=null;
+
+  // robust conductivity parser
+  function parseSigma(v){
+    if(v==null) return NaN;
+    let s=String(v).trim();
+    if(!s) return NaN;
+    s=s.replace(/[,\s]/g,'').replace(/[−–—-]/g,'-');
+    const sup={'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁺':'+','⁻':'-'};
+    s=[...s].map(ch=>sup[ch]??ch).join('');
+    s=s.replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i,'$1e$2');
+    const n=Number(s);
+    if(Number.isFinite(n)) return n;
+    const m=s.match(/^[+\-]?\d*\.?\d+(?:e[+\-]?\d+)?/i);
+    return m?Number(m[0]):NaN;
+  }
+
+  // build hierarchy
+  function buildHierarchy(rows){
+    const root={name:"root", children:[]};
+    for(const r of rows){
+      const ion=r["Ion Type"];
+      const struct=r["Structure Group (Canonical)"]||r["Structure Type"];
+      const dop=r["Doping / and or GB Strategy"]||"None";
+      const formula=r["superionic conductor Formula (Chemical)"];
+      const sigma=r["Conductivity σ (S·cm⁻¹) / Temp (°C)"];
+
+      let L1=root.children.find(d=>d.name===ion);
+      if(!L1){L1={name:ion,children:[]};root.children.push(L1);}
+      let L2=L1.children.find(d=>d.name===struct);
+      if(!L2){L2={name:struct,children:[]};L1.children.push(L2);}
+      let L3=L2.children.find(d=>d.name===dop);
+      if(!L3){L3={name:dop,children:[]};L2.children.push(L3);}
+      L3.children.push({name:formula, sigma});
+    }
+    return root;
+  }
+
+  function drawTree(root){
+    g.selectAll("*").remove();
+
+    const rootH = d3.hierarchy(root);
+    const tree = d3.tree().size([2*Math.PI, radius]);
+    tree(rootH);
+
+    // scale for leaf extension
+    const sigVals = rootH.leaves().map(d=>parseSigma(d.data.sigma)).filter(v=>Number.isFinite(v)&&v>0);
+    const sMin=Math.min(...sigVals), sMax=Math.max(...sigVals);
+    const collapsed=(!isFinite(sMin)||!isFinite(sMax)||sMin===sMax);
+    const scale=d3.scaleLog().domain([Math.max(sMin,1e-12),sMax]).range([20,140]);
+
+    rootH.each(d=>{
+      if(!d.children){ // formula leaf
+        const extra = collapsed?80:scale(parseSigma(d.data.sigma)||1e-6);
+        d.y= d.depth*80 + extra;
+      } else {
+        d.y= d.depth*80;
+      }
+    });
+
+    // links
+    g.selectAll(".link")
+      .data(rootH.links())
+      .join("path").attr("class","link")
+      .attr("stroke","#555").attr("stroke-opacity",0.6)
+      .attr("d",d3.linkRadial().angle(d=>d.x).radius(d=>d.y));
+
+    // nodes
+    g.selectAll(".node")
+      .data(rootH.descendants())
+      .join("circle").attr("class","node")
+      .attr("transform",d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`)
+      .attr("r",2).attr("fill","#999");
+
+    // labels
+    const showIon=document.getElementById("showIonLbl").checked;
+    const showStruct=document.getElementById("showStructLbl").checked;
+    const showDoping=document.getElementById("showDopingLbl").checked;
+    const showFormula=document.getElementById("showFormulaLbl").checked;
+
+    // Ions always shown
+    if(showIon){
+      g.selectAll(".lbl-ion")
+        .data(rootH.descendants().filter(d=>d.depth===1))
+        .join("text").attr("class","lbl-ion")
+        .attr("transform",d=>{
+          const r=d.y+8,x=Math.cos(d.x-Math.PI/2)*r,y=Math.sin(d.x-Math.PI/2)*r;
+          return `translate(${x},${y})`;
+        })
+        .attr("text-anchor",d=>d.x>Math.PI?"end":"start")
+        .text(d=>d.data.name);
+    }
+    if(showStruct){
+      g.selectAll(".lbl-struct")
+        .data(rootH.descendants().filter(d=>d.depth===2))
+        .join("text").attr("class","lbl-struct").attr("font-size",10)
+        .attr("transform",d=>{
+          const r=d.y+6,x=Math.cos(d.x-Math.PI/2)*r,y=Math.sin(d.x-Math.PI/2)*r;
+          return `translate(${x},${y})`;
+        })
+        .attr("text-anchor",d=>d.x>Math.PI?"end":"start")
+        .text(d=>d.data.name);
+    }
+    if(showDoping){
+      g.selectAll(".lbl-doping")
+        .data(rootH.descendants().filter(d=>d.depth===3))
+        .join("text").attr("class","lbl-doping").attr("font-size",9)
+        .attr("transform",d=>{
+          const r=d.y+4,x=Math.cos(d.x-Math.PI/2)*r,y=Math.sin(d.x-Math.PI/2)*r;
+          return `translate(${x},${y})`;
+        })
+        .attr("text-anchor",d=>d.x>Math.PI?"end":"start")
+        .text(d=>d.data.name);
+    }
+    if(showFormula){
+      g.selectAll(".lbl-formula")
+        .data(rootH.leaves())
+        .join("text").attr("class","lbl-formula").attr("font-size",8)
+        .attr("transform",d=>{
+          const r=d.y+2,x=Math.cos(d.x-Math.PI/2)*r,y=Math.sin(d.x-Math.PI/2)*r;
+          return `translate(${x},${y})`;
+        })
+        .attr("text-anchor",d=>d.x>Math.PI?"end":"start")
+        .text(d=>d.data.name);
+    }
+  }
+
+  // load data.csv
+  d3.csv(DEFAULT_CSV_PATH).then(rows=>{
+    DATA=buildHierarchy(rows);
+    const ions=[...new Set(rows.map(r=>r["Ion Type"]))].sort();
+    const sel=document.getElementById("ionSelect");
+    ions.forEach(ion=>{
+      const opt=document.createElement("option");
+      opt.value=ion;opt.text=ion;sel.appendChild(opt);
+    });
+    // default select all
+    for(const o of sel.options){o.selected=true;}
+    drawTree(DATA);
+  });
+
+  // event handlers
+  document.getElementById("selectAllBtn").onclick=()=>{
+    const sel=document.getElementById("ionSelect");
+    for(const o of sel.options){o.selected=true;} drawTree(DATA);
+  };
+  document.getElementById("clearAllBtn").onclick=()=>{
+    const sel=document.getElementById("ionSelect");
+    for(const o of sel.options){o.selected=false;} drawTree(DATA);
+  };
+
+  ["ionSelect","showIonLbl","showStructLbl","showDopingLbl","showFormulaLbl"].forEach(id=>
+    document.getElementById(id).addEventListener("input",()=>{if(DATA)drawTree(DATA);})
+  );
+  </script>
+</body>
+</html>
