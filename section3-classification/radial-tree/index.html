@@ -1,204 +1,349 @@
-
 <!DOCTYPE html>
-<meta charset="utf-8">
-<html>
+<html lang="en">
 <head>
-  <title>Radial Tidy Tree with Conductivity Leaves</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <style>
-    body { background:#111; color:#ddd; font-family:sans-serif; }
-    svg { width:100vw; height:100vh; }
-    aside {
-      position:fixed; top:10px; left:10px;
-      background:#222; padding:10px; border-radius:6px;
-      font-size:12px; max-height:95vh; overflow:auto;
-    }
-    .lbl-ion { fill:#fff; font-weight:bold; }
-    .lbl-struct { fill:#aaa; font-weight:400; }
-    .lbl-doping { fill:#aaa; font-weight:300; }
-    .lbl-formula { fill:#ccc; font-weight:300; }
-    .link { fill:none; stroke:#555; stroke-opacity:0.6; }
-    .node circle { r:2; fill:#999; }
-  </style>
+<meta charset="utf-8" />
+<title>Radial Tidy Tree — Auto CSV Load</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root{ --bg:#0f1115; --panel:#171a20; --grid:#2a3240; --text:#e8e8ea; }
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);} 
+  header{display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--panel);
+         border-bottom:1px solid var(--grid);position:sticky;top:0;z-index:10;}
+  #status{margin-left:auto;font-size:12px;color:#9aa4b2;}
+  #chart{width:100%;height:90vh;}
+  aside{position:absolute;top:56px;right:0;width:320px;height:calc(100% - 56px);overflow:auto;background:var(--panel);
+        border-left:1px solid var(--grid);padding:10px;}
+  aside h3{margin:8px 0;font-size:13px;color:#cbd5e1;}
+  select[multiple]{width:100%;min-height:120px;background:#0f1115;color:#e8e8ea;border:1px solid #364152;border-radius:8px;padding:6px 8px;}
+  button{background:#0f1115;color:#e8e8ea;border:1px solid #364152;border-radius:8px;padding:6px 10px;cursor:pointer;}
+  label{display:block;margin:4px 0;font-size:13px;}
+  .lbl-ion{fill:#e5e7eb;font-weight:700;font-size:13px;}
+  .lbl-struct{fill:#e5e7eb;font-weight:400;font-size:10px;}
+  .lbl-doping{fill:#d1d5db;font-weight:300;font-size:9px;}
+  .lbl-formula{fill:#cbd5e1;font-weight:300;font-size:8px;}
+  .tip{position:fixed;pointer-events:none;background:#111827;color:#e5e7eb;border:1px solid #374151;
+       padding:6px 8px;border-radius:6px;font-size:12px;opacity:0;transition:opacity .15s;}
+  .leader{stroke:#384152;stroke-width:0.7;opacity:0.9}
+</style>
 </head>
 <body>
-  <aside>
-    <h3>Filter ions</h3>
+<header>
+  <button id="loadBtn">Load another CSV</button>
+  <input type="file" id="fileInput" accept=".csv" style="display:none" />
+  <div id="status">Loading data.csv…</div>
+</header>
+
+<svg id="chart"></svg>
+
+<aside>
+  <h3>Filter ions</h3>
+  <div style="display:flex;gap:8px;margin-bottom:6px;">
     <button id="selectAllBtn">Select All</button>
     <button id="clearAllBtn">Clear</button>
-    <select id="ionSelect" multiple></select>
+  </div>
+  <select id="ionSelect" multiple></select>
 
-    <h3>Labels</h3>
-    <label><input type="checkbox" id="showIonLbl" checked> Ions</label><br>
-    <label><input type="checkbox" id="showStructLbl"> Structure</label><br>
-    <label><input type="checkbox" id="showDopingLbl"> Doping</label><br>
-    <label><input type="checkbox" id="showFormulaLbl" checked> Formula</label><br>
-  </aside>
+  <h3>Labels</h3>
+  <label><input type="checkbox" id="showIonLbl" checked> Ion</label>
+  <label><input type="checkbox" id="showStructLbl" checked> Structure</label>
+  <label><input type="checkbox" id="showDopingLbl" checked> Doping</label>
+  <label><input type="checkbox" id="showFormulaLbl"> Formula</label>
+</aside>
 
-  <svg></svg>
+<div class="tip" id="tooltip"></div>
 
-  <script>
-  const DEFAULT_CSV_PATH = "data.csv";  // 👈 repo file
+<script>
+const statusEl = document.getElementById('status');
+const svg = d3.select('#chart');
+const tip = d3.select('#tooltip');
+const IonPalette = d3.schemeTableau10.concat(d3.schemeSet3);
+const ionColorScale = d3.scaleOrdinal(IonPalette);
 
-  const svg = d3.select("svg");
-  const width = window.innerWidth, height = window.innerHeight;
-  const g = svg.append("g").attr("transform",`translate(${width/2},${height/2})`);
-  const radius = Math.min(width, height) / 2 - 40;
+let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
 
-  let DATA=null;
+// --- constants (no UI sliders) ---
+const DEFAULT_SIGMA = 1e-6;   // fallback σ
+const USE_LOG = true;         // log scaling for leaf length
+const BASE_EDGE = 60;         // ring spacing (px)
+const LEAF_MIN = 12;          // min extra length for leaves (px)
+const LEAF_MAX = 120;         // max extra length for leaves (px)
+const FORMULA_OFFSET = 14;    // place formula labels outside leaves by this many px
+const LEAF_SPREAD_PX = 14;    // angular spread along arc (px) among siblings to reduce collisions
 
-  // robust conductivity parser
-  function parseSigma(v){
-    if(v==null) return NaN;
-    let s=String(v).trim();
-    if(!s) return NaN;
-    s=s.replace(/[,\s]/g,'').replace(/[−–—-]/g,'-');
-    const sup={'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁺':'+','⁻':'-'};
-    s=[...s].map(ch=>sup[ch]??ch).join('');
-    s=s.replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i,'$1e$2');
-    const n=Number(s);
-    if(Number.isFinite(n)) return n;
-    const m=s.match(/^[+\-]?\d*\.?\d+(?:e[+\-]?\d+)?/i);
-    return m?Number(m[0]):NaN;
+function say(t){ statusEl.textContent = t; }
+
+/* ---------- Robust conductivity parser ---------- */
+function parseSigma(v){
+  if (v == null) return NaN;
+  let s = String(v).trim();
+  if (!s) return NaN;
+  s = s.replace(/[\,\s]/g, '');          // remove commas/spaces
+  s = s.replace(/[−–—-]/g, '-');        // normalize dashes to '-'
+  const sup = { '⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁺':'+','⁻':'-' };
+  s = [...s].map(ch => sup[ch] ?? ch).join('');
+  s = s.replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i, '$1e$2'); // 1.2×10^-3 -> 1.2e-3
+  let n = Number(s); if (Number.isFinite(n)) return n;
+  const m = s.match(/^[+\-]?\d*\.?\d+(?:e[+\-]?\d+)?/i);
+  return m ? Number(m[0]) : NaN;
+}
+
+function guessCol(headers, candidates){
+  const map = Object.fromEntries(headers.map(h=>[h.toLowerCase(), h]));
+  for(const nm of candidates){ if(map[nm.toLowerCase()]) return map[nm.toLowerCase()]; }
+  for(const h of headers){ const lc=h.toLowerCase(); if(candidates.some(n=>lc.includes(n.toLowerCase()))) return h; }
+  return null;
+}
+
+function buildLeaves(rows){
+  const {ion,struct,doping,formula,sigma} = COLS;
+  const leaves = [];
+  const sel = Array.from(document.getElementById('ionSelect').selectedOptions || []).map(o=>o.value);
+  const ionFilter = sel.length ? new Set(sel) : null;
+
+  for(const r of rows){
+    const ionV = (r[ion]||'Other').toString().trim();
+    if(ionFilter && !ionFilter.has(ionV)) continue;
+    const structV = (r[struct]||'Other / Novel').toString().trim();
+    const dopV = (r[doping]||'(none)').toString().trim();
+    const formV = (r[formula]||'(formula)').toString().trim();
+    const raw = parseSigma(r[sigma]);
+    const sig = (Number.isFinite(raw) && raw>0) ? raw : DEFAULT_SIGMA;
+    leaves.push({ion:ionV, structure:structV, doping:dopV, formula:formV, sigma:sig});
   }
+  return leaves;
+}
 
-  // build hierarchy
-  function buildHierarchy(rows){
-    const root={name:"root", children:[]};
-    for(const r of rows){
-      const ion=r["Ion Type"];
-      const struct=r["Structure Group (Canonical)"]||r["Structure Type"];
-      const dop=r["Doping / and or GB Strategy"]||"None";
-      const formula=r["superionic conductor Formula (Chemical)"];
-      const sigma=r["Conductivity σ (S·cm⁻¹) / Temp (°C)"];
+function drawTree(rows){
+  // Size
+  const bb = document.getElementById('chart').getBoundingClientRect();
+  WIDTH = bb.width; HEIGHT = bb.height; R = Math.min(WIDTH, HEIGHT)/2 - 60; // gutter for outside labels
+  svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
 
-      let L1=root.children.find(d=>d.name===ion);
-      if(!L1){L1={name:ion,children:[]};root.children.push(L1);}
-      let L2=L1.children.find(d=>d.name===struct);
-      if(!L2){L2={name:struct,children:[]};L1.children.push(L2);}
-      let L3=L2.children.find(d=>d.name===dop);
-      if(!L3){L3={name:dop,children:[]};L2.children.push(L3);}
-      L3.children.push({name:formula, sigma});
-    }
-    return root;
-  }
+  // Data
+  const leaves = buildLeaves(rows);
 
-  function drawTree(root){
-    g.selectAll("*").remove();
-
-    const rootH = d3.hierarchy(root);
-    const tree = d3.tree().size([2*Math.PI, radius]);
-    tree(rootH);
-
-    // scale for leaf extension
-    const sigVals = rootH.leaves().map(d=>parseSigma(d.data.sigma)).filter(v=>Number.isFinite(v)&&v>0);
-    const sMin=Math.min(...sigVals), sMax=Math.max(...sigVals);
-    const collapsed=(!isFinite(sMin)||!isFinite(sMax)||sMin===sMax);
-    const scale=d3.scaleLog().domain([Math.max(sMin,1e-12),sMax]).range([20,140]);
-
-    rootH.each(d=>{
-      if(!d.children){ // formula leaf
-        const extra = collapsed?80:scale(parseSigma(d.data.sigma)||1e-6);
-        d.y= d.depth*80 + extra;
-      } else {
-        d.y= d.depth*80;
+  // Build nested: Ion → Structure → Doping → Formula
+  const root = { name:'root', children:[] };
+  const grouped = d3.group(leaves, d=>d.ion, d=>d.structure, d=>d.doping);
+  for(const [ion, g1] of grouped){
+    const nIon = { name:ion, color:ionColorScale(ion), children:[] };
+    for(const [struct, g2] of g1){
+      const nStruct = { name:struct, children:[] };
+      for(const [dop, g3] of g2){
+        const nDop = { name:dop, children:[] };
+        for(const d of g3){ nDop.children.push({ name:d.formula, sigma:d.sigma, ion:d.ion }); }
+        nStruct.children.push(nDop);
       }
-    });
-
-    // links
-    g.selectAll(".link")
-      .data(rootH.links())
-      .join("path").attr("class","link")
-      .attr("stroke","#555").attr("stroke-opacity",0.6)
-      .attr("d",d3.linkRadial().angle(d=>d.x).radius(d=>d.y));
-
-    // nodes
-    g.selectAll(".node")
-      .data(rootH.descendants())
-      .join("circle").attr("class","node")
-      .attr("transform",d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`)
-      .attr("r",2).attr("fill","#999");
-
-    // labels
-    const showIon=document.getElementById("showIonLbl").checked;
-    const showStruct=document.getElementById("showStructLbl").checked;
-    const showDoping=document.getElementById("showDopingLbl").checked;
-    const showFormula=document.getElementById("showFormulaLbl").checked;
-
-    // Ions always shown
-    if(showIon){
-      g.selectAll(".lbl-ion")
-        .data(rootH.descendants().filter(d=>d.depth===1))
-        .join("text").attr("class","lbl-ion")
-        .attr("transform",d=>{
-          const r=d.y+8,x=Math.cos(d.x-Math.PI/2)*r,y=Math.sin(d.x-Math.PI/2)*r;
-          return `translate(${x},${y})`;
-        })
-        .attr("text-anchor",d=>d.x>Math.PI?"end":"start")
-        .text(d=>d.data.name);
+      nIon.children.push(nStruct);
     }
-    if(showStruct){
-      g.selectAll(".lbl-struct")
-        .data(rootH.descendants().filter(d=>d.depth===2))
-        .join("text").attr("class","lbl-struct").attr("font-size",10)
-        .attr("transform",d=>{
-          const r=d.y+6,x=Math.cos(d.x-Math.PI/2)*r,y=Math.sin(d.x-Math.PI/2)*r;
-          return `translate(${x},${y})`;
-        })
-        .attr("text-anchor",d=>d.x>Math.PI?"end":"start")
-        .text(d=>d.data.name);
-    }
-    if(showDoping){
-      g.selectAll(".lbl-doping")
-        .data(rootH.descendants().filter(d=>d.depth===3))
-        .join("text").attr("class","lbl-doping").attr("font-size",9)
-        .attr("transform",d=>{
-          const r=d.y+4,x=Math.cos(d.x-Math.PI/2)*r,y=Math.sin(d.x-Math.PI/2)*r;
-          return `translate(${x},${y})`;
-        })
-        .attr("text-anchor",d=>d.x>Math.PI?"end":"start")
-        .text(d=>d.data.name);
-    }
-    if(showFormula){
-      g.selectAll(".lbl-formula")
-        .data(rootH.leaves())
-        .join("text").attr("class","lbl-formula").attr("font-size",8)
-        .attr("transform",d=>{
-          const r=d.y+2,x=Math.cos(d.x-Math.PI/2)*r,y=Math.sin(d.x-Math.PI/2)*r;
-          return `translate(${x},${y})`;
-        })
-        .attr("text-anchor",d=>d.x>Math.PI?"end":"start")
-        .text(d=>d.data.name);
-    }
+    root.children.push(nIon);
   }
 
-  // load data.csv
-  d3.csv(DEFAULT_CSV_PATH).then(rows=>{
-    DATA=buildHierarchy(rows);
-    const ions=[...new Set(rows.map(r=>r["Ion Type"]))].sort();
-    const sel=document.getElementById("ionSelect");
-    ions.forEach(ion=>{
-      const opt=document.createElement("option");
-      opt.value=ion;opt.text=ion;sel.appendChild(opt);
+  // Hierarchy & initial angles via cluster (we set radii manually)
+  const H = d3.hierarchy(root).sort((a,b)=> d3.ascending(a.data.name, b.data.name));
+  d3.cluster().size([2*Math.PI, 1])(H);
+
+  // Tidy rings for internal levels
+  H.each(n=>{ n.y = Math.min(R, n.depth * BASE_EDGE); });
+
+  // Leaf extra from σ
+  const sigVals = H.leaves().map(l => parseSigma(l.data.sigma)).map(v => (Number.isFinite(v)&&v>0?v:DEFAULT_SIGMA));
+  let sMin = Math.min(...sigVals), sMax = Math.max(...sigVals);
+  const collapsed = !(isFinite(sMin) && isFinite(sMax)) || sMin<=0 || sMin===sMax;
+  if (!isFinite(sMin)||!isFinite(sMax)){ sMin=DEFAULT_SIGMA; sMax=DEFAULT_SIGMA*10; }
+
+  const scaleLin = d3.scaleLinear().domain([sMin, sMax]).range([LEAF_MIN, LEAF_MAX]).nice();
+  const scaleLog = d3.scaleLog().domain([Math.max(sMin, Number.MIN_VALUE), sMax]).range([LEAF_MIN, LEAF_MAX]);
+  function extraForSigma(val){
+    let v = parseSigma(val);
+    if(!Number.isFinite(v)||v<=0) v = DEFAULT_SIGMA;
+    if(collapsed) return (LEAF_MIN+LEAF_MAX)/2;
+    return USE_LOG ? scaleLog(v) : scaleLin(v);
+  }
+  // Only the last edge (doping → formula) gets extra
+  H.each(n=>{ if(!n.children){ n.y = Math.min(R, n.depth*BASE_EDGE + extraForSigma(n.data.sigma)); } });
+
+  // Spread leaves a bit under each doping node so formula labels have room
+  if (LEAF_SPREAD_PX > 0) {
+    H.descendants().filter(d => d.depth === 3).forEach(parent => {
+      const kids = (parent.children || []).filter(c => !c.children);
+      const n = kids.length;
+      if (n <= 1) return;
+      kids.sort((a,b)=> a.x - b.x);
+      kids.forEach((c, idx) => {
+        const r = Math.max(c.y, 1);
+        const delta = (idx - (n - 1)/2) * (LEAF_SPREAD_PX / r); // px / radius -> radians
+        c.x += delta;
+      });
     });
-    // default select all
-    for(const o of sel.options){o.selected=true;}
-    drawTree(DATA);
-  });
+  }
 
-  // event handlers
-  document.getElementById("selectAllBtn").onclick=()=>{
-    const sel=document.getElementById("ionSelect");
-    for(const o of sel.options){o.selected=true;} drawTree(DATA);
-  };
-  document.getElementById("clearAllBtn").onclick=()=>{
-    const sel=document.getElementById("ionSelect");
-    for(const o of sel.options){o.selected=false;} drawTree(DATA);
-  };
+  // Links
+  const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
+  svg.append('g').attr('fill','none').attr('stroke','#2a3240').attr('stroke-width',0.9)
+    .selectAll('path').data(H.links()).join('path')
+    .attr('d',d=> link({source:d.source, target:d.target}));
 
-  ["ionSelect","showIonLbl","showStructLbl","showDopingLbl","showFormulaLbl"].forEach(id=>
-    document.getElementById(id).addEventListener("input",()=>{if(DATA)drawTree(DATA);})
-  );
-  </script>
+  // Nodes
+  svg.append('g').selectAll('circle').data(H.descendants()).join('circle')
+    .attr('transform',d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`)
+    .attr('r',d=>d.children?2.2:1.8)
+    .attr('fill',d=> d.ancestors().find(a=>a.depth===1)?.data?.color || '#8b8b8b')
+    .attr('stroke','#0b0d12').attr('stroke-width',0.6)
+    .on('mousemove',(e,d)=>showTip(e,d))
+    .on('mouseleave',hideTip);
+
+  // Helpers
+  const showIon    = document.getElementById('showIonLbl').checked;
+  const showStruct = document.getElementById('showStructLbl').checked;
+  const showDoping = document.getElementById('showDopingLbl').checked;
+  const showFormula= document.getElementById('showFormulaLbl').checked;
+
+  function polarToXY(a, r){ return [Math.cos(a-Math.PI/2)*r, Math.sin(a-Math.PI/2)*r]; }
+
+  // Leaders for outside formula labels
+  const leaderG = svg.append('g').attr('class','leaders');
+
+  // Labels
+  if (showIon){
+    const ions = H.descendants().filter(d=>d.depth===1);
+    svg.append('g').attr('class','lbl-ion')
+      .selectAll('text').data(ions).join('text')
+      .attr('transform',d=>{
+        const r=d.y+8, a=d.x; const [x,y]=polarToXY(a,r);
+        const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+        return `translate(${x},${y}) rotate(${rot+flip})`;
+      })
+      .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+      .text(d=>d.data?.name??'');
+  }
+  if (showStruct){
+    const nodes = H.descendants().filter(d=>d.depth===2);
+    const kept=[], gap=3*Math.PI/180, sorted=nodes.slice().sort((a,b)=>a.x-b.x);
+    for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=gap) kept.push(d); }
+    svg.append('g').attr('class','lbl-struct')
+      .selectAll('text').data(kept).join('text')
+      .attr('transform',d=>{
+        const r=d.y+6, a=d.x; const [x,y]=polarToXY(a,r);
+        const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+        return `translate(${x},${y}) rotate(${rot+flip})`;
+      })
+      .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+      .text(d=>d.data?.name??'');
+  }
+  if (showDoping){
+    const nodes = H.descendants().filter(d=>d.depth===3);
+    const kept=[], gap=2*Math.PI/180, sorted=nodes.slice().sort((a,b)=>a.x-b.x);
+    for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=gap) kept.push(d); }
+    svg.append('g').attr('class','lbl-doping')
+      .selectAll('text').data(kept).join('text')
+      .attr('transform',d=>{
+        const r=d.y+5, a=d.x; const [x,y]=polarToXY(a,r);
+        const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+        return `translate(${x},${y}) rotate(${rot+flip})`;
+      })
+      .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+      .text(d=>d.data?.name??'');
+  }
+  if (showFormula){
+    const leaves = H.descendants().filter(d=>d.depth===4);
+    // outside labels
+    const g = svg.append('g').attr('class','lbl-formula');
+    g.selectAll('text').data(leaves).join('text')
+      .attr('transform',d=>{
+        const r=d.y + FORMULA_OFFSET, a=d.x; const [x,y]=polarToXY(a,r);
+        const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+        return `translate(${x},${y}) rotate(${rot+flip})`;
+      })
+      .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+      .text(d=>d.data?.name??'');
+    // leaders
+    leaderG.selectAll(null).data(leaves).join('line')
+      .attr('class','leader')
+      .attr('x1',d=>polarToXY(d.x, d.y)[0]).attr('y1',d=>polarToXY(d.x, d.y)[1])
+      .attr('x2',d=>polarToXY(d.x, d.y + Math.min(10, FORMULA_OFFSET))[0])
+      .attr('y2',d=>polarToXY(d.x, d.y + Math.min(10, FORMULA_OFFSET))[1]);
+  }
+
+  // Title
+  svg.append('text').attr('text-anchor','middle').attr('y',4)
+    .style('fill','#cbd5e1').style('font-size','12px')
+    .text('Ion → Structure → Doping → Formula • tidy rings; ONLY formula edge length ∝ σ • outside labels');
+}
+
+function showTip(e,d){
+  const anc=d.ancestors().reverse();
+  const ion=anc[1]?.data?.name||'(ion)';
+  const structure=anc[2]?.data?.name||'(structure)';
+  const doping=anc[3]?.data?.name||'(doping)';
+  let html=`<b>${ion}</b> → ${structure} → ${doping}`;
+  if(!d.children){
+    const sigma=Number(d.data?.sigma);
+    html += `<br><b>${d.data?.name}</b>`;
+    if(Number.isFinite(sigma)) html += `<br>σ: ${sigma.toExponential(3)} S·cm⁻¹`;
+  }
+  tip.html(html).style('left',(e.clientX+12)+'px').style('top',(e.clientY+12)+'px').style('opacity',1);
+}
+function hideTip(){ tip.style('opacity',0); }
+
+// ---------- Shared setup function ----------
+function setupFromRows(rows){
+  if(!rows || !rows.length){ say('No rows found'); return; }
+  const headers = rows.columns || Object.keys(rows[0] || {});
+  COLS = {
+    ion:    guessCol(headers,["Ion Type (Normalized)","Ion Type","Ion"]),
+    struct: guessCol(headers,["Structure Group (Canonical)","Structure Family (Canonical)","Structure"]),
+    doping: guessCol(headers,["Doping / and or GB Strategy (Normalized)","Doping / and or GB Strategy","Doping","GB Strategy"]),
+    formula:guessCol(headers,["superionic conductor Formula (Chemical)","Formula","Chemical Formula"]),
+    sigma:  guessCol(headers,["Conductivity σ (S·cm⁻¹) [numeric]","Conductivity σ (S·cm⁻¹)","Conductivity σ (S/cm)","sigma","Conductivity"])
+  };
+  DATA = rows;
+
+  // Populate ion multiselect (clear then fill once per dataset)
+  const sel = document.getElementById('ionSelect');
+  sel.innerHTML = '';
+  const ions = [...new Set(rows.map(r => (r[COLS.ion]||'Other').toString().trim()))].sort((a,b)=>a.localeCompare(b));
+  ions.forEach(i=>{ const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); });
+
+  drawTree(DATA);
+}
+
+// ---------- File & minimal controls ----------
+document.getElementById('loadBtn').onclick = () => document.getElementById('fileInput').click();
+document.getElementById('fileInput').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return; say('Loading '+f.name);
+  const text = await f.text();
+  const rows = d3.csvParse(text); 
+  setupFromRows(rows);
+  say(`Loaded ${f.name} (${rows.length} rows)`);
+});
+
+// React to ion filter & label toggles
+["ionSelect","showIonLbl","showStructLbl","showDopingLbl","showFormulaLbl"]
+.forEach(id=> document.getElementById(id).addEventListener('input', ()=> { if(DATA) drawTree(DATA); }));
+
+// Select All / Clear
+(document.getElementById('selectAllBtn')).addEventListener('click', ()=>{
+  const sel=document.getElementById('ionSelect'); for(const o of sel.options){ o.selected=true; } if(DATA) drawTree(DATA);
+});
+(document.getElementById('clearAllBtn')).addEventListener('click', ()=>{
+  const sel=document.getElementById('ionSelect'); for(const o of sel.options){ o.selected=false; } if(DATA) drawTree(DATA);
+});
+
+// ---------- AUTO-LOAD CSV ON START ----------
+(async function autoload(){
+  try{
+    say('Loading data.csv…');
+    const rows = await d3.csv('data.csv');
+    if(!rows.length){ say('data.csv is empty'); return; }
+    setupFromRows(rows);
+    say(`Loaded data.csv (${rows.length} rows)`);
+  }catch(err){
+    console.error(err);
+    say('Could not load data.csv. Use "Load another CSV" to select a file.');
+  }
+})();
+</script>
 </body>
 </html>
