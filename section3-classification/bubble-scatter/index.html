@@ -1,1 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Superionic Conductors — Ea≤0.8 · Ea vs σ (log Y)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a20; --grid:#2a3240; --text:#e8e8ea; --muted:#93c5fd; --accent:#60a5fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--grid); position:sticky; top:0; z-index:10; }
+  .wrap { display:grid; grid-template-columns: 1fr 220px 160px; gap:8px; padding:8px; }
+  #chart { width:100%; height:90vh; border:1px solid var(--grid); border-radius:8px; background:#0f1115; }
+  .badge { font-size:11px; color:var(--muted); }
+  label { display:flex; align-items:center; gap:6px; font-size:12px; }
+  input[type="checkbox"] { transform: translateY(1px); }
+  .slider-container { display:flex; align-items:center; gap:6px; font-size:12px; }
+  input[type="range"] { width:150px; }
+  aside { background:var(--panel); border:1px solid var(--grid); border-radius:8px; padding:8px; min-height:100px; font-size:11px; }
+  aside h3 { margin:0 0 4px 0; font-size:12px; color:#cbd5e1; }
+  .acc-item { border-radius:8px; border:1px solid #2a3240; margin-bottom:6px; overflow:hidden; }
+  .acc-head { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 6px; cursor:pointer; user-select:none; }
+  .acc-left { display:flex; align-items:center; gap:6px; }
+  .color-chip { width:10px; height:10px; border-radius:3px; border:1px solid #0007; }
+  .acc-head .count { font-size:10px; color:#94a3b8; }
+  .acc-body { display:none; padding:6px 8px; border-top:1px dashed #2a3240; font-size:11px; color:#cbd5e1; max-height:120px; overflow:auto; }
+  .acc-item.active .acc-body { display:block; }
+  .acc-item.active .acc-head { background:#1c212b; }
+  .acc-actions { display:flex; gap:4px; }
+  .acc-btn { font-size:10px; padding:2px 4px; border:1px solid #2a3240; border-radius:5px; background:#0f1115; color:#cbd5e1; cursor:pointer; }
+  .acc-btn:hover { background:#141923; }
+  .size-row { display:flex; align-items:center; gap:6px; margin:2px 0; }
+  .size-dot { border-radius:50%; background:#93c5fd22; border:1px solid #93c5fd88; }
+  .size-dot.missing { background:#ef444422; border-color:#ef4444aa; }
+  .size-label { font-size:11px; }
+  /* Error banner */
+  #error { display:none; margin:8px 12px; padding:8px 12px; background:#2b1111; color:#fecaca; border:1px solid #7f1d1d; border-radius:8px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+  <header>
+    <label title="(Data are filtered to Ea ≤ 0.8)">
+      <input type="checkbox" id="clampX" /> Clamp Ea axis to [0.05, 1.0]
+    </label>
+    <label><input type="checkbox" id="hiOut" /> Highlight Ea &gt; 0.7 eV</label>
+
+    <div class="slider-container" title="Marker size scale">
+      <label for="sizeScale">Size:</label>
+      <input type="range" id="sizeScale" min="0.5" max="5" value="1.2" step="0.1">
+      <span id="scaleVal">1.2×</span>
+    </div>
+    <div class="slider-container" title="Spread horizontally (Ea)">
+      <label for="jx">X spread:</label>
+      <input type="range" id="jx" min="0" max="0.05" value="0.02" step="0.001">
+      <span id="jxVal">0.020 eV</span>
+    </div>
+    <div class="slider-container" title="Spread vertically (σ, % of value)">
+      <label for="jy">Y spread:</label>
+      <input type="range" id="jy" min="0" max="15" value="8" step="0.5">
+      <span id="jyVal">8%</span>
+    </div>
+
+    <span class="badge" id="status">Loading…</span>
+  </header>
+
+  <div id="error"></div>
+
+  <div class="wrap">
+    <div id="chart"></div>
+
+    <aside>
+      <h3>Structure (color) — click to isolate</h3>
+      <div id="structureAccordion"></div>
+    </aside>
+
+    <aside>
+      <h3>Size (Cycle Life)</h3>
+      <div id="sizeLegend"></div>
+      <div style="margin-top:4px; font-size:10.5px; color:#9aa4b2;">
+        Area ~ log<sub>10</sub>(cycles+1) × scale · Missing cycles → fixed size
+      </div>
+    </aside>
+  </div>
+
+<script>
+/* ---------- status & error ---------- */
+const statusEl = document.getElementById("status");
+const errorEl  = document.getElementById("error");
+function say(msg){ statusEl.textContent = msg; }
+function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
+
+/* ---------- palettes & encodings ---------- */
+const structColors = {
+  "Antiperovskite":"#e15759", "Perovskite":"#f28e2b", "Garnet":"#59a14f",
+  "LISICON":"#4e79a7", "NASICON":"#76b7b2", "Argyrodite":"#af7aa1",
+  "Halide":"#edc949", "Sulfide":"#ff9da7", "Closo-carbaborate":"#9c755f",
+  "Nitride":"#b07aa1", "Phosphate":"#86bc86", "Silicide":"#a0cbe8",
+  "Polymer composite":"#8cd17d", "Other / Novel":"#9e9e9e"
+};
+const ionSymbols = {
+  "Li+":"circle", "Na+":"square", "K+":"diamond", "Mg2+":"triangle-up",
+  "Ca2+":"triangle-down", "H+":"x", "Ag+":"star", "Zn2+":"cross",
+  "Other":"circle-open"
+};
+
+/* ---------- columns ---------- */
+const C = {
+  ion:["Ion Type (Normalized)","Ion Type","Ion"],
+  structFam:["Structure Family (Canonical)","Structure Group (Canonical)","Structure"],
+  structRaw:["Structure Type","Structure (raw)","Raw Structure","Structure Label","Structure"],
+  ea:["Activation Energy Ea (eV)  [smart parsed]","Activation Energy Ea (eV)","Ea"],
+  sigma:["Conductivity σ (S/cm) [numeric]","Conductivity σ (S·cm⁻¹) [numeric]","Conductivity","sigma"],
+  cycles:["Cycle Life (numeric)","Cycle Life (raw)","Cycles"],
+  formula:["superionic conductor Formula (Chemical)","Formula"]
+};
+function guessCol(cols, candidates){
+  const map = Object.fromEntries(cols.map(c=>[c.toLowerCase(), c]));
+  for(const name of candidates){ if(map[name.toLowerCase()]) return map[name.toLowerCase()]; }
+  for(const c of cols){ const lc=c.toLowerCase(); if(candidates.some(n=>lc.includes(n.toLowerCase()))) return c; }
+  return null;
+}
+function toNum(v){
+  if(typeof v==="number") return v;
+  if(!v) return NaN;
+  const s=String(v).trim();
+  if(s==="–"||s==="—"||s.toLowerCase()==="na"||s.toLowerCase()==="n/a") return NaN;
+  const n=Number(s.replace(/,/g,""));
+  if(Number.isFinite(n)) return n;
+  const m=s.match(/([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/);
+  return m?Number(m[1]):NaN;
+}
+
+/* ---------- size mapping ---------- */
+let sizeScaleFactor=1.2;
+const MISSING_CYCLE_BASE = 15;
+function cycleSize(cycles){
+  const cyc = toNum(cycles);
+  if(!Number.isFinite(cyc) || cyc <= 0) return MISSING_CYCLE_BASE * sizeScaleFactor;
+  return Math.max(15, Math.min(95, Math.log10(cyc + 1) * 13.5 * sizeScaleFactor));
+}
+function buildSizeBuckets(maxCycles, step=1000){
+  const buckets=[]; for(let start=0; start<=maxCycles; start+=step){
+    const end=start+step-1; buckets.push({label:`${start} – ${end} cycles`, sample:start+step/2});
+  }
+  buckets.push({label:`≥ ${maxCycles+1} cycles`, sample:maxCycles*1.5});
+  return buckets;
+}
+function renderSizeLegend(maxCycles){
+  const wrap=document.getElementById("sizeLegend"); wrap.innerHTML="";
+  const fixedPx = cycleSize(null);
+  const row0=document.createElement("div"); row0.className="size-row";
+  const dot0=document.createElement("div"); dot0.className="size-dot missing";
+  dot0.style.width=fixedPx+"px"; dot0.style.height=fixedPx+"px";
+  const lab0=document.createElement("div"); lab0.className="size-label"; lab0.textContent="No cycle data (fixed size)";
+  row0.appendChild(dot0); row0.appendChild(lab0); wrap.appendChild(row0);
+  const buckets=buildSizeBuckets(maxCycles,1000);
+  buckets.forEach(b=>{
+    const px=cycleSize(b.sample);
+    const row=document.createElement("div"); row.className="size-row";
+    const dot=document.createElement("div"); dot.className="size-dot";
+    dot.style.width=px+"px"; dot.style.height=px+"px";
+    const lab=document.createElement("div"); lab.className="size-label"; lab.textContent=b.label;
+    row.appendChild(dot); row.appendChild(lab); wrap.appendChild(row);
+  });
+}
+
+/* ---------- jitter & utils ---------- */
+function hashToUnit(str){ let h=0; for(let i=0;i<str.length;i++){ h=((h<<5)-h)+str.charCodeAt(i); h|=0; } return (Math.abs(h)%100000)/100000; }
+let JX = 0.02;      // eV
+let JY_FRAC = 0.08; // fraction
+function jitteredEa(ea, key){ const u=hashToUnit(key+"|x"); return ea + (u-0.5)*2*JX; }
+function jitteredSigma(sig, key){ const u=hashToUnit(key+"|y"); return sig * (1 + (u-0.5)*2*JY_FRAC); }
+
+/* ---------- filtering / legends ---------- */
+let last = null;                // { rows, cols }
+let traceMeta = [];             // [{ion, fam}, ...]
+let activeFamily = null;        // isolated structure family via accordion
+function setFamilyLegendActive(family){
+  const container = document.getElementById("structureAccordion");
+  Array.from(container.children).forEach(child=>{
+    child.classList.toggle("active", child.dataset.family === family);
+    const head = child.querySelector(".acc-head");
+    if (head) head.style.outline = (child.dataset.family === family) ? "1px solid #2a3240" : "none";
+  });
+}
+function onFamilyClick(family){
+  activeFamily = (activeFamily === family) ? null : family;
+  setFamilyLegendActive(activeFamily);
+  applyFamilyFilter();
+}
+function applyFamilyFilter(){
+  if (!traceMeta.length) return;
+  const visibility = traceMeta.map(meta=>{
+    if (activeFamily && meta.fam !== activeFamily) return "legendonly";
+    return true;
+  });
+  Plotly.restyle("chart", {visible: visibility});
+}
+
+/* ---------- build traces + accordion ---------- */
+function buildTraces(rows, cols, hiOut){
+  const traces=[]; const ionsSeen=new Set(); const allX=[]; const famSet=new Set();
+  traceMeta = [];
+  let stats={total:0,skippedEa:0,skippedSigma:0,plotted:0,missingCycles:0};
+  rows.forEach(r=>{
+    stats.total++;
+    const ion=(r[cols.ion]||"Other").toString().trim()||"Other";
+    const fam=(r[cols.structFam]||"Other / Novel").toString().trim()||"Other / Novel";
+    const ea_raw=toNum(r[cols.ea]); const sigma_raw=toNum(r[cols.sigma]); const cyc=toNum(r[cols.cycles]);
+    if(!Number.isFinite(ea_raw) || ea_raw > 0.8){ stats.skippedEa++; return; }
+    if(!Number.isFinite(sigma_raw) || sigma_raw <= 0){ stats.skippedSigma++; return; }
+    if(!Number.isFinite(cyc) || cyc <= 0){ stats.missingCycles++; }
+    const key = `${ion}|${fam}|${r[cols.formula]||""}`;
+    const ea = jitteredEa(ea_raw, key);
+    const sigma = jitteredSigma(sigma_raw, key);
+    stats.plotted++; allX.push(ea); famSet.add(fam);
+    traces.push({
+      x:[ea], y:[sigma], customdata:[sigma_raw], mode:"markers",
+      name: ion, legendgroup: ion, showlegend: !ionsSeen.has(ion),
+      marker:{
+        size:[cycleSize(cyc)],
+        color: structColors[fam] || structColors["Other / Novel"],  // color = structure
+        symbol: ionSymbols[ion] || ionSymbols["Other"],             // shape = ion
+        line:{ width:[(hiOut && ea_raw>0.7)? 2 : 0.7], color:[(hiOut && ea_raw>0.7)? "#ff4d4d" : "#222"] },
+        opacity:0.88
+      },
+      text:[`${r[cols.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}<br>Cycles: ${Number.isFinite(cyc)?cyc:"(missing)"}`],
+      hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV (jittered)<br> σ: %{customdata:.3e} S/cm<extra></extra>"
+    });
+    traceMeta.push({ion, fam}); ionsSeen.add(ion);
+  });
+  return {data:traces,allX,stats,families:Array.from(famSet).sort()};
+}
+function renderStructureAccordion(families, rows, cols){
+  const rawCol = cols.structRaw;
+  const map = new Map(); families.forEach(f=>map.set(f, new Set()));
+  rows.forEach(r=>{
+    const fam=(r[cols.structFam]||"Other / Novel").toString().trim()||"Other / Novel";
+    if(!map.has(fam)) map.set(fam,new Set());
+    const raw = rawCol ? (r[rawCol]||"—") : (r[cols.structFam]||"—");
+    map.get(fam).add(String(raw).trim()||"—");
+  });
+  const container = document.getElementById("structureAccordion");
+  container.innerHTML = "";
+  families.forEach(f=>{
+    const rawList = Array.from(map.get(f)||[]);
+    const item = document.createElement("div");
+    item.className = "acc-item";
+    item.dataset.family = f;
+    const head = document.createElement("div");
+    head.className = "acc-head";
+    head.style.borderLeft = `6px solid ${structColors[f] || structColors["Other / Novel"]}`;
+    const left = document.createElement("div");
+    left.className = "acc-left";
+    const chip = document.createElement("div");
+    chip.className = "color-chip";
+    chip.style.background = structColors[f] || structColors["Other / Novel"];
+    const title = document.createElement("div");
+    title.textContent = f;
+    left.appendChild(chip); left.appendChild(title);
+    const actions = document.createElement("div");
+    actions.className = "acc-actions";
+    const count = document.createElement("div");
+    count.className = "count";
+    count.textContent = `${rawList.length} raw`;
+    const isoBtn = document.createElement("button");
+    isoBtn.className = "acc-btn";
+    isoBtn.textContent = "Isolate";
+    isoBtn.addEventListener("click", (ev)=>{ ev.stopPropagation(); onFamilyClick(f); });
+    actions.appendChild(count); actions.appendChild(isoBtn);
+    head.appendChild(left); head.appendChild(actions);
+    const body = document.createElement("div");
+    body.className = "acc-body";
+    body.innerHTML = rawList.map(s=>`• ${s}`).join("<br>");
+    head.addEventListener("click", ()=>{ item.classList.toggle("active"); });
+    item.appendChild(head); item.appendChild(body);
+    container.appendChild(item);
+  });
+  setFamilyLegendActive(activeFamily);
+}
+
+/* ---------- draw ---------- */
+function xRangeAuto(xs){
+  if(!xs.length) return [0.05,0.8];
+  const min=Math.min(...xs), max=Math.max(...xs);
+  if(!isFinite(min)||!isFinite(max)||min===max) return [0.05,0.8];
+  const pad=(max-min)*0.10; return [Math.max(0,min-pad), max+pad];
+}
+function draw(parsed){
+  const {rows,cols}=parsed;
+  const {data,allX,stats,families}=buildTraces(rows,cols,document.getElementById("hiOut").checked);
+  say(`(Ea≤0.8) Rows: ${stats.total} · Plotted: ${stats.plotted} · Missing cycles: ${stats.missingCycles} · Skipped Ea: ${stats.skippedEa} · Skipped σ: ${stats.skippedSigma}`);
+  renderStructureAccordion(families, rows, cols);
+  const numericCycles = rows.map(r=>toNum(r[cols.cycles])).filter(v=>Number.isFinite(v)&&v>0);
+  const maxCycles = numericCycles.length ? Math.max(...numericCycles) : 5000;
+  renderSizeLegend(maxCycles);
+  const xr = document.getElementById("clampX").checked ? [0.05, 1.0] : xRangeAuto(allX);
+  Plotly.newPlot("chart",data,{
+    paper_bgcolor:"#0f1115",plot_bgcolor:"#0f1115",
+    xaxis:{title:"Activation Energy Ea (eV)",range:xr,tickformat:".2f",gridcolor:"#2a3240",zerolinecolor:"#2a3240", titlefont:{size:12}, tickfont:{size:10}},
+    yaxis:{title:"Conductivity σ (S·cm⁻¹)",type:"log",gridcolor:"#2a3240",zerolinecolor:"#2a3240", titlefont:{size:12}, tickfont:{size:10}},
+    legend:{title:{text:"Ion (shape)", font:{size:11, color:"#e8e8ea"}},font:{size:10, color:"#e8e8ea"}, itemclick:"toggleothers", itemdoubleclick:"toggle"},
+    margin:{t:40, r:16, b:54, l:64}
+  }, {responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]}).then(()=>{
+    applyFamilyFilter();
+    const gd = document.getElementById('chart');
+    gd.on('plotly_hover', (ev)=>{
+      const ntr = ev.points.map(p=>p.curveNumber);
+      const vis = traceMeta.map((_, i)=> ntr.includes(i) ? {opacity:0.95} : {opacity:0.15});
+      Plotly.restyle('chart', { 'marker.opacity': vis.map(v=>v.opacity) });
+    });
+    gd.on('plotly_unhover', ()=>{ Plotly.restyle('chart', { 'marker.opacity': traceMeta.map(()=>0.88) }); });
+  });
+}
+
+/* ---------- parse helpers ---------- */
+function parseCsvTextAndDraw(csvText){
+  Papa.parse(csvText, {
+    header:true, dynamicTyping:false, skipEmptyLines:true,
+    complete:(res)=>{
+      if(!res.data || !res.data.length){ say("Parsed file but found no rows."); return; }
+      const headers=res.meta.fields||[];
+      const cols={
+        ion:guessCol(headers,C.ion),
+        structFam:guessCol(headers,C.structFam),
+        structRaw:guessCol(headers,C.structRaw),
+        ea:guessCol(headers,C.ea),
+        sigma:guessCol(headers,C.sigma),
+        cycles:guessCol(headers,C.cycles),
+        formula:guessCol(headers,C.formula)
+      };
+      if(!cols.ion||!cols.structFam||!cols.ea||!cols.sigma){
+        say("Missing required columns: Ion, Structure Family (Canonical), Ea, σ."); console.warn("Detected:", cols, headers); return;
+      }
+      last={rows:res.data,cols}; activeFamily=null; draw(last);
+    },
+    error:(e)=>{ err("Parse error: " + e.message); }
+  });
+}
+
+/* ---------- auto-load data.csv ---------- */
+function loadDataCsv(){
+  fetch("data.csv", { cache: "no-store" })
+    .then(resp => {
+      if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+      return resp.text();
+    })
+    .then(csvText => {
+      say("data.csv loaded ✓");
+      parseCsvTextAndDraw(csvText);
+    })
+    .catch(e => {
+      err("Could not load data.csv automatically: " + e.message + "\n\nMake sure data.csv is in the same folder as this HTML and the page is served over HTTP (file:// may block fetch).");
+      say("Using sample data.");
+    });
+}
+
+/* ---------- controls ---------- */
+const sizeScaleEl = document.getElementById("sizeScale");
+const jxEl = document.getElementById("jx");
+const jyEl = document.getElementById("jy");
+
+["clampX","hiOut"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(last){ activeFamily=null; draw(last);} }));
+sizeScaleEl.addEventListener("input",()=>{
+  sizeScaleFactor=parseFloat(sizeScaleEl.value); document.getElementById("scaleVal").textContent=sizeScaleFactor.toFixed(1)+"×"; if(last){ draw(last); }
+});
+jxEl.addEventListener("input", ()=>{
+  JX = parseFloat(jxEl.value)||0; document.getElementById("jxVal").textContent = JX.toFixed(3)+" eV"; if(last){ draw(last);}
+});
+jyEl.addEventListener("input", ()=>{
+  JY_FRAC = (parseFloat(jyEl.value)||0)/100; document.getElementById("jyVal").textContent = (JY_FRAC*100).toFixed(1)+"%"; if(last){ draw(last);}
+});
+
+/* ---------- sample first, then real CSV ---------- */
+const SAMPLE = `Ion,Structure Family (Canonical),Structure Type,Activation Energy Ea (eV),Conductivity σ (S·cm⁻¹),Cycle Life (raw),superionic conductor Formula (Chemical)
+Li+,NASICON,NASICON-like,0.32,0.002,800,Li1.3Al0.3Ti1.7(PO4)3
+Na+,Garnet,Garnet-like,0.41,0.0004,1500,Na3Zr2Si2PO12
+K+,Perovskite,Perovskite-like,0.55,0.00008,–,K0.5La0.5TiO3
+Li+,Argyrodite,Argyrodite-like,0.25,0.012,1200,Li6PS5Cl
+Na+,Halide,Halide-like,0.22,0.09,–,Na3YCl6
+`;
+Papa.parse(SAMPLE, {header:true, complete:(res)=>{
+  say("Sample loaded — fetching data.csv…");
+  const headers=res.meta.fields||[];
+  const cols={
+    ion:guessCol(headers,C.ion),
+    structFam:guessCol(headers,C.structFam),
+    structRaw:guessCol(headers,C.structRaw),
+    ea:guessCol(headers,C.ea),
+    sigma:guessCol(headers,C.sigma),
+    cycles:guessCol(headers,C.cycles),
+    formula:guessCol(headers,C.formula)
+  };
+  last={rows:res.data,cols}; draw(last);
+  loadDataCsv();
+}});
+</script>
+</body>
+</html>
 
