@@ -1,1 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>[SAFE] Bubble Dot Matrix — Dopant × Structure</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- Plotly -->
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<!-- PapaParse -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a20; --grid:#2a3240; --text:#e8e8ea; --err:#f87171; --ok:#34d399; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; gap:10px; align-items:center; padding:10px 12px; background:var(--panel); border-bottom:1px solid var(--grid); position:sticky; top:0; z-index:10; }
+  #status { font-size:12px; color:#9aa4b2; }
+  #error { display:none; padding:8px 12px; background:#2b1111; color:#fecaca; border:1px solid #7f1d1d; border-radius:8px; margin:8px 12px; white-space:pre-wrap; }
+  #chart { height:85vh; width:100%; }
+</style>
+</head>
+<body>
+  <header>
+    <div id="status">Loading…</div>
+  </header>
+  <div id="error"></div>
+  <div id="chart"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const statusEl = document.getElementById('status');
+  const errorEl  = document.getElementById('error');
+  function say(msg, ok=false){ statusEl.textContent = msg; statusEl.style.color = ok ? 'var(--ok)' : '#9aa4b2'; }
+  function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
+
+  if(!window.Plotly){ err("Plotly failed to load from CDN. Check your network or try a VPN."); return; }
+
+  // --- Helpers (minimal) ---
+  const COLS = {
+    doping: ["Doping / and or GB Strategy (Normalized)","Doping / and or GB Strategy","Doping","GB Strategy","Doping / GB"],
+    structure: ["Structure Family (Canonical)","Structure Group (Canonical)","Structure Family","Structure"],
+    sigma: ["Conductivity σ (S/cm) [numeric]","Conductivity σ (S·cm⁻¹) [numeric]","Conductivity σ (S·cm⁻¹)","Conductivity","sigma"]
+  };
+  function guessCol(headers, candidates){
+    const map = Object.fromEntries(headers.map(h=>[h.toLowerCase(), h]));
+    for(const name of candidates){ if(map[name.toLowerCase()]) return map[name.toLowerCase()]; }
+    for(const h of headers){ const lc=h.toLowerCase(); if(candidates.some(n=>lc.includes(n.toLowerCase()))) return h; }
+    return null;
+  }
+  function toNum(v){
+    if(typeof v==="number") return v;
+    if(v==null) return NaN;
+    const s = String(v).trim();
+    if(!s || s==="–" || s==="—" || /^n\/?a$/i.test(s)) return NaN;
+    const n = Number(s.replace(/[, ]/g,""));
+    if(Number.isFinite(n)) return n;
+    const m = s.match(/([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/);
+    return m ? Number(m[1]) : NaN;
+  }
+  const SPLIT_RE = /[,;+/]/;
+  function explodeDopants(raw){
+    if(raw==null || String(raw).trim()==="") return ["(none)"];
+    return String(raw).split(SPLIT_RE).map(s=>s.trim()).filter(Boolean);
+  }
+
+  // --- Core draw (small, robust) ---
+  function draw(rows, cols){
+    // bucket: (structure,dopant) -> {vals:[], count}
+    const bucket = new Map();
+    const structs = new Set();
+    const dopants = new Set();
+
+    for(const r of rows){
+      const s = toNum(r[cols.sigma]);
+      if(!Number.isFinite(s) || s<=0) continue;
+      const fam = (r[cols.structure] ?? "Other / Novel").toString().trim() || "Other / Novel";
+      const dops = explodeDopants(r[cols.doping]);
+      for(const d of dops){
+        const key = fam + "|||" + d;
+        if(!bucket.has(key)) bucket.set(key, {vals:[], count:0, struct:fam, dop:d});
+        const b = bucket.get(key);
+        b.vals.push(s); b.count++;
+        structs.add(fam); dopants.add(d);
+      }
+    }
+
+    if(!bucket.size){
+      err("No points to plot (no valid σ > 0 after parsing). Check your conductivity column values.");
+      return;
+    }
+
+    const xCats = Array.from(dopants).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const yCats = Array.from(structs).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const x=[], y=[], c=[], sz=[], txt=[];
+
+    let zMin=Infinity, zMax=-Infinity;
+    for(const [,b] of bucket){
+      // median
+      const vals = b.vals.slice().sort((a,b)=>a-b);
+      const mid = Math.floor(vals.length/2);
+      const z = vals.length%2 ? vals[mid] : (vals[mid-1]+vals[mid])/2;
+      zMin=Math.min(zMin,z); zMax=Math.max(zMax,z);
+      x.push(b.dop); y.push(b.struct);
+      c.push(Math.log10(z));
+      sz.push(Math.max(10, Math.min(60, 10 + Math.log2(b.count+1)*10)));
+      txt.push(`${b.struct} × ${b.dop}<br>count: ${b.count}<br>median σ: ${z.toExponential(2)}<br>log₁₀σ: ${Math.log10(z).toFixed(2)}`);
+    }
+
+    Plotly.react('chart', [{
+      type:'scatter', mode:'markers', x, y, text:txt, hovertemplate:'%{text}<extra></extra>',
+      marker:{
+        size:sz, sizemode:'diameter',
+        color:c, colorscale:'Viridis',
+        cmin:Math.log10(zMin), cmax:Math.log10(zMax),
+        line:{color:'#111', width:0.5}, opacity:0.9,
+        colorbar:{ title:'log₁₀ σ (S·cm⁻¹)', tickfont:{color:'#e8e8ea'}, titlefont:{color:'#e8e8ea'} }
+      }
+    }], {
+      paper_bgcolor:'#0f1115', plot_bgcolor:'#0f1115',
+      margin:{t:30,r:10,b:120,l:200},
+      xaxis:{ title:'Dopant', type:'category', categoryorder:'array', categoryarray:xCats,
+              tickangle:-30, automargin:true, gridcolor:'#2a3240', zerolinecolor:'#2a3240',
+              titlefont:{color:'#e8e8ea'}, tickfont:{color:'#e8e8ea'} },
+      yaxis:{ title:'Structure (family)', type:'category', categoryorder:'array', categoryarray:yCats,
+              automargin:true, gridcolor:'#2a3240', zerolinecolor:'#2a3240',
+              titlefont:{color:'#e8e8ea'}, tickfont:{color:'#e8e8ea'} }
+    }, {responsive:true, displaylogo:false});
+
+    say(`Rendered ${bucket.size} bubbles · σ range log₁₀[${Math.log10(zMin).toFixed(2)}…${Math.log10(zMax).toFixed(2)}]`, true);
+  }
+
+  // --- CSV pipeline with hard checks ---
+  function handleParsed(res){
+    errorEl.style.display='none';
+    if(!res.data || !res.data.length){ err("Parsed file but found no rows."); return; }
+    const headers = res.meta.fields || [];
+    const cols = {
+      doping:   guessCol(headers, COLS.doping),
+      structure:guessCol(headers, COLS.structure),
+      sigma:    guessCol(headers, COLS.sigma)
+    };
+    if(!cols.doping || !cols.structure || !cols.sigma){
+      err(
+`Missing required columns.
+
+Need something like:
+- Doping: ${COLS.doping.join(" | ")}
+- Structure: ${COLS.structure.join(" | ")}
+- Conductivity: ${COLS.sigma.join(" | ")}
+
+Detected headers:
+${headers.join(", ")}`
+      );
+      return;
+    }
+    say("CSV loaded ✓ parsing rows…");
+    draw(res.data, cols);
+  }
+
+  // --- Always render a tiny sample first so you SEE a chart immediately ---
+  const SAMPLE = `Doping / and or GB Strategy,Structure Family (Canonical),Conductivity σ (S·cm⁻¹)
+Al,NASICON,2e-3
+Ga,NASICON,1.2e-3
+Al + Ga,NASICON,1.7e-3
+Al,Garnet,4.0e-4
+Li-excess,Argyrodite,1.1e-2
+Cl,Halide,9.0e-2
+(none),NASICON,6.5e-4
+Al + Nb,NASICON,1.8e-3
+Cl + Br,Halide,7.0e-2
+`;
+  Papa.parse(SAMPLE, {header:true, complete: (res)=>{ handleParsed(res); say("Sample loaded — fetching data.csv…"); }});
+
+  // --- Auto-fetch data.csv (same folder as this HTML) ---
+  fetch("data.csv", { cache: "no-store" })
+    .then(resp => {
+      if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+      return resp.text();
+    })
+    .then(csvText => {
+      Papa.parse(csvText, {
+        header:true,
+        dynamicTyping:false,
+        skipEmptyLines:true,
+        complete: (res) => { handleParsed(res); say("data.csv loaded ✓", true); },
+        error: (e)=> err("Parse error: " + e.message)
+      });
+    })
+    .catch(e => {
+      say("Using sample data (data.csv not loaded)");
+      err("Could not load data.csv automatically: " + e.message + "\n\nEnsure data.csv is in the same folder and you are serving this file over HTTP.");
+    });
+});
+</script>
+</body>
+</html>
 
