@@ -1,442 +1,316 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>[SAFE] Bubble Dot Matrix — Dopant × Structure</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<!-- Plotly -->
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<!-- PapaParse -->
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<meta charset="utf-8"/>
+<title>Sunburst — data.json + labels control</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
-  :root { --bg:#0f1115; --panel:#171a20; --grid:#2a3240; --text:#e8e8ea; --err:#f87171; --ok:#34d399; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-  header {
-    display:flex; gap:12px; align-items:center; padding:10px 12px;
-    background:var(--panel); border-bottom:1px solid var(--grid); position:sticky; top:0; z-index:10; flex-wrap:wrap;
-  }
-  .ctl { display:flex; align-items:center; gap:6px; font-size:12px; color:#c6c9d2; }
-  .ctl input[type="text"], .ctl select{
-    background:#111827; color:#e5e7eb; border:1px solid #334155; border-radius:8px; padding:6px 8px;
-  }
-  .ctl input[type="range"]{ accent-color:#60a5fa; }
-  #status { margin-left:auto; font-size:12px; color:#9aa4b2; }
-  #error { display:none; padding:8px 12px; background:#2b1111; color:#fecaca; border:1px solid #7f1d1d; border-radius:8px; margin:8px 12px; white-space:pre-wrap; }
-  #chart { height:75vh; width:100%; }
-  #labelsBar {
-    display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:8px 12px;
-    background:#12151b; border-top:1px solid #222838; border-bottom:1px solid #222838; font-size:12px;
-  }
-  #labelList { display:flex; flex-wrap:wrap; gap:6px; }
-  .tag {
-    display:inline-flex; align-items:center; gap:6px; background:#1b2030; border:1px solid #2a3240; color:#e5e7eb;
-    padding:4px 8px; border-radius:999px;
-  }
-  .tag button{
-    background:transparent; color:#9aa4b2; border:none; cursor:pointer; font-weight:700; line-height:1;
-  }
+  :root { color-scheme: dark; }
+  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:#0f1115; color:#e8e8ea; height:100vh; display:flex; flex-direction:column; }
+  header { padding:10px 14px; background:#171a20; display:flex; gap:12px; flex-wrap:wrap; align-items:center; border-bottom:1px solid #262a32; }
+  select { background:#11141a; border:1px solid #30343c; color:#e8e8ea; padding:6px 10px; border-radius:8px; }
+  #wrap { flex:1; min-height:0; display:flex; padding:12px 14px; gap:12px; }
+  #chartCard { flex:1; display:grid; grid-template-columns: 1fr 340px; gap:14px; }
+  .chartBody { background:#101626; border:1px dashed #333a49; border-radius:12px; min-height:640px; position:relative; }
+  svg { width:100%; height:100%; display:block; }
+  .legend { background:#0f141f; border:1px solid #2a3240; border-radius:12px; padding:10px; overflow:auto; }
+  .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
+  .legendGroup { display:flex; flex-direction:column; gap:6px; }
+  .ionRow { display:grid; grid-template-columns: 18px 1fr 18px; gap:10px; align-items:center; padding:6px 8px; border-radius:8px; user-select:none; }
+  .ionRow:hover { background:#0f1726; }
+  .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(255,255,255,.35); }
+  .ionName { cursor:pointer; }
+  .chev { width:18px; text-align:center; cursor:pointer; color:#a9b3c8; }
+  .sublist { margin-left: 26px; display:none; }
+  .sublist.open { display:block; }
+  .famRow { display:grid; grid-template-columns: 14px 1fr; gap:8px; align-items:center; padding:4px 6px; border-radius:6px; cursor:pointer; }
+  .famRow:hover { background:#0c1322; }
+  .smSwatch { width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,.28); }
+  .badge { font-size:12px; color:#93c5fd; }
+  .tooltip { position:fixed; pointer-events:none; background:rgba(0,0,0,.9); color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3; display:none; z-index:10; box-shadow:0 6px 18px rgba(0,0,0,.45); }
+  .dimmed { opacity: .18; transition: opacity .15s ease; }
+  .highlight { opacity: 1; transition: opacity .15s ease; }
+  .label { font-size:10px; pointer-events:none; fill:#e8e8ea; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 </style>
 </head>
 <body>
   <header>
-    <!-- Overlap/Filter controls -->
-    <label class="ctl">Min count
-      <input id="minCount" type="range" min="1" max="10" step="1" value="1">
-      <span id="minCountVal">1</span>
+    <strong>Sunburst</strong>
+    <label>Labels:
+      <select id="labelMode">
+        <option value="off">Off</option>
+        <option value="leaves" selected>Leaves</option>
+        <option value="all">All</option>
+      </select>
     </label>
-    <label class="ctl">Filter dopants
-      <input id="dopantQuery" type="text" placeholder="substring or regex (e.g. ^Al$ or Cl|Br)">
-    </label>
-    <label class="ctl"><input id="reduceOverlap" type="checkbox"> Reduce label overlap</label>
-    <label class="ctl"><input id="wrapLabels" type="checkbox" checked> Wrap dopant labels</label>
-    <div id="status">Loading…</div>
+    <span class="badge" id="stats"></span>
   </header>
 
-  <!-- Label controls -->
-  <div id="labelsBar">
-    <strong style="color:#cbd5e1;">Labels:</strong>
-    <label class="ctl">Dopant
-      <select id="labelDopant"></select>
-    </label>
-    <label class="ctl">Structure
-      <select id="labelStruct"></select>
-    </label>
-    <label class="ctl">Text
-      <input id="labelText" type="text" placeholder="e.g., High σ here">
-    </label>
-    <button id="addLabelBtn" class="ctl" style="padding:6px 10px; border-radius:8px; border:1px solid #334155; background:#1f2937; color:#e5e7eb; cursor:pointer;">Add label</button>
-    <label class="ctl"><input id="clickToLabel" type="checkbox"> Click bubble to add</label>
-    <span style="color:#9aa4b2">Labels align with the bubble (right side).</span>
-    <div id="labelList"></div>
+  <div id="wrap">
+    <div id="chartCard">
+      <div id="chart" class="chartBody"></div>
+      <div id="legend" class="legend">
+        <h4>Legend</h4>
+        <div class="legendGroup"></div>
+      </div>
+    </div>
   </div>
 
-  <div id="error"></div>
-  <div id="chart"></div>
+  <div id="tooltip" class="tooltip"></div>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const statusEl = document.getElementById('status');
-  const errorEl  = document.getElementById('error');
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script>
+    const chartEl   = document.getElementById('chart');
+    const legendEl  = document.getElementById('legend');
+    const tooltip   = document.getElementById('tooltip');
+    const statsEl   = document.getElementById('stats');
+    const labelModeEl = document.getElementById('labelMode');
 
-  // overlap controls
-  const minCountEl = document.getElementById('minCount');
-  const minCountValEl = document.getElementById('minCountVal');
-  const queryEl = document.getElementById('dopantQuery');
-  const reduceOverlapEl = document.getElementById('reduceOverlap');
-  const wrapLabelsEl = document.getElementById('wrapLabels');
+    // fixed defaults (since we removed those controls)
+    const DEF_COND = 1e-6; // default σ (S·cm⁻¹) for leaves with no numeric value
+    const SCALE_MODE = 'log'; // fixed to log scale
 
-  // label controls
-  const labelDopantEl = document.getElementById('labelDopant');
-  const labelStructEl = document.getElementById('labelStruct');
-  const labelTextEl = document.getElementById('labelText');
-  const addLabelBtn = document.getElementById('addLabelBtn');
-  const clickToLabelEl = document.getElementById('clickToLabel');
-  const labelListEl = document.getElementById('labelList');
+    let dataObj = null;
+    let root = null;
+    let gArcs = null;
+    let gLabels = null;
 
-  function say(msg, ok=false){ statusEl.textContent = msg; statusEl.style.color = ok ? 'var(--ok)' : '#9aa4b2'; }
-  function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
+    const highlightedIons = new Set();
+    const highlightedFams = new Set();
 
-  if(!window.Plotly){ err("Plotly failed to load from CDN. Check your network or try a VPN."); return; }
+    // Load hierarchical JSON
+    fetch('data.json', { cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(raw => {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('data.json must be a hierarchy object');
+        dataObj = raw;
+        draw();
+      })
+      .catch(err => {
+        console.error('Failed to load data.json:', err);
+        alert('Failed to load data.json. Place it next to this HTML and ensure it is valid JSON.');
+      });
 
-  // --- Helpers ---
-  const COLS = {
-    doping: ["Doping / and or GB Strategy (Normalized)","Doping / and or GB Strategy","Doping","GB Strategy","Doping / GB"],
-    structure: ["Structure Family (Canonical)","Structure Group (Canonical)","Structure Family","Structure"],
-    sigma: ["Conductivity σ (S/cm) [numeric]","Conductivity σ (S·cm⁻¹) [numeric]","Conductivity σ (S·cm⁻¹)","Conductivity","sigma"]
-  };
-  function guessCol(headers, candidates){
-    const map = Object.fromEntries(headers.map(h=>[h.toLowerCase(), h]));
-    for(const name of candidates){ if(map[name.toLowerCase()]) return map[name.toLowerCase()]; }
-    for(const h of headers){ const lc=h.toLowerCase(); if(candidates.some(n=>lc.includes(n.toLowerCase()))) return h; }
-    return null;
-  }
-  function toNum(v){
-    if(typeof v==="number") return v;
-    if(v==null) return NaN;
-    const s = String(v).trim();
-    if(!s || s==="–" || s==="—" || /^n\/?a$/i.test(s)) return NaN;
-    const n = Number(s.replace(/[, ]/g,""));
-    if(Number.isFinite(n)) return n;
-    const m = s.match(/([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/);
-    return m ? Number(m[1]) : NaN;
-  }
-  const SPLIT_RE = /[,;+/]/;
-  function explodeDopants(raw){
-    if(raw==null || String(raw).trim()==="") return ["(none)"];
-    return String(raw).split(SPLIT_RE).map(s=>s.trim()).filter(Boolean);
-  }
-  function formatDopantLabel(d, wrap){
-    if(!wrap) return d;
-    return d.replace(/\s*\+\s*/g, "<br>+<br>").replace(/[,/;]\s*/g, "<br>");
-  }
+    labelModeEl.addEventListener('change', draw);
+    window.addEventListener('resize', () => requestAnimationFrame(draw));
 
-  // Globals
-  let DATA = null; // { rows, cols }
-  let DOPANT_COUNTS = new Map(); // dopant -> count
-  let STRUCT_SET = new Set();    // structures
-  let LABELS = [];               // {dopant, structure, text}
-  let FMT_MAP = new Map();       // raw dopant -> formatted dopant (current)
-  let INV_FMT_MAP = new Map();   // formatted -> raw
-
-  function computeDopantCounts(rows, cols){
-    const m = new Map();
-    const structs = new Set();
-    for(const r of rows){
-      structs.add((r[cols.structure] ?? "Other / Novel").toString().trim() || "Other / Novel");
-      for(const d of explodeDopants(r[cols.doping])) m.set(d, (m.get(d)||0) + 1);
-    }
-    STRUCT_SET = structs;
-    return m;
-  }
-
-  function populateLabelOptions(){
-    // Dopants
-    const dops = Array.from(DOPANT_COUNTS.keys()).sort((a,b)=>a.localeCompare(b, undefined, {numeric:true}));
-    labelDopantEl.innerHTML = dops.map(d=>`<option value="${d.replace(/"/g,'&quot;')}">${d}</option>`).join("");
-    // Structures
-    const structs = Array.from(STRUCT_SET).sort((a,b)=>a.localeCompare(b, undefined, {numeric:true}));
-    labelStructEl.innerHTML = structs.map(s=>`<option value="${s.replace(/"/g,'&quot;')}">${s}</option>`).join("");
-  }
-
-  function buildAllowedSet(queryStr, minCount){
-    const allow = new Set();
-    let rx = null;
-    const trimmed = (queryStr || "").trim();
-    if(trimmed){
-      try{ rx = new RegExp(trimmed, "i"); } catch{ rx = null; }
-    }
-    for(const [dop, cnt] of DOPANT_COUNTS.entries()){
-      if(cnt < minCount) continue;
-      if(rx){
-        if(rx.test(dop)) allow.add(dop);
-      } else {
-        if(!trimmed || dop.toLowerCase().includes(trimmed.toLowerCase())) allow.add(dop);
-      }
-    }
-    return allow;
-  }
-
-  function filterRowsByAllowed(rows, cols, allowed){
-    if(!allowed || !allowed.size) return [];
-    const out = [];
-    for(const r of rows){
-      const dops = explodeDopants(r[cols.doping]).filter(d=>allowed.has(d));
-      if(!dops.length) continue;
-      const clone = {...r};
-      clone[cols.doping] = dops.join(" / ");
-      out.push(clone);
-    }
-    return out;
-  }
-
-  function buildAnnotations(wrapLabels){
-    const ann = [];
-    for(const L of LABELS){
-      const xCat = FMT_MAP.get(L.dopant) ?? formatDopantLabel(L.dopant, wrapLabels);
-      ann.push({
-        x: xCat, y: L.structure, xref:'x', yref:'y',
-        text: L.text && L.text.trim() ? L.text : `${L.dopant} × ${L.structure}`,
-        showarrow:false, xanchor:'left', yanchor:'middle', align:'left',
-        xshift:8, yshift:0,
-        bgcolor:'rgba(23,26,32,0.7)', bordercolor:'#2a3240', borderwidth:1, borderpad:3,
-        font:{color:'#e8e8ea', size:11}
+    function obj2children(obj){
+      return Object.entries(obj).map(([k,v])=>{
+        if(Array.isArray(v)) return {name:k, values:v};
+        return {name:k, children:obj2children(v)};
       });
     }
-    return ann;
-  }
 
-  function renderLabelList(){
-    if(!LABELS.length){ labelListEl.innerHTML = ''; return; }
-    labelListEl.innerHTML = LABELS.map((L,i)=>(
-      `<span class="tag">${L.dopant} × ${L.structure}${L.text?`: ${L.text}`:''}
-        <button title="Remove" data-idx="${i}">×</button>
-      </span>`
-    )).join("");
-    labelListEl.querySelectorAll('button').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const idx = parseInt(btn.getAttribute('data-idx'),10);
-        LABELS.splice(idx,1);
-        render();
-        renderLabelList();
+    function computeLeafCond(h, def){
+      h.each(n=>{
+        if(n.data && n.data.values){
+          const vals = n.data.values
+            .map(v => (v && typeof v.conductivity_S_per_cm === 'number') ? v.conductivity_S_per_cm : NaN)
+            .filter(Number.isFinite);
+          n.data.cond = vals.length ? d3.max(vals) : def;
+        }
       });
-    });
-  }
-
-  function draw(rows, cols, opts){
-    // bucket: (structure,dopant) -> {vals:[], count}
-    const bucket = new Map();
-    const structs = new Set();
-    const dopants = new Set();
-
-    for(const r of rows){
-      const s = toNum(r[cols.sigma]);
-      if(!Number.isFinite(s) || s<=0) continue;
-      const fam = (r[cols.structure] ?? "Other / Novel").toString().trim() || "Other / Novel";
-      const dops = explodeDopants(r[cols.doping]);
-      for(const d of dops){
-        const key = fam + "|||" + d;
-        if(!bucket.has(key)) bucket.set(key, {vals:[], count:0, struct:fam, dop:d});
-        const b = bucket.get(key);
-        b.vals.push(s); b.count++;
-        structs.add(fam); dopants.add(d);
-      }
     }
 
-    if(!bucket.size){
-      err("No points to plot (no valid σ > 0 after parsing or filters removed everything).");
-      Plotly.purge('chart');
-      return;
-    }
+    function draw(){
+      if(!dataObj) return;
+      chartEl.innerHTML = '';
+      const rect = chartEl.getBoundingClientRect();
+      const side = Math.floor(Math.min(rect.width || 800, rect.height || 640));
 
-    // Category arrays
-    const xCatsRaw = Array.from(dopants).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-    const yCats = Array.from(structs).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+      const data = { name:'root', children: obj2children(dataObj) };
+      root = d3.hierarchy(data, d=>d.children).sum(()=>1);
+      computeLeafCond(root, DEF_COND);
 
-    // Maintain formatted mapping for labels
-    FMT_MAP = new Map();
-    INV_FMT_MAP = new Map();
-    const xCats = xCatsRaw.map(d => {
-      const f = formatDopantLabel(d, opts.wrapLabels);
-      FMT_MAP.set(d, f); INV_FMT_MAP.set(f, d);
-      return f;
-    });
+      const svg = d3.select(chartEl).append('svg')
+        .attr('width','100%').attr('height','100%')
+        .attr('viewBox', `${-side/2} ${-side/2} ${side} ${side}`);
 
-    // Build traces
-    const x=[], y=[], c=[], sz=[], txt=[];
-    let zMin=Infinity, zMax=-Infinity;
-    for(const [,b] of bucket){
-      const vals = b.vals.slice().sort((a,b)=>a-b);
-      const mid = Math.floor(vals.length/2);
-      const z = vals.length%2 ? vals[mid] : (vals[mid-1]+vals[mid])/2;
-      zMin=Math.min(zMin,z); zMax=Math.max(zMax,z);
-      x.push(FMT_MAP.get(b.dop)); // formatted category value
-      y.push(b.struct);
-      const log10 = Math.log10(z);
-      c.push(log10);
-      sz.push(Math.max(10, Math.min(60, 10 + Math.log2(b.count+1)*10)));
-      txt.push(`${b.struct} × ${b.dop}<br>count: ${b.count}<br>median σ: ${z.toExponential(2)}<br>log₁₀σ: ${log10.toFixed(2)}`);
-    }
+      const ringThickness = Math.max(36, side * 0.06);
+      const leafBase      = Math.max(10, side * 0.02);
+      const extraLeafMax  = Math.max(110, side * 0.20);
 
-    // X-axis thinning when crowded
-    let xaxis = {
-      title:'Dopant', type:'category',
-      categoryorder:'array', categoryarray:xCats,
-      tickangle: opts.reduceOverlap ? -65 : -30,
-      automargin:true, gridcolor:'#2a3240', zerolinecolor:'#2a3240',
-      titlefont:{color:'#e8e8ea'}, tickfont:{color:'#e8e8ea', size: opts.reduceOverlap ? 10 : 12}
-    };
-    if(opts.reduceOverlap){
-      const maxTicks = 32;
-      const step = Math.max(1, Math.ceil(xCats.length / maxTicks));
-      const tickvals = []; const ticktext = [];
-      for(let i=0;i<xCats.length;i+=step){ tickvals.push(xCats[i]); ticktext.push(xCats[i]); }
-      xaxis.tickmode = 'array'; xaxis.tickvals = tickvals; xaxis.ticktext = ticktext;
-    }
+      d3.partition().size([2*Math.PI, (root.height + 1) * ringThickness])(root);
 
-    const annotations = buildAnnotations(opts.wrapLabels);
+      const leaves = root.leaves();
+      let condVals = leaves.map(l => l.data.cond || DEF_COND).filter(Number.isFinite);
+      if (!condVals.length) condVals = [DEF_COND];
+      let [cmin, cmax] = d3.extent(condVals);
+      if (!(cmax > cmin)) { cmin = cmin*0.8; cmax = cmax*1.2; }
 
-    Plotly.react('chart', [{
-      type:'scatter', mode:'markers', x, y, text:txt, hovertemplate:'%{text}<extra></extra>',
-      marker:{
-        size:sz, sizemode:'diameter',
-        color:c, colorscale:'Viridis',
-        cmin:Math.log10(zMin), cmax:Math.log10(zMax),
-        line:{color:'#111', width:0.5}, opacity:0.9,
-        colorbar:{ title:'log₁₀ σ (S·cm⁻¹)', tickfont:{color:'#e8e8ea'}, titlefont:{color:'#e8e8ea'} }
-      }
-    }], {
-      paper_bgcolor:'#0f1115', plot_bgcolor:'#0f1115',
-      margin:{t:30,r:10,b: opts.wrapLabels ? 150 : 120,l:200},
-      xaxis, 
-      yaxis:{ title:'Structure (family)', type:'category', categoryorder:'array', categoryarray:yCats,
-              automargin:true, gridcolor:'#2a3240', zerolinecolor:'#2a3240',
-              titlefont:{color:'#e8e8ea'}, tickfont:{color:'#e8e8ea'} },
-      annotations
-    }, {responsive:true, displaylogo:false});
+      const baseScale = (SCALE_MODE==='linear'
+        ? d3.scaleLinear().domain([cmin, cmax])
+        : d3.scaleLog().domain([Math.max(cmin, 1e-12), Math.max(cmax, 1e-12)]));
+      const condScale = baseScale.range([0, extraLeafMax]).clamp(true);
 
-    say(`Rendered ${bucket.size} bubbles · labels: ${LABELS.length} · dopants shown: ${xCatsRaw.length} (min count ≥ ${minCountEl.value})`, true);
-  }
+      const ions = (root.children || []).map(d=>d.data.name);
+      const colorIon = d3.scaleOrdinal(ions, d3.quantize(t => d3.interpolateRainbow(t), Math.max(3, ions.length)));
 
-  function render(){
-    if(!DATA) return;
-    const minCount = parseInt(minCountEl.value, 10) || 1;
-    const allowed = buildAllowedSet(queryEl.value, minCount);
-    const filteredRows = filterRowsByAllowed(DATA.rows, DATA.cols, allowed);
-    draw(filteredRows, DATA.cols, {
-      wrapLabels: wrapLabelsEl.checked,
-      reduceOverlap: reduceOverlapEl.checked
-    });
-  }
+      const arc = d3.arc()
+        .startAngle(d=>d.x0)
+        .endAngle(d=>d.x1)
+        .padAngle(d=>Math.min(0.006, (d.x1-d.x0)/6))
+        .padRadius(side * 0.45)
+        .innerRadius(d=>d.y0)
+        .outerRadius(d=> d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || DEF_COND));
 
-  // --- CSV pipeline with hard checks ---
-  function handleParsed(res){
-    errorEl.style.display='none';
-    if(!res.data || !res.data.length){ err("Parsed file but found no rows."); return; }
-    const headers = res.meta.fields || [];
-    const cols = {
-      doping:   guessCol(headers, COLS.doping),
-      structure:guessCol(headers, COLS.structure),
-      sigma:    guessCol(headers, COLS.sigma)
-    };
-    if(!cols.doping || !cols.structure || !cols.sigma){
-      err(
-`Missing required columns.
+      const g = svg.append('g');
+      gArcs = g;
 
-Need something like:
-- Doping: ${COLS.doping.join(" | ")}
-- Structure: ${COLS.structure.join(" | ")}
-- Conductivity: ${COLS.sigma.join(" | ")}
+      const nodes = root.descendants().filter(d=>d.depth>0);
 
-Detected headers:
-${headers.join(", ")}`
-      );
-      return;
-    }
+      const paths = g.selectAll('path')
+        .data(nodes)
+        .join('path')
+        .attr('d', arc)
+        .attr('fill', d => { let a=d; while(a.depth>1) a=a.parent; return colorIon(a.data.name); })
+        .attr('stroke','#fff').attr('stroke-opacity',0.35).attr('stroke-width', Math.max(0.6, side*0.0012));
 
-    DATA = { rows: res.data, cols };
-    DOPANT_COUNTS = computeDopantCounts(DATA.rows, DATA.cols);
-    populateLabelOptions();
-
-    // set slider max to the observed max count
-    const maxCount = Math.max(...DOPANT_COUNTS.values(), 1);
-    minCountEl.max = String(Math.max(maxCount, 1));
-    minCountEl.value = '1';
-    minCountValEl.textContent = '1';
-
-    say("CSV loaded ✓ parsing rows…", true);
-    render();
-  }
-
-  // --- Controls listeners ---
-  minCountEl.addEventListener('input', () => { minCountValEl.textContent = minCountEl.value; render(); });
-  queryEl.addEventListener('input', render);
-  reduceOverlapEl.addEventListener('change', render);
-  wrapLabelsEl.addEventListener('change', render);
-
-  // Add label via controls
-  addLabelBtn.addEventListener('click', ()=>{
-    const d = labelDopantEl.value;
-    const s = labelStructEl.value;
-    if(!d || !s) return;
-    LABELS.push({ dopant:d, structure:s, text:labelTextEl.value || "" });
-    labelTextEl.value = "";
-    render();
-    renderLabelList();
-  });
-
-  // Add label by clicking a bubble (if enabled)
-  const chartEl = document.getElementById('chart');
-  chartEl.addEventListener('plotly_click', (ev) => {
-    if(!clickToLabelEl.checked) return;
-    const pt = ev.points && ev.points[0];
-    if(!pt) return;
-    const fmtX = pt.x;                // formatted dopant category
-    const rawD = INV_FMT_MAP.get(fmtX) || fmtX.replace(/<br>/g,' ');
-    const rawS = pt.y;
-    const text = labelTextEl.value || `${rawD} × ${rawS}`;
-    LABELS.push({ dopant:rawD, structure:rawS, text });
-    labelTextEl.value = "";
-    render();
-    renderLabelList();
-  });
-
-  // --- Render a tiny sample immediately, then try data.csv ---
-  const SAMPLE = `Doping / and or GB Strategy,Structure Family (Canonical),Conductivity σ (S·cm⁻¹)
-Al,NASICON,2e-3
-Ga,NASICON,1.2e-3
-Al + Ga,NASICON,1.7e-3
-Al,Garnet,4.0e-4
-Li-excess,Argyrodite,1.1e-2
-Cl,Halide,9.0e-2
-(none),NASICON,6.5e-4
-Al + Nb,NASICON,1.8e-3
-Cl + Br,Halide,7.0e-2
-`;
-  Papa.parse(SAMPLE, {header:true, complete: (res) => { handleParsed(res); say("Sample loaded — fetching data.csv…"); }});
-
-  // --- Auto-fetch data.csv (same folder) ---
-  fetch("data.csv", { cache: "no-store" })
-    .then(resp => {
-      if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
-      return resp.text();
-    })
-    .then(csvText => {
-      Papa.parse(csvText, {
-        header:true,
-        dynamicTyping:false,
-        skipEmptyLines:true,
-        complete: (res) => { handleParsed(res); say("data.csv loaded ✓", true); },
-        error: (e)=> err("Parse error: " + e.message)
+      // tag with ion & family for highlight logic
+      paths.each(function(d){
+        let ion=d; while(ion && ion.depth>1) ion=ion.parent;
+        let fam=d; while(fam && fam.depth>2) fam=fam.parent;
+        this.dataset.ion = ion?.data?.name || '';
+        this.dataset.family = fam?.data?.name || '';
       });
-    })
-    .catch(e => {
-      say("Using sample data (data.csv not loaded)");
-      err("Could not load data.csv automatically: " + e.message + "\n\nEnsure data.csv is in the same folder and the page is served over HTTP (some browsers block fetch via file://).");
-    });
-});
-</script>
+
+      // tooltips
+      paths.on('mousemove', (evt, d) => {
+        const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
+        let html = `<strong>${trail}</strong>`;
+        if (!d.children) {
+          const c = d.data.cond || DEF_COND;
+          html += `<br/>σ: ${Number.isFinite(c) ? c.toExponential(3) : '(default)'} S·cm⁻¹`;
+        }
+        tooltip.style.display = 'block';
+        tooltip.innerHTML = html;
+        tooltip.style.left = (evt.clientX + 10) + 'px';
+        tooltip.style.top  = (evt.clientY + 10) + 'px';
+      }).on('mouseleave', () => { tooltip.style.display = 'none'; });
+
+      buildLegend(root, colorIon);
+      applyHighlight();
+
+      // labels layer
+      addLabelsLayer(svg, nodes, arc, side);
+
+      // stats
+      const ionCount = (root.children||[]).length;
+      const famCount = d3.sum(root.children||[], n => (n.children||[]).length);
+      statsEl.textContent = `Ions: ${ionCount} | Families: ${famCount}`;
+    }
+
+    function buildLegend(root, colorIon){
+      const group = legendEl.querySelector('.legendGroup');
+      group.innerHTML = '';
+
+      (root.children || []).forEach(ionNode => {
+        const ion = ionNode.data.name;
+
+        // Ion row: swatch + name + chevron
+        const row = document.createElement('div'); row.className='ionRow';
+        const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(ion);
+        const nm  = document.createElement('div'); nm.className='ionName'; nm.textContent = ion;
+        const cv  = document.createElement('div'); cv.className='chev'; cv.textContent = '▸';
+        row.appendChild(sw); row.appendChild(nm); row.appendChild(cv);
+        group.appendChild(row);
+
+        // Sublist of families (collapsed by default)
+        const sub = document.createElement('div'); sub.className='sublist';
+        const fams = (ionNode.children||[]).map(n=>n.data.name);
+        fams.forEach((fam, i) => {
+          const li = document.createElement('div'); li.className='famRow';
+          const sm = document.createElement('div'); sm.className='smSwatch'; sm.style.background =
+            d3.color(colorIon(ion)).brighter(0.5 + (i/(Math.max(2,fams.length)-1||1))*0.9).formatRgb();
+          const sn = document.createElement('div'); sn.textContent = fam;
+          li.appendChild(sm); li.appendChild(sn);
+          sub.appendChild(li);
+
+          // Toggle family highlight on click
+          li.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (highlightedFams.has(fam)) highlightedFams.delete(fam); else highlightedFams.add(fam);
+            applyHighlight();
+          });
+        });
+        group.appendChild(sub);
+
+        // Expand/collapse on chevron click
+        cv.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const open = sub.classList.toggle('open');
+          cv.textContent = open ? '▾' : '▸';
+        });
+
+        // Toggle ion highlight when clicking the name/swatch area
+        const toggleIon = () => {
+          if (highlightedIons.has(ion)) highlightedIons.delete(ion); else highlightedIons.add(ion);
+          applyHighlight();
+        };
+        nm.addEventListener('click', toggleIon);
+        sw.addEventListener('click', toggleIon);
+      });
+    }
+
+    function applyHighlight(){
+      if (!gArcs) return;
+      const paths = gArcs.selectAll('path');
+      const hasIon = highlightedIons.size > 0;
+      const hasFam = highlightedFams.size > 0;
+
+      if (!hasIon && !hasFam){
+        paths.classed('dimmed', false).classed('highlight', false);
+        return;
+      }
+      paths.each(function(){
+        const ion = this.dataset.ion;
+        const fam = this.dataset.family;
+        const ionOk = !hasIon || highlightedIons.has(ion);
+        const famOk = !hasFam || highlightedFams.has(fam);
+        const on = ionOk && famOk;
+        this.classList.toggle('highlight', on);
+        this.classList.toggle('dimmed', !on);
+      });
+    }
+
+    function addLabelsLayer(svg, nodes, arc, side){
+      // remove old labels
+      if (gLabels) gLabels.remove();
+      gLabels = svg.append('g');
+
+      const mode = labelModeEl.value; // 'off' | 'leaves' | 'all'
+      if (mode === 'off') return;
+
+      // labeling rules
+      const minAngle = 0.03;          // radians; skip very thin slices
+      const minRadius = side * 0.12;  // avoid center clutter for inner rings
+
+      const labelNodes = nodes.filter(d => {
+        if (mode === 'leaves' && d.children) return false;
+        if ((d.x1 - d.x0) < minAngle) return false;
+        const rMid = (d.y0 + d.y1)/2;
+        if (rMid < minRadius) return false;
+        return true;
+      });
+
+      const labels = gLabels.selectAll('text')
+        .data(labelNodes, d => d.data.name + '-' + d.depth)
+        .join('text')
+        .attr('class','label')
+        .attr('dy','0.32em')
+        .text(d => d.data.name);
+
+      // place text along ring orientation
+      labels.attr('transform', d => {
+        const a = (d.x0 + d.x1) / 2;         // angle (radians)
+        const r = (d.y0 + d.y1) / 2;         // radius
+        const deg = a * 180 / Math.PI - 90;  // rotate so 0 is at 12 o'clock
+        const flip = a >= Math.PI ? 180 : 0; // flip on left side for readability
+        return `rotate(${deg}) translate(${r},0) rotate(${flip})`;
+      })
+      .attr('x', d => ((d.x0 + d.x1)/2 < Math.PI) ? 6 : -6)
+      .style('text-anchor', d => ((d.x0 + d.x1)/2 < Math.PI) ? 'start' : 'end');
+    }
+  </script>
 </body>
 </html>
-
-
