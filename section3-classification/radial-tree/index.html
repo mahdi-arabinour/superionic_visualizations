@@ -2,36 +2,76 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tidy Tree — Auto CSV Load</title>
+<title>Radial Tidy Tree — Light Theme</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
-  :root{ --bg:#0f1115; --panel:#171a20; --grid:#2a3240; --text:#e8e8ea; }
-  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);} 
-  header{display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--panel);
-         border-bottom:1px solid var(--grid);position:sticky;top:0;z-index:10;}
-  #status{margin-left:auto;font-size:12px;color:#9aa4b2;}
+  /* —— Light theme tokens —— */
+  :root{
+    --bg:#ffffff;              /* page background */
+    --panel:#f6f7f9;           /* header/aside */
+    --grid:#e5e7eb;            /* lines/borders */
+    --text:#0b1220;            /* primary text */
+    --muted:#6b7280;           /* secondary text */
+    --chip:#ffffff;            /* legend chip bg */
+    --chip-border:#e5e7eb;     /* legend chip border */
+    --node-stroke:#ffffff;     /* node outline */
+    --link:#dde3ea;            /* tree link color */
+    --tip-bg:#ffffff;          /* tooltip bg */
+    --tip-border:#cbd5e1;      /* tooltip border */
+  }
+
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  header{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding:10px 12px;background:var(--panel);border-bottom:1px solid var(--grid);
+    position:sticky;top:0;z-index:10;
+  }
+  label{font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text);}
+  input[type="number"],input[type="range"],select{
+    background:#fff;color:var(--text);border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;
+  }
+  #status{margin-left:auto;font-size:12px;color:var(--muted);}
   #chart{width:100%;height:90vh;}
-  aside{position:absolute;top:56px;right:0;width:320px;height:calc(100% - 56px);overflow:auto;background:var(--panel);
-        border-left:1px solid var(--grid);padding:10px;}
-  aside h3{margin:8px 0;font-size:13px;color:#cbd5e1;}
-  select[multiple]{width:100%;min-height:120px;background:#0f1115;color:#e8e8ea;border:1px solid #364152;border-radius:8px;padding:6px 8px;}
-  button{background:#0f1115;color:#e8e8ea;border:1px solid #364152;border-radius:8px;padding:6px 10px;cursor:pointer;}
-  label{display:block;margin:4px 0;font-size:13px;}
-  .lbl-ion{fill:#e5e7eb;font-weight:700;font-size:13px;}
-  .lbl-struct{fill:#e5e7eb;font-weight:400;font-size:10px;}
-  .lbl-doping{fill:#d1d5db;font-weight:300;font-size:9px;}
-  .lbl-formula{fill:#cbd5e1;font-weight:300;font-size:8px;}
-  .tip{position:fixed;pointer-events:none;background:#111827;color:#e5e7eb;border:1px solid #374151;
-       padding:6px 8px;border-radius:6px;font-size:12px;opacity:0;transition:opacity .15s;}
-  .leader{stroke:#384152;stroke-width:0.7;opacity:0.9}
+  aside{
+    position:absolute;top:60px;right:0;width:330px;height:calc(100% - 60px);overflow:auto;
+    background:var(--panel);border-left:1px solid var(--grid);padding:10px;
+  }
+  aside h3{margin:8px 0;font-size:13px;color:#374151;}
+  select[multiple]{width:100%;min-height:120px;background:#fff;color:var(--text);}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{display:flex;align-items:center;gap:6px;font-size:12px;background:var(--chip);border:1px solid var(--chip-border);
+        padding:4px 6px;border-radius:999px;}
+  .sw{width:10px;height:10px;border-radius:3px;border:1px solid #0002;}
+
+  .tip{
+    position:fixed;pointer-events:none;background:var(--tip-bg);color:var(--text);
+    border:1px solid var(--tip-border);padding:6px 8px;border-radius:6px;font-size:12px;
+    box-shadow:0 6px 24px rgba(0,0,0,.08);opacity:0;transition:opacity .15s;
+  }
+
+  /* Label styling */
+  .lbl-ion{fill:#111827;font-weight:700;}
+  .lbl-struct{fill:#1f2937;font-weight:500;}
+  .lbl-doping{fill:#374151;font-weight:400;}
+  .lbl-formula{fill:#4b5563;font-weight:400;}
 </style>
 </head>
 <body>
 <header>
-  <button id="loadBtn">Load another CSV</button>
-  <input type="file" id="fileInput" accept=".csv" style="display:none" />
-  <div id="status">Loading data.csv…</div>
+  <button id="loadBtn">Load CSV</button>
+  <input type="file" id="fileInput" accept=".csv" />
+  <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:90px;"></label>
+  <label><input type="checkbox" id="useLog" checked> log₁₀(σ) for leaf length</label>
+  <label>Base edge:
+    <input type="range" id="baseEdge" min="30" max="120" step="2" value="60"><span id="baseEdgeLbl">60</span> px
+  </label>
+  <label>Leaf extra:
+    <input type="range" id="leafMin" min="6" max="80" step="1" value="10"><span id="leafMinLbl">10</span> px
+    <input type="range" id="leafMax" min="20" max="240" step="2" value="120"><span id="leafMaxLbl">120</span> px
+  </label>
+  <div id="status">Ready</div>
 </header>
 
 <svg id="chart"></svg>
@@ -49,6 +89,24 @@
   <label><input type="checkbox" id="showStructLbl" checked> Structure</label>
   <label><input type="checkbox" id="showDopingLbl" checked> Doping</label>
   <label><input type="checkbox" id="showFormulaLbl"> Formula</label>
+
+  <h3>Label sizes</h3>
+  <label>Structure <input type="range" id="fsStruct" min="8" max="14" step="1" value="10"><span id="fsStructLbl">10</span> px</label>
+  <label>Doping <input type="range" id="fsDoping" min="7" max="13" step="1" value="9"><span id="fsDopingLbl">9</span> px</label>
+  <label>Formula <input type="range" id="fsFormula" min="6" max="12" step="1" value="8"><span id="fsFormulaLbl">8</span> px</label>
+
+  <h3>Declutter (min angle gap, °)</h3>
+  <label>Structure <input type="number" id="gapStruct" value="3" step="1" style="width:64px;"></label>
+  <label>Doping <input type="number" id="gapDoping" value="2" step="1" style="width:64px;"></label>
+  <label>Formula <input type="number" id="gapFormula" value="1" step="1" style="width:64px;"></label>
+
+  <h3>Leaf spacing</h3>
+  <label>Formula leaf spread (px along arc)
+    <input type="range" id="leafSpread" min="0" max="40" step="1" value="12"><span id="leafSpreadLbl">12</span>
+  </label>
+
+  <h3>Ion colors</h3>
+  <div id="ionLegend" class="legend"></div>
 </aside>
 
 <div class="tip" id="tooltip"></div>
@@ -62,27 +120,17 @@ const ionColorScale = d3.scaleOrdinal(IonPalette);
 
 let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
 
-// --- constants (no UI sliders) ---
-const DEFAULT_SIGMA = 1e-6;   // fallback σ
-const USE_LOG = true;         // log scaling for leaf length
-const BASE_EDGE = 60;         // ring spacing (px)
-const LEAF_MIN = 12;          // min extra length for leaves (px)
-const LEAF_MAX = 120;         // max extra length for leaves (px)
-const FORMULA_OFFSET = 14;    // place formula labels outside leaves by this many px
-const LEAF_SPREAD_PX = 14;    // angular spread along arc (px) among siblings to reduce collisions
-
 function say(t){ statusEl.textContent = t; }
 
-/* ---------- Robust conductivity parser ---------- */
+/* conductivity parser */
 function parseSigma(v){
   if (v == null) return NaN;
   let s = String(v).trim();
   if (!s) return NaN;
-  s = s.replace(/[\,\s]/g, '');          // remove commas/spaces
-  s = s.replace(/[−–—-]/g, '-');        // normalize dashes to '-'
+  s = s.replace(/[,\s]/g, '').replace(/[−–—-]/g, '-');
   const sup = { '⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁺':'+','⁻':'-' };
   s = [...s].map(ch => sup[ch] ?? ch).join('');
-  s = s.replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i, '$1e$2'); // 1.2×10^-3 -> 1.2e-3
+  s = s.replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i, '$1e$2');
   let n = Number(s); if (Number.isFinite(n)) return n;
   const m = s.match(/^[+\-]?\d*\.?\d+(?:e[+\-]?\d+)?/i);
   return m ? Number(m[0]) : NaN;
@@ -98,6 +146,7 @@ function guessCol(headers, candidates){
 function buildLeaves(rows){
   const {ion,struct,doping,formula,sigma} = COLS;
   const leaves = [];
+  const defaultSigma = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
   const sel = Array.from(document.getElementById('ionSelect').selectedOptions || []).map(o=>o.value);
   const ionFilter = sel.length ? new Set(sel) : null;
 
@@ -108,19 +157,34 @@ function buildLeaves(rows){
     const dopV = (r[doping]||'(none)').toString().trim();
     const formV = (r[formula]||'(formula)').toString().trim();
     const raw = parseSigma(r[sigma]);
-    const sig = (Number.isFinite(raw) && raw>0) ? raw : DEFAULT_SIGMA;
+    const sig = (Number.isFinite(raw) && raw>0) ? raw : defaultSigma;
     leaves.push({ion:ionV, structure:structV, doping:dopV, formula:formV, sigma:sig});
   }
   return leaves;
 }
 
 function drawTree(rows){
-  // Size
   const bb = document.getElementById('chart').getBoundingClientRect();
-  WIDTH = bb.width; HEIGHT = bb.height; R = Math.min(WIDTH, HEIGHT)/2 - 60; // gutter for outside labels
+  WIDTH = bb.width; HEIGHT = bb.height; R = Math.min(WIDTH, HEIGHT)/2 - 40;
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
 
-  // Data
+  const useLog  = document.getElementById('useLog').checked;
+  const baseEdge = +document.getElementById('baseEdge').value;
+  const leafMin  = +document.getElementById('leafMin').value;
+  const leafMax  = +document.getElementById('leafMax').value;
+  const fsStruct = +document.getElementById('fsStruct').value;
+  const fsDoping = +document.getElementById('fsDoping').value;
+  const fsFormula= +document.getElementById('fsFormula').value;
+  const leafSpreadPx = +document.getElementById('leafSpread').value;
+
+  document.getElementById('baseEdgeLbl').textContent = baseEdge;
+  document.getElementById('leafMinLbl').textContent = leafMin;
+  document.getElementById('leafMaxLbl').textContent = leafMax;
+  document.getElementById('fsStructLbl').textContent = fsStruct;
+  document.getElementById('fsDopingLbl').textContent = fsDoping;
+  document.getElementById('fsFormulaLbl').textContent = fsFormula;
+  document.getElementById('leafSpreadLbl').textContent = leafSpreadPx;
+
   const leaves = buildLeaves(rows);
 
   // Build nested: Ion → Structure → Doping → Formula
@@ -140,32 +204,33 @@ function drawTree(rows){
     root.children.push(nIon);
   }
 
-  // Hierarchy & initial angles via cluster (we set radii manually)
+  // Hierarchy & initial angles
   const H = d3.hierarchy(root).sort((a,b)=> d3.ascending(a.data.name, b.data.name));
   d3.cluster().size([2*Math.PI, 1])(H);
 
   // Tidy rings for internal levels
-  H.each(n=>{ n.y = Math.min(R, n.depth * BASE_EDGE); });
+  H.each(n=>{ n.y = Math.min(R, n.depth * baseEdge); });
 
   // Leaf extra from σ
-  const sigVals = H.leaves().map(l => parseSigma(l.data.sigma)).map(v => (Number.isFinite(v)&&v>0?v:DEFAULT_SIGMA));
+  const defaultSigma = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
+  const sigVals = H.leaves().map(l => parseSigma(l.data.sigma)).map(v => (Number.isFinite(v)&&v>0?v:defaultSigma));
   let sMin = Math.min(...sigVals), sMax = Math.max(...sigVals);
   const collapsed = !(isFinite(sMin) && isFinite(sMax)) || sMin<=0 || sMin===sMax;
-  if (!isFinite(sMin)||!isFinite(sMax)){ sMin=DEFAULT_SIGMA; sMax=DEFAULT_SIGMA*10; }
+  if (!isFinite(sMin)||!isFinite(sMax)){ sMin=defaultSigma; sMax=defaultSigma*10; }
 
-  const scaleLin = d3.scaleLinear().domain([sMin, sMax]).range([LEAF_MIN, LEAF_MAX]).nice();
-  const scaleLog = d3.scaleLog().domain([Math.max(sMin, Number.MIN_VALUE), sMax]).range([LEAF_MIN, LEAF_MAX]);
+  const scaleLin = d3.scaleLinear().domain([sMin, sMax]).range([leafMin, leafMax]).nice();
+  const scaleLog = d3.scaleLog().domain([Math.max(sMin, Number.MIN_VALUE), sMax]).range([leafMin, leafMax]);
   function extraForSigma(val){
     let v = parseSigma(val);
-    if(!Number.isFinite(v)||v<=0) v = DEFAULT_SIGMA;
-    if(collapsed) return (LEAF_MIN+LEAF_MAX)/2;
-    return USE_LOG ? scaleLog(v) : scaleLin(v);
+    if(!Number.isFinite(v)||v<=0) v = defaultSigma;
+    if(collapsed) return (leafMin+leafMax)/2;
+    return useLog ? scaleLog(v) : scaleLin(v);
   }
-  // Only the last edge (doping → formula) gets extra
-  H.each(n=>{ if(!n.children){ n.y = Math.min(R, n.depth*BASE_EDGE + extraForSigma(n.data.sigma)); } });
+  H.each(n=>{ if(!n.children){ n.y = Math.min(R, n.depth*baseEdge + extraForSigma(n.data.sigma)); } });
 
-  // Spread leaves a bit under each doping node so formula labels have room
-  if (LEAF_SPREAD_PX > 0) {
+  // Spread leaf angles so labels have room
+  const spread = leafSpreadPx;
+  if (spread > 0) {
     H.descendants().filter(d => d.depth === 3).forEach(parent => {
       const kids = (parent.children || []).filter(c => !c.children);
       const n = kids.length;
@@ -173,103 +238,77 @@ function drawTree(rows){
       kids.sort((a,b)=> a.x - b.x);
       kids.forEach((c, idx) => {
         const r = Math.max(c.y, 1);
-        const delta = (idx - (n - 1)/2) * (LEAF_SPREAD_PX / r); // px / radius -> radians
+        const delta = (idx - (n - 1)/2) * (spread / r); // px/r -> radians
         c.x += delta;
       });
     });
   }
 
-  // Links
+  // Links & nodes
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
-  svg.append('g').attr('fill','none').attr('stroke','#2a3240').attr('stroke-width',0.9)
-    .selectAll('path').data(H.links()).join('path')
-    .attr('d',d=> link({source:d.source, target:d.target}));
+  svg.append('g').attr('fill','none').attr('stroke','var(--link)').attr('stroke-width',1)
+    .selectAll('path').data(H.links()).join('path').attr('d',d=> link({source:d.source, target:d.target}));
 
-  // Nodes
   svg.append('g').selectAll('circle').data(H.descendants()).join('circle')
     .attr('transform',d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`)
     .attr('r',d=>d.children?2.2:1.8)
-    .attr('fill',d=> d.ancestors().find(a=>a.depth===1)?.data?.color || '#8b8b8b')
-    .attr('stroke','#0b0d12').attr('stroke-width',0.6)
-    .on('mousemove',(e,d)=>showTip(e,d))
-    .on('mouseleave',hideTip);
+    .attr('fill',d=> d.ancestors().find(a=>a.depth===1)?.data?.color || '#9aa5b1')
+    .attr('stroke','var(--node-stroke)').attr('stroke-width',0.8)
+    .on('mousemove',(e,d)=>showTip(e,d)).on('mouseleave',hideTip);
 
-  // Helpers
-  const showIon    = document.getElementById('showIonLbl').checked;
-  const showStruct = document.getElementById('showStructLbl').checked;
-  const showDoping = document.getElementById('showDopingLbl').checked;
-  const showFormula= document.getElementById('showFormulaLbl').checked;
+  // Labels (formula labels at leaf end)
+  const layers = [
+    {depth:1, show:document.getElementById('showIonLbl').checked,     cls:'lbl-ion',     fs:13, weight:'700', gapDeg:0, off:8},
+    {depth:2, show:document.getElementById('showStructLbl').checked,  cls:'lbl-struct',  fs:fsStruct, weight:'500', gapDeg:+document.getElementById('gapStruct').value, off:6},
+    {depth:3, show:document.getElementById('showDopingLbl').checked,  cls:'lbl-doping',  fs:fsDoping, weight:'400', gapDeg:+document.getElementById('gapDoping').value, off:5},
+    {depth:4, show:document.getElementById('showFormulaLbl').checked, cls:'lbl-formula', fs:fsFormula, weight:'400', gapDeg:+document.getElementById('gapFormula').value, off:0}
+  ];
 
-  function polarToXY(a, r){ return [Math.cos(a-Math.PI/2)*r, Math.sin(a-Math.PI/2)*r]; }
+  for(const L of layers){
+    if(!L.show) continue;
+    const nodes = H.descendants().filter(d=>d.depth===L.depth);
 
-  // Leaders for outside formula labels
-  const leaderG = svg.append('g').attr('class','leaders');
-
-  // Labels
-  if (showIon){
-    const ions = H.descendants().filter(d=>d.depth===1);
-    svg.append('g').attr('class','lbl-ion')
-      .selectAll('text').data(ions).join('text')
-      .attr('transform',d=>{
-        const r=d.y+8, a=d.x; const [x,y]=polarToXY(a,r);
-        const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
-        return `translate(${x},${y}) rotate(${rot+flip})`;
-      })
-      .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
-      .text(d=>d.data?.name??'');
-  }
-  if (showStruct){
-    const nodes = H.descendants().filter(d=>d.depth===2);
-    const kept=[], gap=3*Math.PI/180, sorted=nodes.slice().sort((a,b)=>a.x-b.x);
-    for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=gap) kept.push(d); }
-    svg.append('g').attr('class','lbl-struct')
-      .selectAll('text').data(kept).join('text')
-      .attr('transform',d=>{
-        const r=d.y+6, a=d.x; const [x,y]=polarToXY(a,r);
-        const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
-        return `translate(${x},${y}) rotate(${rot+flip})`;
-      })
-      .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
-      .text(d=>d.data?.name??'');
-  }
-  if (showDoping){
-    const nodes = H.descendants().filter(d=>d.depth===3);
-    const kept=[], gap=2*Math.PI/180, sorted=nodes.slice().sort((a,b)=>a.x-b.x);
-    for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=gap) kept.push(d); }
-    svg.append('g').attr('class','lbl-doping')
-      .selectAll('text').data(kept).join('text')
-      .attr('transform',d=>{
-        const r=d.y+5, a=d.x; const [x,y]=polarToXY(a,r);
-        const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
-        return `translate(${x},${y}) rotate(${rot+flip})`;
-      })
-      .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
-      .text(d=>d.data?.name??'');
-  }
-  if (showFormula){
-    const leaves = H.descendants().filter(d=>d.depth===4);
-    // outside labels
-    const g = svg.append('g').attr('class','lbl-formula');
-    g.selectAll('text').data(leaves).join('text')
-      .attr('transform',d=>{
-        const r=d.y + FORMULA_OFFSET, a=d.x; const [x,y]=polarToXY(a,r);
-        const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
-        return `translate(${x},${y}) rotate(${rot+flip})`;
-      })
-      .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
-      .text(d=>d.data?.name??'');
-    // leaders
-    leaderG.selectAll(null).data(leaves).join('line')
-      .attr('class','leader')
-      .attr('x1',d=>polarToXY(d.x, d.y)[0]).attr('y1',d=>polarToXY(d.x, d.y)[1])
-      .attr('x2',d=>polarToXY(d.x, d.y + Math.min(10, FORMULA_OFFSET))[0])
-      .attr('y2',d=>polarToXY(d.x, d.y + Math.min(10, FORMULA_OFFSET))[1]);
+    if(L.depth===1){
+      svg.append('g').attr('font-size',L.fs).attr('font-weight',L.weight).attr('class',L.cls)
+        .selectAll('text').data(nodes).join('text')
+        .attr('transform',d=>{
+          const a=d.x,r=d.y+L.off; const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
+          const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+          return `translate(${x},${y}) rotate(${rot+flip})`;
+        })
+        .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+        .text(d=>d.data?.name??'');
+    } else if (L.depth===4){
+      svg.append('g').attr('font-size',L.fs).attr('font-weight',L.weight).attr('class',L.cls)
+        .selectAll('text').data(nodes).join('text')
+        .attr('transform',d=>{
+          const a=d.x,r=d.y; const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
+          const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+          return `translate(${x},${y}) rotate(${rot+flip})`;
+        })
+        .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+        .text(d=>d.data?.name??'');
+    } else {
+      const kept=[],minGap=L.gapDeg*Math.PI/180,sorted=nodes.slice().sort((a,b)=>a.x-b.x);
+      for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=minGap) kept.push(d); }
+      svg.append('g').attr('font-size',L.fs).attr('font-weight',L.weight).attr('class',L.cls)
+        .selectAll('text').data(kept).join('text')
+        .attr('transform',d=>{
+          const a=d.x,r=d.y+L.off; const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
+          const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+          return `translate(${x},${y}) rotate(${rot+flip})`;
+        })
+        .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+        .text(d=>d.data?.name??'');
+    }
   }
 
   // Title
   svg.append('text').attr('text-anchor','middle').attr('y',4)
-    .style('fill','#cbd5e1').style('font-size','12px')
-    .text('Ion → Structure → Doping → Formula • tidy rings; ONLY formula edge length ∝ σ • outside labels');
+    .style('fill', '#374151').style('font-size','12px')
+    .text('Ion → Structure → Doping → Formula • tidy rings; leaf length ∝ σ • leaf labels at branch end');
+
+  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length}`);
 }
 
 function showTip(e,d){
@@ -287,10 +326,13 @@ function showTip(e,d){
 }
 function hideTip(){ tip.style('opacity',0); }
 
-// ---------- Shared setup function ----------
-function setupFromRows(rows){
-  if(!rows || !rows.length){ say('No rows found'); return; }
-  const headers = rows.columns || Object.keys(rows[0] || {});
+// File & controls
+document.getElementById('loadBtn').onclick = () => document.getElementById('fileInput').click();
+document.getElementById('fileInput').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return; say('Loading '+f.name);
+  const text = await f.text();
+  const rows = d3.csvParse(text); if(!rows.length) return;
+  const headers = rows.columns;
   COLS = {
     ion:    guessCol(headers,["Ion Type (Normalized)","Ion Type","Ion"]),
     struct: guessCol(headers,["Structure Group (Canonical)","Structure Family (Canonical)","Structure"]),
@@ -300,50 +342,52 @@ function setupFromRows(rows){
   };
   DATA = rows;
 
-  // Populate ion multiselect (clear then fill once per dataset)
-  const sel = document.getElementById('ionSelect');
-  sel.innerHTML = '';
   const ions = [...new Set(rows.map(r => (r[COLS.ion]||'Other').toString().trim()))].sort((a,b)=>a.localeCompare(b));
-  ions.forEach(i=>{ const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); });
-
+  const sel = document.getElementById('ionSelect');
+  if(sel.options.length===0){
+    ions.forEach(i=>{ const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); });
+    const leg = document.getElementById('ionLegend');
+    ions.forEach(i=>{
+      const chip=document.createElement('div'); chip.className='chip';
+      const sw=document.createElement('div'); sw.className='sw'; sw.style.background=ionColorScale(i);
+      chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); leg.appendChild(chip);
+    });
+  }
   drawTree(DATA);
-}
-
-// ---------- File & minimal controls ----------
-document.getElementById('loadBtn').onclick = () => document.getElementById('fileInput').click();
-document.getElementById('fileInput').addEventListener('change', async e=>{
-  const f=e.target.files[0]; if(!f) return; say('Loading '+f.name);
-  const text = await f.text();
-  const rows = d3.csvParse(text); 
-  setupFromRows(rows);
-  say(`Loaded ${f.name} (${rows.length} rows)`);
 });
 
-// React to ion filter & label toggles
-["ionSelect","showIonLbl","showStructLbl","showDopingLbl","showFormulaLbl"]
-.forEach(id=> document.getElementById(id).addEventListener('input', ()=> { if(DATA) drawTree(DATA); }));
+[
+ "ionSelect","showIonLbl","showStructLbl","showDopingLbl","showFormulaLbl",
+ "fsStruct","fsDoping","fsFormula",
+ "gapStruct","gapDoping","gapFormula",
+ "leafSpread","sigmaDefault","useLog","baseEdge","leafMin","leafMax"
+].forEach(id=> document.getElementById(id).addEventListener('input', ()=> { if(DATA) drawTree(DATA); }));
 
-// Select All / Clear
-(document.getElementById('selectAllBtn')).addEventListener('click', ()=>{
+document.getElementById('selectAllBtn').addEventListener('click', ()=>{
   const sel=document.getElementById('ionSelect'); for(const o of sel.options){ o.selected=true; } if(DATA) drawTree(DATA);
 });
-(document.getElementById('clearAllBtn')).addEventListener('click', ()=>{
+document.getElementById('clearAllBtn').addEventListener('click', ()=>{
   const sel=document.getElementById('ionSelect'); for(const o of sel.options){ o.selected=false; } if(DATA) drawTree(DATA);
 });
 
-// ---------- AUTO-LOAD CSV ON START ----------
-(async function autoload(){
-  try{
-    say('Loading data.csv…');
-    const rows = await d3.csv('data.csv');
-    if(!rows.length){ say('data.csv is empty'); return; }
-    setupFromRows(rows);
-    say(`Loaded data.csv (${rows.length} rows)`);
-  }catch(err){
-    console.error(err);
-    say('Could not load data.csv. Use "Load another CSV" to select a file.');
-  }
-})();
+// Sample preview
+const SAMPLE=`Ion Type (Normalized),Structure Group (Canonical),Doping / and or GB Strategy,superionic conductor Formula (Chemical),Conductivity σ (S·cm⁻¹)
+Li+,NASICON,Al-doped,Li1.3Al0.3Ti1.7(PO4)3,2e-3
+Na+,Garnet,(none),Na3Zr2Si2PO12,4e-4
+K+,Perovskite,(none),K0.5La0.5TiO3,8e-5
+Li+,Argyrodite,Li-excess,Li6PS5Cl,1.2×10^-2
+Na+,Halide,Cl,Na3YCl6,9×10^-2
+Li+,NASICON,Ga-doped,Li1.3Ga0.3Ti1.7(PO4)3,1.4e-3
+Na+,NASICON,(none),Na1.3Zr1.4Si0.6(PO4)3,7×10^-4`;
+DATA = d3.csvParse(SAMPLE);
+COLS = {
+  ion:"Ion Type (Normalized)",
+  struct:"Structure Group (Canonical)",
+  doping:"Doping / and or GB Strategy",
+  formula:"superionic conductor Formula (Chemical)",
+  sigma:"Conductivity σ (S·cm⁻¹)"
+};
+drawTree(DATA);
 </script>
 </body>
 </html>
