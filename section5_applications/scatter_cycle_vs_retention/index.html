@@ -1,1 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Scatter Plot — Conductivity vs Activation Energy</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      margin: 40px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    svg {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      display: block;
+      margin: auto;
+    }
+    .axis path,
+    .axis line {
+      stroke: #888;
+    }
+    .tooltip {
+      position: absolute;
+      background: white;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 13px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      pointer-events: none;
+    }
+    .legend text {
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
 
+<h2>Scatter Plot — Conductivity vs Activation Energy</h2>
+<svg width="900" height="550"></svg>
+
+<script>
+// Setup
+const margin = {top: 40, right: 220, bottom: 60, left: 70},
+      width = 900 - margin.left - margin.right,
+      height = 550 - margin.top - margin.bottom;
+
+const svg = d3.select("svg")
+  .append("g")
+  .attr("transform", `translate(${margin.left},${margin.top})`);
+
+const tooltip = d3.select("body").append("div")
+  .attr("class", "tooltip")
+  .style("visibility", "hidden");
+
+// Load CSV (double-quoted friendly)
+d3.csv("data.csv").then(data => {
+
+  // Parse numeric fields
+  data.forEach(d => {
+    d.Ea_eV_mean = +d.Ea_eV_mean;
+    d.log10_sigma = +d.log10_sigma;
+  });
+
+  // Scales
+  const x = d3.scaleLinear()
+    .domain(d3.extent(data, d => d.Ea_eV_mean)).nice()
+    .range([0, width]);
+
+  const y = d3.scaleLinear()
+    .domain(d3.extent(data, d => d.log10_sigma)).nice()
+    .range([height, 0]);
+
+  const color = d3.scaleOrdinal(d3.schemeTableau10);
+  const shape = d3.scaleOrdinal()
+    .domain([...new Set(data.map(d => d.IonType))])
+    .range([
+      d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, 
+      d3.symbolDiamond, d3.symbolCross, d3.symbolStar
+    ]);
+
+  // Axes
+  svg.append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(x))
+    .append("text")
+    .attr("x", width / 2)
+    .attr("y", 45)
+    .attr("fill", "black")
+    .attr("text-anchor", "middle")
+    .text("Activation Energy Ea (eV)");
+
+  svg.append("g")
+    .call(d3.axisLeft(y))
+    .append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("x", -height / 2)
+    .attr("y", -50)
+    .attr("fill", "black")
+    .attr("text-anchor", "middle")
+    .text("log₁₀(Conductivity σ)");
+
+  // Points
+  svg.selectAll(".point")
+    .data(data)
+    .enter()
+    .append("path")
+    .attr("class", "point")
+    .attr("transform", d => `translate(${x(d.Ea_eV_mean)},${y(d.log10_sigma)})`)
+    .attr("d", d3.symbol().type(d => shape(d.IonType)).size(90))
+    .attr("fill", d => color(d.StructureType))
+    .attr("opacity", 0.85)
+    .on("mouseover", (event, d) => {
+      tooltip.html(`
+        <b>${d.Formula}</b><br>
+        Structure: ${d.StructureType}<br>
+        Ion: ${d.IonType}<br>
+        Ea: ${d.Ea_eV_mean.toFixed(3)} eV<br>
+        log₁₀σ: ${d.log10_sigma.toFixed(3)}
+      `)
+      .style("visibility", "visible")
+      .style("left", (event.pageX + 12) + "px")
+      .style("top", (event.pageY - 20) + "px");
+    })
+    .on("mousemove", event => {
+      tooltip.style("left", (event.pageX + 12) + "px")
+             .style("top", (event.pageY - 20) + "px");
+    })
+    .on("mouseout", () => tooltip.style("visibility", "hidden"));
+
+  // Legend: Structure Type
+  const structures = [...new Set(data.map(d => d.StructureType))];
+  const legend = svg.append("g")
+    .attr("transform", `translate(${width + 20}, 0)`);
+
+  legend.append("text")
+    .attr("x", 0)
+    .attr("y", -10)
+    .attr("font-weight", "bold")
+    .text("Structure Type");
+
+  structures.forEach((s, i) => {
+    legend.append("rect")
+      .attr("x", 0)
+      .attr("y", i * 20)
+      .attr("width", 12)
+      .attr("height", 12)
+      .attr("fill", color(s));
+    legend.append("text")
+      .attr("x", 20)
+      .attr("y", i * 20 + 10)
+      .text(s)
+      .attr("alignment-baseline", "middle");
+  });
+});
+</script>
+
+</body>
+</html>
