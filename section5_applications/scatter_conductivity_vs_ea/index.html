@@ -11,17 +11,38 @@
     .axis path, .axis line { stroke: #888; }
     .tooltip { position: absolute; background: white; border: 1px solid #aaa; border-radius: 4px; padding: 6px 10px; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); pointer-events: none; }
     .empty { text-anchor: middle; fill: #666; font-size: 14px; }
+
+    .legend-container {
+      position: absolute;
+      right: 40px;
+      width: 200px;
+      max-height: 240px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    }
+    #colorLegend { top: 100px; }
+    #shapeLegend { top: 360px; }
+    .legend-title { font-weight: bold; font-size: 13px; margin-bottom: 5px; text-align: center; }
+    .legend-item { display: flex; align-items: center; margin-bottom: 4px; font-size: 12px; cursor: pointer; user-select: none; }
+    .legend-symbol { width: 16px; height: 16px; margin-right: 6px; }
+    .legend-item.disabled { opacity: 0.35; text-decoration: line-through; }
   </style>
 </head>
 <body>
 
 <h2>Scatter Plot — Conductivity vs Activation Energy</h2>
-<svg width="900" height="550"></svg>
+<div class="legend-container" id="colorLegend"></div>
+<div class="legend-container" id="shapeLegend"></div>
+<svg width="900" height="560"></svg>
 
 <script>
-const margin = {top: 40, right: 220, bottom: 60, left: 70},
+const margin = {top: 40, right: 240, bottom: 60, left: 70},
       width  = 900 - margin.left - margin.right,
-      height = 550 - margin.top - margin.bottom;
+      height = 560 - margin.top - margin.bottom;
 
 const svg = d3.select("svg").append("g")
   .attr("transform", `translate(${margin.left},${margin.top})`);
@@ -30,86 +51,68 @@ const tooltip = d3.select("body").append("div")
   .attr("class", "tooltip")
   .style("visibility", "hidden");
 
-// Load from data.csv (double-quoted values are fine)
 d3.csv("data.csv").then(raw => {
-  console.log("rows loaded:", raw.length);
-
-  // Coerce numerics and filter
+  // Coerce + filter (Ea <= 1)
   const data = raw.map(d => ({
     Formula: d.Formula,
     StructureType: d.StructureType,
     IonType: d.IonType,
     Ea_eV_mean: +d.Ea_eV_mean,
     log10_sigma: +d.log10_sigma
-  })).filter(d =>
-    Number.isFinite(d.Ea_eV_mean) &&
-    Number.isFinite(d.log10_sigma) &&
-    d.Ea_eV_mean <= 1.0
-  );
+  })).filter(d => Number.isFinite(d.Ea_eV_mean) && Number.isFinite(d.log10_sigma) && d.Ea_eV_mean <= 1);
 
-  console.log("rows after filtering (Ea ≤ 1 eV & numeric):", data.length);
-
-  // If nothing to plot, show a friendly message
-  if (data.length === 0) {
-    svg.append("text")
-      .attr("class", "empty")
-      .attr("x", width/2)
-      .attr("y", height/2)
+  if (!data.length) {
+    svg.append("text").attr("class","empty")
+      .attr("x", width/2).attr("y", height/2)
       .text("No data to plot. Check Ea_eV_mean ≤ 1 and log10_sigma.");
     return;
   }
 
-  // Scales with guard for zero-span extents
-  const xExtent = d3.extent(data, d => d.Ea_eV_mean);
-  const yExtent = d3.extent(data, d => d.log10_sigma);
-
-  // If all points share one value, pad the domain a bit
-  const padIfFlat = ([a,b]) => (a === b ? [a - 0.1 || a - 1, b + 0.1 || b + 1] : [a, b]);
-
-  const x = d3.scaleLinear().domain(padIfFlat(xExtent)).nice().range([0, width]);
-  const y = d3.scaleLinear().domain(padIfFlat(yExtent)).nice().range([height, 0]);
+  // Scales
+  const x = d3.scaleLinear().domain(d3.extent(data, d => d.Ea_eV_mean)).nice().range([0, width]);
+  const y = d3.scaleLinear().domain(d3.extent(data, d => d.log10_sigma)).nice().range([height, 0]);
 
   const color = d3.scaleOrdinal(d3.schemeTableau10);
+  const structureTypes = [...new Set(data.map(d => d.StructureType))];
   const ionTypes = [...new Set(data.map(d => d.IonType))];
+
   const shape = d3.scaleOrdinal()
     .domain(ionTypes)
     .range([d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, d3.symbolDiamond, d3.symbolCross, d3.symbolStar]);
 
   // Axes
-  svg.append("g")
-    .attr("transform", `translate(0,${height})`)
+  svg.append("g").attr("transform", `translate(0,${height})`)
     .call(d3.axisBottom(x))
     .append("text")
-      .attr("x", width / 2).attr("y", 45)
-      .attr("fill", "black").attr("text-anchor", "middle")
+      .attr("x", width/2).attr("y", 45)
+      .attr("fill","black").attr("text-anchor","middle")
       .text("Activation Energy Ea (eV)");
 
-  svg.append("g")
-    .call(d3.axisLeft(y))
+  svg.append("g").call(d3.axisLeft(y))
     .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("x", -height / 2).attr("y", -50)
-      .attr("fill", "black").attr("text-anchor", "middle")
+      .attr("transform","rotate(-90)")
+      .attr("x", -height/2).attr("y", -50)
+      .attr("fill","black").attr("text-anchor","middle")
       .text("log₁₀(Conductivity σ)");
 
   // Points
-  svg.selectAll(".point")
+  const points = svg.selectAll(".point")
     .data(data)
     .enter().append("path")
       .attr("class", "point")
       .attr("transform", d => `translate(${x(d.Ea_eV_mean)},${y(d.log10_sigma)})`)
       .attr("d", d3.symbol().type(d => shape(d.IonType) || d3.symbolCircle).size(90))
       .attr("fill", d => color(d.StructureType))
-      .attr("opacity", 0.85)
+      .attr("opacity", 0.9)
       .on("mouseover", (event, d) => {
         tooltip.html(`
           <b>${d.Formula || "—"}</b><br>
           Structure: ${d.StructureType || "—"}<br>
           Ion: ${d.IonType || "—"}<br>
-          Ea: ${Number(d.Ea_eV_mean).toFixed(3)} eV<br>
-          log₁₀σ: ${Number(d.log10_sigma).toFixed(3)}
+          Ea: ${d.Ea_eV_mean.toFixed(3)} eV<br>
+          log₁₀σ: ${d.log10_sigma.toFixed(3)}
         `)
-        .style("visibility", "visible")
+        .style("visibility","visible")
         .style("left", (event.pageX + 12) + "px")
         .style("top", (event.pageY - 20) + "px");
       })
@@ -117,30 +120,59 @@ d3.csv("data.csv").then(raw => {
         tooltip.style("left", (event.pageX + 12) + "px")
                .style("top", (event.pageY - 20) + "px");
       })
-      .on("mouseout", () => tooltip.style("visibility", "hidden"));
+      .on("mouseout", () => tooltip.style("visibility","hidden"));
 
-  // Legend: Structure Type
-  const structures = [...new Set(data.map(d => d.StructureType))];
-  const legend = svg.append("g").attr("transform", `translate(${width + 20}, 0)`);
+  // Active sets for legend toggling
+  const activeStructures = new Set(structureTypes); // all on
+  const activeIons = new Set(ionTypes);             // all on
 
-  legend.append("text")
-    .attr("x", 0).attr("y", -10)
-    .attr("font-weight", "bold")
-    .text("Structure Type");
+  function updateVisibility() {
+    points.style("display", d =>
+      (activeStructures.has(d.StructureType) && activeIons.has(d.IonType)) ? null : "none"
+    );
+  }
 
-  structures.forEach((s, i) => {
-    legend.append("rect")
-      .attr("x", 0).attr("y", i * 20)
-      .attr("width", 12).attr("height", 12)
-      .attr("fill", color(s));
-    legend.append("text")
-      .attr("x", 20).attr("y", i * 20 + 10)
-      .text(s)
-      .attr("alignment-baseline", "middle");
+  // --- Scrollable Color Legend (Structure Type) ---
+  const colorLegend = d3.select("#colorLegend")
+    .html("<div class='legend-title'>Structure Type</div>");
+
+  structureTypes.forEach(s => {
+    const item = colorLegend.append("div")
+      .attr("class","legend-item")
+      .on("click", () => {
+        if (activeStructures.has(s)) activeStructures.delete(s); else activeStructures.add(s);
+        item.classed("disabled", !activeStructures.has(s));
+        updateVisibility();
+      });
+
+    item.append("svg").attr("class","legend-symbol")
+      .append("rect").attr("width",12).attr("height",12).attr("fill", color(s));
+
+    item.append("span").text(s);
   });
 
-  console.log("unique Ion Types:", ionTypes);
-  console.log("unique Structure Types:", structures);
+  // --- Scrollable Shape Legend (Ion Type) ---
+  const shapeLegend = d3.select("#shapeLegend")
+    .html("<div class='legend-title'>Ion Type</div>");
+
+  ionTypes.forEach(t => {
+    const item = shapeLegend.append("div")
+      .attr("class","legend-item")
+      .on("click", () => {
+        if (activeIons.has(t)) activeIons.delete(t); else activeIons.add(t);
+        item.classed("disabled", !activeIons.has(t));
+        updateVisibility();
+      });
+
+    const sym = d3.symbol().type(shape(t)).size(80);
+    const symSvg = item.append("svg").attr("class","legend-symbol")
+      .attr("viewBox","-10 -10 20 20");
+    symSvg.append("path").attr("d", sym()).attr("fill", "#555");
+
+    item.append("span").text(t);
+  });
+
+  console.log(`Plotted ${data.length} points`);
 });
 </script>
 
