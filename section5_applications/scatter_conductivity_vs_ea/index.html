@@ -5,61 +5,96 @@
   <title>Scatter — Conductivity vs Activation Energy</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 40px; }
-    h2 { text-align: center; margin-bottom: 20px; }
-    svg { background: #fff; border: 1px solid #ccc; border-radius: 8px; display: block; margin: auto; }
+    :root { --panel-w: 220px; }
+    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 20px; }
+    h2 { text-align: left; margin: 10px 0 14px; }
+    .wrap { display: grid; grid-template-columns: 1fr var(--panel-w); gap: 16px; align-items: start; }
+    .viz { background: #fff; border: 1px solid #ccc; border-radius: 8px; }
     .axis path, .axis line { stroke: #888; }
     .tooltip { position: absolute; background: white; border: 1px solid #aaa; border-radius: 4px; padding: 6px 10px; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); pointer-events: none; }
     .empty { text-anchor: middle; fill: #666; font-size: 14px; }
-
-    .legend-container {
-      position: absolute;
-      right: 40px;
-      width: 200px;
-      max-height: 240px;
-      overflow-y: auto;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      background: #fff;
-      padding: 8px 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
-    }
-    #colorLegend { top: 100px; }
-    #shapeLegend { top: 360px; }
-    .legend-title { font-weight: bold; font-size: 13px; margin-bottom: 5px; text-align: center; }
-    .legend-item { display: flex; align-items: center; margin-bottom: 4px; font-size: 12px; cursor: pointer; user-select: none; }
-    .legend-symbol { width: 16px; height: 16px; margin-right: 6px; }
+    .sidepanels { position: sticky; top: 10px; }
+    .panel { background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 10px; margin-bottom: 12px; max-height: 260px; overflow-y: auto; }
+    .panel h3 { font-size: 13px; margin: 0 0 8px; text-align: center; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 4px 0; cursor: pointer; user-select: none; }
     .legend-item.disabled { opacity: 0.35; text-decoration: line-through; }
+    .legend-symbol { width: 18px; height: 18px; flex: 0 0 18px; }
+    .controls { display: flex; gap: 6px; justify-content: space-between; margin-bottom: 6px; }
+    .controls button { font-size: 11px; padding: 4px 6px; border-radius: 6px; border: 1px solid #bbb; background: #f6f6f6; cursor: pointer; }
+    .controls button:hover { background: #eee; }
   </style>
 </head>
 <body>
 
 <h2>Scatter Plot — Conductivity vs Activation Energy</h2>
-<div class="legend-container" id="colorLegend"></div>
-<div class="legend-container" id="shapeLegend"></div>
-<svg width="900" height="560"></svg>
+
+<div class="wrap">
+  <svg class="viz" width="900" height="560"></svg>
+
+  <div class="sidepanels">
+    <div class="panel" id="colorLegend">
+      <div class="controls">
+        <button id="colorAll">Show all</button>
+        <button id="colorNone">Hide all</button>
+      </div>
+      <h3>Structure Type (Color)</h3>
+      <div id="colorItems"></div>
+    </div>
+
+    <div class="panel" id="shapeLegend">
+      <div class="controls">
+        <button id="shapeAll">Show all</button>
+        <button id="shapeNone">Hide all</button>
+      </div>
+      <h3>Ion Type (Shape)</h3>
+      <div id="shapeItems"></div>
+    </div>
+  </div>
+</div>
 
 <script>
-const margin = {top: 40, right: 240, bottom: 60, left: 70},
-      width  = 900 - margin.left - margin.right,
-      height = 560 - margin.top - margin.bottom;
+const margin = {top: 40, right: 20, bottom: 60, left: 70},
+      outerW = 900, outerH = 560,
+      width  = outerW - margin.left - margin.right,
+      height = outerH - margin.top - margin.bottom;
 
-const svg = d3.select("svg").append("g")
+const svg = d3.select("svg.viz")
+  .append("g")
   .attr("transform", `translate(${margin.left},${margin.top})`);
 
 const tooltip = d3.select("body").append("div")
   .attr("class", "tooltip")
   .style("visibility", "hidden");
 
+// --- helpers to normalize labels ---
+const toAsciiPlus = s => s.replace(/⁺/g, "+").replace(/\s+/g, " ").trim();
+const normLabel = s => {
+  if (!s) return "";
+  return toAsciiPlus(String(s)).replace(/\u00A0/g, " ").trim(); // remove non-breaking spaces
+};
+
 d3.csv("data.csv").then(raw => {
-  // Coerce + filter (Ea <= 1)
+  // normalize + coerce + filter Ea <= 1
   const data = raw.map(d => ({
-    Formula: d.Formula,
-    StructureType: d.StructureType,
-    IonType: d.IonType,
+    Formula: d.Formula?.trim() || "",
+    StructureType: normLabel(d.StructureType),
+    IonType: normLabel(d.IonType),
     Ea_eV_mean: +d.Ea_eV_mean,
     log10_sigma: +d.log10_sigma
-  })).filter(d => Number.isFinite(d.Ea_eV_mean) && Number.isFinite(d.log10_sigma) && d.Ea_eV_mean <= 1);
+  })).filter(d =>
+    Number.isFinite(d.Ea_eV_mean) &&
+    Number.isFinite(d.log10_sigma) &&
+    d.Ea_eV_mean <= 1
+  );
+
+  console.log("rows loaded:", raw.length);
+  console.log("rows after filtering & normalization:", data.length);
+
+  const structureTypes = [...new Set(data.map(d => d.StructureType).filter(Boolean))];
+  const ionTypes = [...new Set(data.map(d => d.IonType).filter(Boolean))];
+
+  console.log("unique Structure Types:", structureTypes);
+  console.log("unique Ion Types:", ionTypes);
 
   if (!data.length) {
     svg.append("text").attr("class","empty")
@@ -68,41 +103,46 @@ d3.csv("data.csv").then(raw => {
     return;
   }
 
-  // Scales
+  // scales
   const x = d3.scaleLinear().domain(d3.extent(data, d => d.Ea_eV_mean)).nice().range([0, width]);
   const y = d3.scaleLinear().domain(d3.extent(data, d => d.log10_sigma)).nice().range([height, 0]);
+  const color = d3.scaleOrdinal(d3.schemeTableau10).domain(structureTypes);
 
-  const color = d3.scaleOrdinal(d3.schemeTableau10);
-  const structureTypes = [...new Set(data.map(d => d.StructureType))];
-  const ionTypes = [...new Set(data.map(d => d.IonType))];
+  // a longer shape palette; cycle if needed
+  const shapeTypes = [
+    d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, d3.symbolDiamond,
+    d3.symbolCross, d3.symbolStar, d3.symbolWye
+  ];
+  const shape = t => {
+    const idx = ionTypes.indexOf(t);
+    return shapeTypes[(idx >= 0 ? idx : 0) % shapeTypes.length];
+  };
 
-  const shape = d3.scaleOrdinal()
-    .domain(ionTypes)
-    .range([d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, d3.symbolDiamond, d3.symbolCross, d3.symbolStar]);
-
-  // Axes
+  // axes
   svg.append("g").attr("transform", `translate(0,${height})`)
     .call(d3.axisBottom(x))
     .append("text")
       .attr("x", width/2).attr("y", 45)
-      .attr("fill","black").attr("text-anchor","middle")
+      .attr("fill", "black").attr("text-anchor", "middle")
       .text("Activation Energy Ea (eV)");
 
   svg.append("g").call(d3.axisLeft(y))
     .append("text")
-      .attr("transform","rotate(-90)")
+      .attr("transform", "rotate(-90)")
       .attr("x", -height/2).attr("y", -50)
-      .attr("fill","black").attr("text-anchor","middle")
+      .attr("fill", "black").attr("text-anchor", "middle")
       .text("log₁₀(Conductivity σ)");
 
-  // Points
+  // initial draw
   const points = svg.selectAll(".point")
     .data(data)
     .enter().append("path")
       .attr("class", "point")
       .attr("transform", d => `translate(${x(d.Ea_eV_mean)},${y(d.log10_sigma)})`)
-      .attr("d", d3.symbol().type(d => shape(d.IonType) || d3.symbolCircle).size(90))
-      .attr("fill", d => color(d.StructureType))
+      .attr("d", d3.symbol().type(d => shape(d.IonType)).size(100))
+      .attr("fill", d => color(d.StructureType) || "#888")
+      .attr("stroke", "#222")
+      .attr("stroke-width", 0.6)
       .attr("opacity", 0.9)
       .on("mouseover", (event, d) => {
         tooltip.html(`
@@ -112,7 +152,7 @@ d3.csv("data.csv").then(raw => {
           Ea: ${d.Ea_eV_mean.toFixed(3)} eV<br>
           log₁₀σ: ${d.log10_sigma.toFixed(3)}
         `)
-        .style("visibility","visible")
+        .style("visibility", "visible")
         .style("left", (event.pageX + 12) + "px")
         .style("top", (event.pageY - 20) + "px");
       })
@@ -122,9 +162,9 @@ d3.csv("data.csv").then(raw => {
       })
       .on("mouseout", () => tooltip.style("visibility","hidden"));
 
-  // Active sets for legend toggling
-  const activeStructures = new Set(structureTypes); // all on
-  const activeIons = new Set(ionTypes);             // all on
+  // active sets
+  const activeStructures = new Set(structureTypes);
+  const activeIons = new Set(ionTypes);
 
   function updateVisibility() {
     points.style("display", d =>
@@ -132,49 +172,58 @@ d3.csv("data.csv").then(raw => {
     );
   }
 
-  // --- Scrollable Color Legend (Structure Type) ---
-  const colorLegend = d3.select("#colorLegend")
-    .html("<div class='legend-title'>Structure Type</div>");
-
+  // COLOR LEGEND (Structure Type)
+  const colorItems = d3.select("#colorItems");
   structureTypes.forEach(s => {
-    const item = colorLegend.append("div")
-      .attr("class","legend-item")
-      .on("click", () => {
-        if (activeStructures.has(s)) activeStructures.delete(s); else activeStructures.add(s);
-        item.classed("disabled", !activeStructures.has(s));
-        updateVisibility();
-      });
-
-    item.append("svg").attr("class","legend-symbol")
-      .append("rect").attr("width",12).attr("height",12).attr("fill", color(s));
-
+    const item = colorItems.append("div").attr("class", "legend-item");
+    const sym = item.append("svg").attr("class", "legend-symbol");
+    sym.append("rect").attr("x", 2).attr("y", 2).attr("width", 14).attr("height", 14)
+      .attr("fill", color(s)).attr("stroke", "#222").attr("stroke-width", 0.6);
     item.append("span").text(s);
+    item.on("click", () => {
+      if (activeStructures.has(s)) activeStructures.delete(s); else activeStructures.add(s);
+      item.classed("disabled", !activeStructures.has(s));
+      updateVisibility();
+    });
   });
 
-  // --- Scrollable Shape Legend (Ion Type) ---
-  const shapeLegend = d3.select("#shapeLegend")
-    .html("<div class='legend-title'>Ion Type</div>");
-
+  // SHAPE LEGEND (Ion Type)
+  const shapeItems = d3.select("#shapeItems");
   ionTypes.forEach(t => {
-    const item = shapeLegend.append("div")
-      .attr("class","legend-item")
-      .on("click", () => {
-        if (activeIons.has(t)) activeIons.delete(t); else activeIons.add(t);
-        item.classed("disabled", !activeIons.has(t));
-        updateVisibility();
-      });
-
-    const sym = d3.symbol().type(shape(t)).size(80);
-    const symSvg = item.append("svg").attr("class","legend-symbol")
-      .attr("viewBox","-10 -10 20 20");
-    symSvg.append("path").attr("d", sym()).attr("fill", "#555");
-
+    const item = shapeItems.append("div").attr("class", "legend-item");
+    const symSvg = item.append("svg").attr("class", "legend-symbol").attr("viewBox","-10 -10 20 20");
+    const path = d3.symbol().type(shape(t)).size(120);
+    symSvg.append("path").attr("d", path()).attr("fill", "#555").attr("stroke", "#222").attr("stroke-width", 0.6);
     item.append("span").text(t);
+    item.on("click", () => {
+      if (activeIons.has(t)) activeIons.delete(t); else activeIons.add(t);
+      item.classed("disabled", !activeIons.has(t));
+      updateVisibility();
+    });
   });
 
-  console.log(`Plotted ${data.length} points`);
+  // Show/Hide all controls
+  d3.select("#colorAll").on("click", () => {
+    structureTypes.forEach(s => activeStructures.add(s));
+    d3.select("#colorItems").selectAll(".legend-item").classed("disabled", false);
+    updateVisibility();
+  });
+  d3.select("#colorNone").on("click", () => {
+    activeStructures.clear();
+    d3.select("#colorItems").selectAll(".legend-item").classed("disabled", true);
+    updateVisibility();
+  });
+  d3.select("#shapeAll").on("click", () => {
+    ionTypes.forEach(t => activeIons.add(t));
+    d3.select("#shapeItems").selectAll(".legend-item").classed("disabled", false);
+    updateVisibility();
+  });
+  d3.select("#shapeNone").on("click", () => {
+    activeIons.clear();
+    d3.select("#shapeItems").selectAll(".legend-item").classed("disabled", true);
+    updateVisibility();
+  });
 });
 </script>
-
 </body>
 </html>
