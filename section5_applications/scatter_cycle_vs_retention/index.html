@@ -6,27 +6,26 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; background:#f9f9f9; margin: 32px; }
-    svg  { background:#fff; border:1px solid #ccc; border-radius:8px; display:block; margin:auto; }
+    svg { background:#fff; border:1px solid #ccc; border-radius:8px; display:block; margin:auto; }
     .axis path, .axis line { stroke:#888; }
-    .tooltip { position:absolute; background:#fff; border:1px solid #aaa; border-radius:4px; padding:6px 10px; font-size:13px; box-shadow:0 2px 5px rgba(0,0,0,.2); pointer-events:none; }
-    .legend { position:absolute; right:32px; top:40px; width:220px; max-height:260px; overflow-y:auto; background:#fff; border:1px solid #ccc; border-radius:8px; padding:8px 10px; box-shadow:0 2px 5px rgba(0,0,0,.15); }
+    .tooltip { position:absolute; background:#fff; border:1px solid #aaa; border-radius:4px;
+               padding:6px 10px; font-size:13px; box-shadow:0 2px 5px rgba(0,0,0,.2); pointer-events:none; }
+    .legend { position:absolute; right:32px; top:40px; width:220px; max-height:260px; overflow-y:auto;
+              background:#fff; border:1px solid #ccc; border-radius:8px; padding:8px 10px;
+              box-shadow:0 2px 5px rgba(0,0,0,.15); }
     .legend h3 { font-size:13px; margin:0 0 6px; text-align:center; }
     .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; margin:4px 0; }
     .legend-symbol { width:18px; height:18px; flex:0 0 18px; }
-    .status { position:absolute; left:32px; top:40px; background:#fff; border:1px solid #ccc; border-radius:6px; padding:6px 8px; font-size:12px; }
   </style>
 </head>
 <body>
 
-<h2>Scatter — Cycle Life (N cycles or hours) vs Retention %</h2>
-<div class="status" id="status">loading…</div>
+<h2>Scatter — Cycle Life (N cycles or hours) vs Retention (%)</h2>
 <div class="legend" id="legendColor"><h3>Structure Type (Color)</h3><div id="colorItems"></div></div>
 <div class="legend" id="legendShape" style="top:330px;"><h3>Ion Type (Shape)</h3><div id="shapeItems"></div></div>
 <svg width="900" height="560"></svg>
 
 <script>
-const CSV_FILE = "data.csv"; // <-- make sure this file is beside index.html
-
 const margin = {top: 40, right: 260, bottom: 60, left: 70},
       width  = 900 - margin.left - margin.right,
       height = 560 - margin.top - margin.bottom;
@@ -38,49 +37,18 @@ const tooltip = d3.select("body").append("div")
   .attr("class", "tooltip")
   .style("visibility","hidden");
 
-// robust parsers
-function firstNumberOrNaN(s) {
-  const m = String(s ?? "").replace(/,/g,"").match(/-?\d+(\.\d+)?/);
-  return m ? +m[0] : NaN;
-}
-function parseCycle(val) {
-  return firstNumberOrNaN(val); // handles "500 cycles", "120 h", "325.5", etc.
-}
-function parseRetention(val) {
-  const clean = String(val ?? "").replace(/%/g,"");
-  return firstNumberOrNaN(clean); // "95%", "95", "95.5"
-}
-
-d3.csv(CSV_FILE).then(raw => {
-  const cols = Object.keys(raw[0] || {});
-  console.log("Loaded:", CSV_FILE, "Columns:", cols);
-
-  // exact headers you pasted
-  const C_FORMULA = "Formula (Chemical)";
-  const C_ION     = "Ion Type";
-  const C_STRUCT  = "Structure Type";
-  const C_CYCLE   = "Cycle Life (N cycles or hours)";
-  const C_RET     = "Retention %";
-
-  const required = [C_FORMULA, C_ION, C_STRUCT, C_CYCLE, C_RET];
-  const missing = required.filter(c => !cols.includes(c));
-  if (missing.length) {
-    document.getElementById("status").textContent = "Missing columns: " + missing.join(", ");
-    svg.append("text").attr("x", width/2).attr("y", height/2).attr("text-anchor","middle").attr("fill","#666")
-      .text("No data to plot. Missing: " + missing.join(", "));
-    return;
-  }
-
+d3.csv("data.csv").then(raw => {
   const data = raw.map(d => ({
-    Formula: (d[C_FORMULA] || "").trim(),
-    StructureType: (d[C_STRUCT] || "").trim(),
-    IonType: (d[C_ION] || "").trim(),
-    CycleLife: parseCycle(d[C_CYCLE]),
-    Retention: parseRetention(d[C_RET])
-  })).filter(d => Number.isFinite(d.CycleLife) && Number.isFinite(d.Retention));
-
-  console.log("Rows loaded:", raw.length, "| Usable:", data.length);
-  document.getElementById("status").textContent = `rows loaded: ${raw.length} | plotted: ${data.length}`;
+    Formula: d["Formula (Chemical)"],
+    StructureType: d["Structure Type"],
+    IonType: d["Ion Type"],
+    CycleLife: +d["Cycle Life"],
+    Retention: +d["Retention"]
+  })).filter(d =>
+    Number.isFinite(d.CycleLife) &&
+    Number.isFinite(d.Retention) &&
+    d.Retention > 0 && d.Retention <= 100
+  );
 
   if (!data.length) {
     svg.append("text").attr("x", width/2).attr("y", height/2)
@@ -89,19 +57,19 @@ d3.csv(CSV_FILE).then(raw => {
     return;
   }
 
-  const x = d3.scaleLinear().domain(d3.extent(data, d => d.CycleLife)).nice().range([0, width]);
-  const y = d3.scaleLinear().domain(d3.extent(data, d => d.Retention)).nice().range([height, 0]);
+  // --- Scales ---
+  const x = d3.scaleLog()
+    .domain(d3.extent(data, d => d.CycleLife))
+    .nice()
+    .range([0, width]);
 
-  const structureTypes = [...new Set(data.map(d => d.StructureType).filter(Boolean))];
-  const ionTypes = [...new Set(data.map(d => d.IonType).filter(Boolean))];
+  const y = d3.scaleLinear()
+    .domain([0, 100])
+    .range([height, 0]);
 
-  const color = d3.scaleOrdinal(d3.schemeTableau10).domain(structureTypes);
-  const shapeTypes = [d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, d3.symbolDiamond, d3.symbolCross, d3.symbolStar, d3.symbolWye];
-  const getShape = t => shapeTypes[(ionTypes.indexOf(t) >= 0 ? ionTypes.indexOf(t) : 0) % shapeTypes.length];
-
-  // Axes
+  // --- Axes ---
   svg.append("g").attr("transform", `translate(0,${height})`)
-    .call(d3.axisBottom(x))
+    .call(d3.axisBottom(x).ticks(8, "~s"))
     .append("text")
       .attr("x", width/2).attr("y", 45).attr("fill","black").attr("text-anchor","middle")
       .text("Cycle Life (N cycles or hours)");
@@ -113,23 +81,32 @@ d3.csv(CSV_FILE).then(raw => {
       .attr("x", -height/2).attr("y", -50).attr("fill","black").attr("text-anchor","middle")
       .text("Retention (%)");
 
-  // Points
+  // --- Colors & Shapes ---
+  const structureTypes = [...new Set(data.map(d => d.StructureType).filter(Boolean))];
+  const ionTypes = [...new Set(data.map(d => d.IonType).filter(Boolean))];
+
+  const color = d3.scaleOrdinal(d3.schemeTableau10).domain(structureTypes);
+
+  const shapeTypes = [d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, d3.symbolDiamond, d3.symbolCross, d3.symbolStar, d3.symbolWye];
+  const getShape = t => shapeTypes[(ionTypes.indexOf(t) >= 0 ? ionTypes.indexOf(t) : 0) % shapeTypes.length];
+
+  // --- Points ---
   svg.selectAll(".point")
     .data(data)
     .enter().append("path")
       .attr("class","point")
       .attr("transform", d => `translate(${x(d.CycleLife)},${y(d.Retention)})`)
-      .attr("d", d3.symbol().type(d => getShape(d.IonType)).size(100))
+      .attr("d", d3.symbol().type(d => getShape(d.IonType)).size(90))
       .attr("fill", d => color(d.StructureType))
       .attr("stroke", "#222").attr("stroke-width", 0.6)
       .attr("opacity", 0.9)
       .on("mouseover", (event, d) => {
         tooltip.html(`
-          <b>${d.Formula || "—"}</b><br>
-          Structure: ${d.StructureType || "—"}<br>
-          Ion: ${d.IonType || "—"}<br>
+          <b>${d.Formula}</b><br>
+          Structure: ${d.StructureType}<br>
+          Ion: ${d.IonType}<br>
           Cycle Life: ${d.CycleLife}<br>
-          Retention: ${d.Retention.toFixed(1)}%
+          Retention: ${d.Retention}%
         `)
         .style("visibility","visible")
         .style("left", (event.pageX + 12) + "px")
@@ -141,7 +118,7 @@ d3.csv(CSV_FILE).then(raw => {
       })
       .on("mouseout", () => tooltip.style("visibility","hidden"));
 
-  // Legends
+  // --- Legends ---
   const colorItems = d3.select("#colorItems");
   structureTypes.forEach(s => {
     const item = colorItems.append("div").attr("class","legend-item");
