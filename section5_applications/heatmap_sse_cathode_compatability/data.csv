@@ -1,0 +1,109 @@
+Formula (SSE),Cathode,Cycle Life
+0.1NaI·0.9Na3SbS4,FeS2,258.0
+0.7Li(CB9H10)-0.3Li(CB11H12),S-C composite,1500.0
+3LiCl-GaF3 (as catholyte),NCM111 (with LLZTO separator),2.84
+50AgI-25Ag2O-25CrO3 (50SISOCO),I2 + TMAI + graphite + a-SIC,6.8
+50AgI-25Ag2O-25CrO3 (SISOCO),I2 + TMAI + graphite + a-SIC,6.8
+50AgI-33.5Ag2O-16.5V2O5 (SISOVO),I2 + TMAI + graphite + a-SIC,3.2
+50AgI-37.5Ag2O-12.5B2O3 (SISOBO),I2 + TMAI + graphite + a-SIC,4.8
+95(0.75Na2S·0.25P2S5)·5Na3PO4,TiS2,10.0
+CSE (PEO-LiTFSI + Li-HA-F),LiFePO4 (LFP),100.0
+CSE (PEO-LiTFSI + Li-HA-F),NCM811,80.0
+Ce0.8Sm0.2O1.9/Na2CO3 (20 wt% Na2CO3),Lithiated NiO + electrolyte,1.0
+Composite electrolyte (C:G=7),NCM83125,82.4
+Cu3.21Bi4.79S9,Na metal,325.5
+Cu3.21Bi4.79S9,Na3V2(PO4)3,81.0
+EG-TiO2 + LiTFSI,LiFePO4,200.0
+Fe-NiSe2/CoSe2@rGO,-,1000.0
+Fe-NiSe2/CoSe2@rGO,LiFePO4@rGO,50.0
+Fe-NiSe2/CoSe2@rGO,Na3V2(PO4)3@rGO,50.0
+HELa0.5,LiCoO2 composite cathode,159.0
+K2.92Sb0.92W0.08S4,K2Sx (4 ≤ x ≤ 6) in carbon paper,40.0
+LG-SPE,NVP (Na3V2(PO4)3),200.0
+LPBiSClF0.06,LiCoO2@LiNbO3 composite cathode (LCO@LNO),168.19
+Li0.388Ta0.238La0.475Cl3,LiNi0.5Co0.2Mn0.3O2,100.0
+Li1.3Al0.3Ti1.65Zr0.05(PO4)3,LiFePO4 composite (SE + carbon),148.0
+Li1.3Al0.3Ti1.65Zr0.05(PO4)3,NCM523 composite (SE + carbon),91.0
+Li1.625Al0.375Zr0.625Cl5.25,LiCoO2,600.0
+Li1.7Zr0.7Ta0.3Cl6,LiCoO2 composite (SE + carbon) pressed on SE pellet,129.9
+Li1.7Zr0.7Ta0.3Cl6,single-crystal NCM811 composite (SE + carbon) pressed on SE pellet,85.7
+Li10GeP2S12,LiCoO2 (LiNbO3-coated),120.0
+Li10P3S12Br (LPSBr),"NMC111 (LiNbO3-coated, composite 70:30:3 with SE:VGCF)",50.0
+Li10P3S12Br0.6I0.4,"NMC111 (LiNbO3-coated, composite 70:30:3 with SE:VGCF)",50.0
+Li10P3S12I (LPSI),"NMC111 (LiNbO3-coated, composite 70:30:3 with SE:VGCF)",50.0
+Li2.1Zr0.8Dy0.15Ta0.05Cl6 (LZDTC),NCM811 composite with LGPS-LZDTC SSE,158.0
+Li2.1Zr0.95Cu0.05Cl4.4O0.8,LiNi0.83Co0.11Mn0.06O2 (sc-NCM83),1000.0
+Li2.2ZrCl5.8S0.2,NCM811 (LiNi0.8Co0.1Mn0.1O2) 70:30 composite with SE,175.0
+Li2.375Sc0.375Zr0.625Cl6 (LSZC),LiNi0.90Co0.05Mn0.05O2 (Ni90) or LiNi0.80Co0.10Mn0.10O2 (Ni80),200.0
+Li2.5Y0.5Zr0.5Cl6,LiCoO2,15.0
+Li2.633Er0.633Zr0.367Cl6,"LiCoO2 (bare, uncoated)",200.0
+Li2.7Y0.9Hf0.1Cl6 (x=0.1),LiCoO2 composite (SE + carbon),120.0
+Li21Ge8P3S34,"NCM811 (LiNi0.8Co0.1Mn0.1O2, LiNbO3-coated)",8.0
+Li2OHCl-g-PAI,Li metal,10.0
+Li2ZrCl6 (LZC),TiS2,89.78
+Li2ZrCl6 (control),LiCoO2,273.0
+Li3.4ScCl6.4,LiCoO2 composite (SE + carbon),135.0
+Li3.6In7S11.8Cl,TiS2,120.0
+Li3GdBr6,LiCoO2 composite (SE + carbon),140.0
+Li3InCl6,"LiNi0.8Co0.1Mn0.1O2 (NCM811) composite with different binders (PMMA, EC, SBR, NBR)",3.0
+Li3InCl6 (water-mediated),NMC811,100.0
+Li3PS4-xLiBr (x=0-1.5),Li metal,0.38
+Li3PS4·2LiBH4·0.5LiCl (x=0.5),LiNi0.7Mn0.15Co0.15O2 (NCM),300.0
+Li3YCl4.5Br1.5,NMC811,2.52
+Li3ZrCl4O1.5,LiCoO2,240.0
+Li3ZrCl4O1.5,NCM83 (LiNi0.83Co0.11Mn0.06O2),300.0
+Li5.5AsS4.5Br1.5,S-MWCNT-Li5.5AsS4.5Br1.5 composite,100.0
+Li5.5PS4.5Cl1.5,High-loading NCM cathode composite,500.0
+Li5.5PS4.5Cl1.5,LiNbO3-coated NCM622,100.0
+Li6.1P0.95Ga0.05S5Cl (LPSC-0.05),NCM811,25.0
+Li6.333Ge0.333As0.667S5I,TiS2 composite cathode,40.0
+Li6PS5Cl,Li4Ti5O12 (LTO),50.0
+Li6PS5Cl (CDC film),LiNbO3-coated NMC811,50.0
+"Li6PS5Cl (CDC, This work-1)",LiNbO3-coated NMC811,50.0
+"Li6PS5Cl (CDC, scale-up)",LiNbO3-coated NMC811,1000.0
+"Li6PS5Cl (hc-LPSCl_30, hc-LPSCl_BM)",NCM811 (LiNi0.8Co0.1Mn0.1O2),400.0
+Li6PS5Cl·LiCl,Li4Ti5O12 (LTO),50.0
+Li7-x(GeSi)(1-x)/2SbxS5I,NCM811@Li3InCl6,550.0
+Li7La3Zr2O12-PEO (LiClO4) composite,-,61.0
+Li7P2S8I,Li metal,800.0
+Li9.54Si1.74P1.44S11.7Cl0.3,LiNbO3-coated LiCoO2,500.0
+Li9.6P3S12,LiNbO3-coated LiCoO2,90.0
+Li9.9SnP2S10.9Br0.1O1.0 (LSPSBrO1.0),LNO@NCM712,100.0
+Li9.9SnP2S10.9Br0.1O1.0 (LSPSBrO1.0),Li3.25InCl5.75O0.25@NCM712,100.0
+Li9.9SnP2S11.9Br0.1 (LSPSBr),LiNbO3@NCM712,100.0
+LiPSClBr vs. O-LiPSClBr,NCM811,87.4
+Na0.97K0.03Ti1.95Al0.05(PO4)2.95(SiO4)0.05/C,NTP-KAS (carbon-coated) electrode,129.3
+"Na2.25-xY0.25Zr0.75Cl6-x (x=1.625, 2.000)",NaCrO2,500.0
+Na2.730Ca0.135PS4,TiS2,198.0
+Na3.20Zr1.90Zn0.10Si2PO12,Na3V2(PO4)3,1800.0
+Na3.6VMn0.9W0.1(PO4)3/C (VMW-0.1),VMW-0.1 carbon-coated electrode,74.7
+Na3.6VMn0.9W0.1(PO4)3/C (VMW-0.1),VMW-0.1 cathode,89.27
+Na3Co2/3Ti2/3V2/3(PO4)3/C/rGO (NCTVP),NCTVP (carbon-coated + rGO),163.8
+Na3Co2/3Ti2/3V2/3(PO4)3/C/rGO (NCTVP),NCTVP cathode,359.0
+Na3P (NaP5 CSA),Na3V2(PO4)3 (NVP),15.0
+Na3PS4 glass-ceramic (cubic),TiS2,90.0
+Na3SbS2Se2,FeS2,92.0
+Na3SbS3Se,FeS2,105.0
+Na3V2(PO4)3 (NVP),α-MnO2 (hydrothermal nanorods),168.0
+Na3V2(PO4)3-coated NFM (NFM@5%NVP),NFM@5%NVP cathode,500.0
+NaTaCl6 (amorphous),Na3V2(PO4)3 (NVP),250.0
+NaTi2(PO4)3 (NTP-2 VO-rich),-,300.0
+NaTi2(PO4)3 (NTP-2 VO-rich),Na3V2(PO4)3,250.0
+Na[(CB8H9)0.04(CB9H10)0.96] (s6),NaTi2(PO4)3,50.0
+P(VdF-HFP) + SN + EMIMBF4 + NaBF4,-,5000.0
+P:Si=6 glass,NCM83125,82.4
+PSE1 (PTU1 + LiClO4),LiFePO4 (LFP),100.0
+PSE2 (PTU2 + LiClO4),LiFePO4 (LFP),100.0
+PSE3 (PTU3 + LiClO4),LiFePO4 (LFP),100.0
+SICP-EPN,NCM811,250.0
+TDCT,LNCMO,300.0
+TDCT,LiFePO4 (LFP),760.0
+TDCT,NCM523,500.0
+ZrO2-2Li2ZrCl5F (HNSE-F),LiCoO2,94.5
+ZrO2-2Li2ZrCl5F (HNSE-F),S-NCM88,90.8
+ZrO2-2Li2ZrCl6 (HNSE),LiCoO2,91.8
+c-Na3PS4,TiS2,198.0
+md-PVDF (2:8 PVDC:PVDF),LFP,500.0
+md-PVDF (2:8 PVDC:PVDF),NCM811,80.0
+β-Li3N (vacancy-rich),LiCoO2 (LCO),5000.0
+β-Li3N (vacancy-rich),NCM83 (LiNi0.83Co0.11Mn0.06O2),3500.0
