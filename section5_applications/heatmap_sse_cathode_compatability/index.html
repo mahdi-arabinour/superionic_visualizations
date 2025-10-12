@@ -48,7 +48,7 @@
 (async function() {
   // ---- Load & parse CSV ----------------------------------------------------
   // Expected columns: "Formula (SSE)", "Cathode", "Cycle Life"
-  const raw = await d3.csv("data.csv");
+  const raw = await d3.csv("data_sse_cathode_heatmap_cycles_RT_numeric.csv");
 
   // Normalize records, keep only positive cycle life values
   const rows = [];
