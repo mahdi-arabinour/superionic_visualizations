@@ -5,57 +5,44 @@
 <title>Heatmap — SSE × Cathode (Cycle Life)</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  :root { --bg: #ffffff; --text: #111; --axis: #888; --border: #ccc; }
-  body { font-family: Arial, sans-serif; background: var(--bg); color: var(--text); margin: 24px; }
-  h2 { margin: 0 0 8px; }
-  p  { margin: 0 0 16px; color:#444; }
-  .frame {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px;
-    overflow: auto; /* scroll if too many categories */
-    max-width: 100%;
-  }
-  svg { background: #fff; display: block; }
-  .axis text { font-size: 10px; fill: var(--text); }
-  .axis .domain, .axis line { stroke: #aaa; }
-  .cell { stroke: #fff; stroke-width: 0.5; }
+  body { font-family: Arial, sans-serif; background: #fff; color: #111; margin: 28px; }
+  h2 { margin-bottom: 6px; color:#000; }
+  p { color:#444; margin-top:0; margin-bottom:14px; }
+  svg { background: #fff; border: 1px solid #ccc; border-radius: 6px; }
+  .axis text { font-size: 9px; fill: #111; }
+  .axis .domain, .axis line { stroke: #ccc; }
+  .cell { stroke: #fff; stroke-width: 0.4; }
   .tooltip {
-    position: absolute; background: #fff; border: 1px solid #ccc; border-radius: 6px;
-    padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.15);
-    pointer-events: none;
+    position:absolute; background:#fff; border:1px solid #ccc; border-radius:5px;
+    padding:6px 8px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,.15); pointer-events:none;
   }
-  .legendTitle { font-size: 12px; fill: var(--text); }
-  .status { font-size: 12px; color: #333; margin-top: 8px; }
+  .legendTitle { font-size:11px; fill:#111; }
+  .status { font-size:12px; color:#333; margin-top:8px; }
 </style>
 </head>
 <body>
 
 <h2>Heatmap — SSE × Cathode (Color = Cycle Life)</h2>
-<p>y = <b>Formula (SSE)</b>, x = <b>Cathode</b>, color = <b>Cycle Life</b> (numeric)</p>
+<p>y = <b>Formula (SSE)</b>, x = <b>Cathode</b>, color = <b>Cycle Life</b></p>
 
-<div class="frame">
-  <svg id="chart" width="980" height="700"></svg>
-</div>
+<svg id="chart" width="940" height="650"></svg>
 <div class="status" id="status">Loading…</div>
 <div class="tooltip" id="tt" style="visibility:hidden"></div>
 
 <script>
 const CSV_FILE = "data.csv";
 
-// Base margins (we’ll adjust width/height dynamically)
-const margin = { top: 80, right: 20, bottom: 160, left: 240 };
+const margin = { top: 70, right: 20, bottom: 140, left: 200 },
+      outerW = 940, outerH = 650,
+      width  = outerW - margin.left - margin.right,
+      height = outerH - margin.top - margin.bottom;
 
-// Sizing heuristics so labels don’t overlap
-const cellW = 28;   // width per cathode
-const cellH = 20;   // height per SSE
-const minW  = 900;  // minimum inner width
-const minH  = 600;  // minimum inner height
-const maxTicksXTarget = 40; // show ~40 ticks on x at most
+const svg = d3.select("#chart")
+  .attr("width", outerW)
+  .attr("height", outerH)
+  .append("g")
+  .attr("transform", `translate(${margin.left},${margin.top})`);
 
-const svgRoot = d3.select("#chart");
-const g = svgRoot.append("g");
 const tooltip = d3.select("#tt");
 
 function normText(s){ return (s ?? "").replace(/\u00A0/g," ").trim(); }
@@ -63,11 +50,6 @@ function normText(s){ return (s ?? "").replace(/\u00A0/g," ").trim(); }
 d3.csv(CSV_FILE).then(raw => {
   const cols = Object.keys(raw[0] || {});
   const C_SSE="Formula (SSE)", C_CATH="Cathode", C_CYCLE="Cycle Life";
-  const missing = [C_SSE, C_CATH, C_CYCLE].filter(c => !cols.includes(c));
-  if (missing.length) {
-    d3.select("#status").text("Missing columns: " + missing.join(", "));
-    return;
-  }
 
   const data = raw.map(d => ({
     SSE: normText(d[C_SSE]),
@@ -75,59 +57,47 @@ d3.csv(CSV_FILE).then(raw => {
     Cycle: +d[C_CYCLE]
   })).filter(d => d.SSE && d.Cathode && Number.isFinite(d.Cycle) && d.Cycle > 0);
 
-  if (!data.length) {
-    d3.select("#status").text("No usable data (check headers/values).");
-    return;
+  if(!data.length){
+    d3.select("#status").text("No usable data found."); return;
   }
+  d3.select("#status").text(`Rows loaded: ${data.length}`);
 
   const sseDomain  = Array.from(new Set(data.map(d => d.SSE))).sort(d3.ascending);
   const cathDomain = Array.from(new Set(data.map(d => d.Cathode))).sort(d3.ascending);
 
-  // Compute inner width/height from categories, clamp to minimums
-  const innerW = Math.max(minW, cathDomain.length * cellW);
-  const innerH = Math.max(minH, sseDomain.length  * cellH);
+  const x = d3.scaleBand().domain(cathDomain).range([0, width]).padding(0.03);
+  const y = d3.scaleBand().domain(sseDomain).range([0, height]).padding(0.03);
 
-  // Set SVG outer size from inner + margins
-  const outerW = innerW + margin.left + margin.right;
-  const outerH = innerH + margin.top  + margin.bottom;
-  svgRoot.attr("width", outerW).attr("height", outerH);
-  g.attr("transform", `translate(${margin.left},${margin.top})`);
-
-  // Scales
-  const x = d3.scaleBand().domain(cathDomain).range([0, innerW]).padding(0.05);
-  const y = d3.scaleBand().domain(sseDomain).range([0, innerH]).padding(0.05);
-
-  // DARK colormap → high values are dark, pops on white
   const maxCycle = d3.max(data, d => d.Cycle) || 1;
   const color = d3.scaleSequential(d3.interpolateInferno).domain([0, maxCycle]);
 
-  // Axes
-  // Show every nth x tick so they don’t overlap
-  const step = Math.max(1, Math.ceil(cathDomain.length / maxTicksXTarget));
-  const ticksX = cathDomain.filter((_, i) => i % step === 0);
-
-  const xAxis = d3.axisBottom(x).tickValues(ticksX);
-  const yAxis = d3.axisLeft(y);
-
-  g.append("g")
-    .attr("transform", `translate(0,${innerH})`)
+  // X Axis — smaller, rotated, tightened
+  svg.append("g")
+    .attr("transform", `translate(0,${height})`)
     .attr("class","axis")
-    .call(xAxis)
+    .call(d3.axisBottom(x))
     .selectAll("text")
-      .attr("transform","rotate(-60)")
-      .style("text-anchor","end")
-      .attr("dx","-0.5em")
-      .attr("dy","0.25em")
-      .style("font-size","10px");
+      .attr("transform","rotate(-50)")
+      .attr("text-anchor","end")
+      .attr("dx","-0.4em")
+      .attr("dy","0.3em")
+      .style("font-size","9px")
+      .text(function(d){
+         return d.length > 15 ? d.slice(0,12) + "…" : d; // shorten long labels
+      });
 
-  g.append("g")
+  // Y Axis — smaller text
+  svg.append("g")
     .attr("class","axis")
-    .call(yAxis)
+    .call(d3.axisLeft(y))
     .selectAll("text")
-      .style("font-size","10px");
+      .style("font-size","9px")
+      .text(function(d){
+         return d.length > 18 ? d.slice(0,16) + "…" : d;
+      });
 
-  // Cells
-  g.selectAll(".cell")
+  // Heatmap cells
+  svg.selectAll(".cell")
     .data(data)
     .enter().append("rect")
       .attr("class","cell")
@@ -141,38 +111,29 @@ d3.csv(CSV_FILE).then(raw => {
           `<b>SSE:</b> ${d.SSE}<br><b>Cathode:</b> ${d.Cathode}<br><b>Cycle life:</b> ${d.Cycle}`
         );
       })
-      .on("mousemove", (ev) => {
-        tooltip.style("left", (ev.pageX + 12) + "px")
-               .style("top",  (ev.pageY - 20) + "px");
+      .on("mousemove", ev => {
+        tooltip.style("left",(ev.pageX+12)+"px").style("top",(ev.pageY-20)+"px");
       })
       .on("mouseout", () => tooltip.style("visibility","hidden"));
 
-  // Legend (continuous, dark scale)
-  const legendW = 260, legendH = 10;
-  const legend = g.append("g").attr("transform", `translate(${(innerW-legendW)/2},${-40})`);
-  const gradId = "gradInferno";
-  const defs = svgRoot.append("defs");
+  // Legend
+  const legendW = 220, legendH = 10;
+  const legend = svg.append("g").attr("transform", `translate(${(width-legendW)/2},${-40})`);
+  const gradId = "gradDark";
+  const defs = svg.append("defs");
   const grad = defs.append("linearGradient").attr("id", gradId).attr("x1","0%").attr("x2","100%");
-  const steps = 12;
-  for (let i=0;i<=steps;i++){
-    const t = i/steps;
+  for (let i=0;i<=10;i++){
+    const t = i/10;
     grad.append("stop").attr("offset", `${t*100}%`).attr("stop-color", color(t*maxCycle));
   }
   legend.append("rect").attr("width", legendW).attr("height", legendH)
     .style("fill", `url(#${gradId})`).attr("stroke","#aaa");
   const legendScale = d3.scaleLinear().domain([0, maxCycle]).range([0, legendW]);
   legend.append("g").attr("transform", `translate(0,${legendH})`)
-    .call(d3.axisBottom(legendScale).ticks(6).tickSize(3));
+    .call(d3.axisBottom(legendScale).ticks(5).tickSize(3));
   legend.append("text").attr("class","legendTitle")
-    .attr("x", legendW/2).attr("y", -8)
+    .attr("x", legendW/2).attr("y",-6)
     .attr("text-anchor","middle").text("Cycle life");
-
-  d3.select("#status").text(
-    `Rows loaded: ${raw.length} | Plotted: ${data.length} | SSEs: ${sseDomain.length} | Cathodes: ${cathDomain.length} | Max cycle: ${maxCycle}`
-  );
-}).catch(err => {
-  d3.select("#status").text("Error loading CSV. See console.");
-  console.error(err);
 });
 </script>
 </body>
