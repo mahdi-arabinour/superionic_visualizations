@@ -1,1 +1,255 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Box/Violin — log10(σ) by Structure Type (color = Ion Type)</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; background:#fff; color:#111; margin:28px; }
+  h2 { margin:0 0 6px; }
+  .controls { margin: 8px 0 14px; display:flex; gap:12px; align-items:center; }
+  label, select { font-size:13px; }
+  svg { background:#fff; border:1px solid #ccc; border-radius:6px; }
+  .axis text { font-size:6px; fill:#111; }
+  .axis .domain, .axis line { stroke:#ccc; }
+  .box { fill-opacity:0.12; stroke-width:1; }
+  .median { stroke:#111; stroke-width:1.2; }
+  .violin { fill-opacity:0.18; stroke-width:0.8; }
+  .dot { opacity:0.35; }
+  .tooltip {
+    position:absolute; background:#fff; border:1px solid #ccc; border-radius:5px;
+    padding:6px 8px; font-size:11px; box-shadow:0 2px 6px rgba(0,0,0,.15); pointer-events:none;
+  }
+  .legend { display:flex; flex-wrap:wrap; gap:8px 12px; margin:8px 0 0; }
+  .legend-item { display:flex; align-items:center; gap:6px; font-size:11px; }
+  .legend-swatch { width:12px; height:12px; border:1px solid #222; border-radius:3px; }
+  .status { font-size:12px; color:#333; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<h2>Box / Violin — log10(σ) by Structure Type</h2>
+<div class="controls">
+  <label>Plot:</label>
+  <select id="mode">
+    <option value="box" selected>Box</option>
+    <option value="violin">Violin</option>
+  </select>
+  <span style="color:#555">x = Structure Type, y = log10(σ), color = Ion Type</span>
+</div>
+
+<svg id="chart" width="1100" height="720"></svg>
+<div class="legend" id="legend"></div>
+<div class="status" id="status">Loading…</div>
+<div class="tooltip" id="tt" style="visibility:hidden"></div>
+
+<script>
+// ======= CONFIG =======
+const CSV_FILE = "data.csv"; // put your CSV next to this HTML
+const margin = { top: 50, right: 20, bottom: 170, left: 70 },
+      outerW = 1100, outerH = 720,
+      width  = outerW - margin.left - margin.right,
+      height = outerH - margin.top - margin.bottom;
+
+const svg = d3.select("#chart")
+  .attr("width", outerW).attr("height", outerH)
+  .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+const statusEl = d3.select("#status");
+const tooltip = d3.select("#tt");
+
+function safe(s){ return (s ?? "").toString().replace(/\u00A0/g," ").trim(); }
+
+// Parse σ from strings like "2.14e-3 / 25 °C", "1.1e-3", "0.005"
+function parseSigma(cell){
+  const t = safe(cell);
+  const m = t.match(/[+-]?\d*\.?\d+(?:[eE][+-]?\d+)?/);
+  return m ? +m[0] : NaN;
+}
+
+function jitter(amount){ return (Math.random() - 0.5) * amount; }
+
+// Kernel Density Estimation helpers for violin
+function kernelEpanechnikov(k){ return v => Math.abs(v) <= 1 ? 0.75*(1 - v*v)/k : 0; }
+function kde(kernel, thresholds, values){
+  return thresholds.map(t => [t, d3.mean(values, v => kernel((t - v) / 1))]); // bandwidth baked into kernel
+}
+
+d3.csv(CSV_FILE).then(raw => {
+  // columns we need (quoted or not)
+  const need = ["Structure Type","Ion Type","Conductivity σ (S·cm⁻¹) / Temp (°C)","Formula (Chemical)"];
+  const cols = Object.keys(raw[0] || {});
+  const missing = need.filter(c => !cols.includes(c));
+  if (missing.length){
+    statusEl.text("Missing columns: " + missing.join(", "));
+    return;
+  }
+
+  // Build tidy records with log10σ
+  const rows = raw.map(d => {
+    const sigma = parseSigma(d["Conductivity σ (S·cm⁻¹) / Temp (°C)"]);
+    const log10sigma = Number.isFinite(sigma) && sigma>0 ? Math.log10(sigma) : NaN;
+    return {
+      structure: safe(d["Structure Type"]),
+      ion: safe(d["Ion Type"]),
+      formula: safe(d["Formula (Chemical)"]),
+      sigma, log10sigma
+    };
+  }).filter(r => Number.isFinite(r.log10sigma));
+
+  if (!rows.length){
+    statusEl.text("No usable rows after parsing (check σ parsing and positives).");
+    return;
+  }
+
+  // Domains
+  const structures = Array.from(new Set(rows.map(r => r.structure))).sort(d3.ascending);
+  const ions = Array.from(new Set(rows.map(r => r.ion))).sort(d3.ascending);
+
+  // Scales
+  const x0 = d3.scaleBand().domain(structures).range([0, width]).paddingInner(0.15);
+  const x1 = d3.scaleBand().domain(ions).range([0, x0.bandwidth()]).padding(0.25); // subgroup per ion inside each structure
+  const y = d3.scaleLinear()
+    .domain(d3.extent(rows, d => d.log10sigma)).nice()
+    .range([height, 0]);
+  const color = d3.scaleOrdinal(d3.schemeTableau10).domain(ions);
+
+  // Axes
+  svg.append("g").attr("transform", `translate(0,${height})`)
+    .attr("class","axis")
+    .call(d3.axisBottom(x0))
+    .selectAll("text").attr("transform","rotate(-45)").attr("text-anchor","end")
+    .attr("dx","-0.3em").attr("dy","0.2em").style("font-size","6px");
+
+  svg.append("g").attr("class","axis").call(d3.axisLeft(y).ticks(8))
+    .append("text")
+      .attr("x", -50).attr("y", -10).attr("fill","#111").style("font-size","10px")
+      .text("log10(σ) [S·cm⁻¹]");
+
+  // Legend
+  const legend = d3.select("#legend").html("");
+  ions.forEach(i => {
+    const item = legend.append("div").attr("class","legend-item");
+    item.append("span").attr("class","legend-swatch").style("background", color(i));
+    item.append("span").text(i);
+  });
+
+  // Grouped data: structure -> ion -> array of log10σ
+  const byStruct = d3.group(rows, d => d.structure);
+  const modeSel = document.getElementById("mode");
+
+  function draw(){
+    svg.selectAll(".layer").remove();
+    const mode = modeSel.value; // "box" or "violin"
+
+    const layer = svg.append("g").attr("class","layer");
+
+    byStruct.forEach((arr, struct) => {
+      const g = layer.append("g").attr("transform", `translate(${x0(struct)},0)`);
+
+      ions.forEach(ion => {
+        const sub = arr.filter(d => d.ion === ion);
+        if (!sub.length) return;
+
+        const xC = x1(ion);
+        const vals = sub.map(d => d.log10sigma).sort(d3.ascending);
+
+        if (mode === "box"){
+          // --- Box plot stats ---
+          const q1 = d3.quantile(vals, 0.25);
+          const q2 = d3.quantile(vals, 0.50);
+          const q3 = d3.quantile(vals, 0.75);
+          const iqr = q3 - q1;
+          const lo = d3.max([vals[0], q1 - 1.5 * iqr]);
+          const hi = d3.min([vals[vals.length-1], q3 + 1.5 * iqr]);
+
+          // box
+          g.append("rect")
+            .attr("class","box")
+            .attr("x", xC)
+            .attr("width", x1.bandwidth())
+            .attr("y", y(q3))
+            .attr("height", Math.max(1, y(q1) - y(q3)))
+            .attr("fill", color(ion))
+            .attr("stroke", d3.color(color(ion)).darker(0.8));
+
+          // median
+          g.append("line")
+            .attr("class","median")
+            .attr("x1", xC).attr("x2", xC + x1.bandwidth())
+            .attr("y1", y(q2)).attr("y2", y(q2));
+
+          // whiskers
+          g.append("line").attr("x1", xC + x1.bandwidth()/2).attr("x2", xC + x1.bandwidth()/2)
+            .attr("y1", y(lo)).attr("y2", y(q1)).attr("stroke","#333");
+          g.append("line").attr("x1", xC + x1.bandwidth()/2).attr("x2", xC + x1.bandwidth()/2)
+            .attr("y1", y(q3)).attr("y2", y(hi)).attr("stroke","#333");
+
+          // whisker caps
+          g.append("line").attr("x1", xC+2).attr("x2", xC + x1.bandwidth()-2)
+            .attr("y1", y(lo)).attr("y2", y(lo)).attr("stroke","#333");
+          g.append("line").attr("x1", xC+2).attr("x2", xC + x1.bandwidth()-2)
+            .attr("y1", y(hi)).attr("y2", y(hi)).attr("stroke","#333");
+        } else {
+          // --- Violin ---
+          const ymin = y.domain()[0], ymax = y.domain()[1];
+          const thresholds = d3.range(ymin, ymax, (ymax - ymin)/50);
+          const bw = 0.2; // bandwidth control (in log10 space units)
+          const kernel = v => kernelEpanechnikov(bw)(v);
+          // Estimate density; scale to available half-width:
+          const density = kde(kernel, thresholds, vals);
+          const maxD = d3.max(density, d => d[1]) || 1;
+          const widthScale = d3.scaleLinear().domain([0, maxD]).range([0, x1.bandwidth()/1.2]);
+
+          const area = d3.area()
+            .x0(d => xC + x1.bandwidth()/2 - widthScale(d[1]))
+            .x1(d => xC + x1.bandwidth()/2 + widthScale(d[1]))
+            .y(d => y(d[0]))
+            .curve(d3.curveCatmullRom);
+
+          g.append("path")
+            .datum(density)
+            .attr("class","violin")
+            .attr("d", area)
+            .attr("fill", color(ion))
+            .attr("stroke", d3.color(color(ion)).darker(0.8));
+        }
+
+        // Jittered raw points (both modes)
+        g.selectAll(`.dot-${ion.replace(/\W+/g,"")}`)
+          .data(sub)
+          .enter().append("circle")
+            .attr("class","dot")
+            .attr("cx", xC + x1.bandwidth()/2 + jitter(x1.bandwidth()*0.6))
+            .attr("cy", d => y(d.log10sigma))
+            .attr("r", 1.8)
+            .attr("fill", d3.color(color(ion)).darker(0.3))
+            .on("mouseover", (ev, d) => {
+              tooltip.style("visibility","visible").html(
+                `<b>${d.formula || "—"}</b><br>` +
+                `Structure: ${d.structure || "—"}<br>` +
+                `Ion: ${d.ion || "—"}<br>` +
+                `σ: ${d.sigma.toExponential(3)} S·cm⁻¹<br>` +
+                `log10(σ): ${d.log10sigma.toFixed(3)}`
+              );
+            })
+            .on("mousemove", ev => tooltip
+              .style("left",(ev.pageX+12)+"px")
+              .style("top",(ev.pageY-20)+"px"))
+            .on("mouseout", () => tooltip.style("visibility","hidden"));
+      });
+    });
+
+    statusEl.text(`Rows plotted: ${rows.length} | Structures: ${structures.length} | Ion types: ${ions.length} | Mode: ${mode}`);
+  }
+
+  draw();
+  document.getElementById("mode").addEventListener("change", draw);
+}).catch(err => {
+  statusEl.text("Failed to load CSV. Serve over http(s) and check console.");
+  console.error(err);
+});
+</script>
+</body>
+</html>
