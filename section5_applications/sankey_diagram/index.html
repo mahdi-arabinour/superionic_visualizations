@@ -10,12 +10,12 @@
   h2 { margin:0 0 8px; }
   .controls { margin:8px 0 14px; display:flex; gap:10px; align-items:center; }
   svg { background:#fff; border:1px solid #ccc; border-radius:8px; }
-  .node rect { stroke: #666; }
-  .link { fill: none; stroke-opacity: 0.35; }
-  .tooltip {
-    position:absolute; background:#fff; border:1px solid #ccc; border-radius:5px;
-    padding:6px 8px; font-size:11px; box-shadow:0 2px 6px rgba(0,0,0,.15); pointer-events:none;
-  }
+  .node rect { stroke:#666; }
+  .link { fill:none; stroke-opacity:.35; }
+  .tooltip { position:absolute; background:#fff; border:1px solid #ccc; border-radius:5px;
+             padding:6px 8px; font-size:11px; box-shadow:0 2px 6px rgba(0,0,0,.15); pointer-events:none; }
+  #status { margin-top:8px; font-size:12px; color:#333; }
+  #status.error { color:#b00020; }
 </style>
 </head>
 <body>
@@ -34,45 +34,24 @@
 
 <svg id="chart" width="1200" height="720"></svg>
 <div id="tt" class="tooltip" style="visibility:hidden"></div>
+<div id="status">Loading…</div>
 
 <script>
 const svg = d3.select("#chart"),
       width = +svg.attr("width"),
       height = +svg.attr("height");
-
+const statusEl = d3.select("#status");
 const color = d3.scaleOrdinal(d3.schemeTableau10);
 const tooltip = d3.select("#tt");
 
-const sankey = d3.sankey()
-  .nodeWidth(14)
-  .nodePadding(18)
-  .extent([[12, 12], [width - 12, height - 12]]);
+const sankey = d3.sankey().nodeWidth(14).nodePadding(18).extent([[12,12],[width-12,height-12]]);
 
 function buildGraph(links, minCount){
-  // filter by minCount (client-side safety)
-  const flinks = links.filter(d => d.Count >= minCount);
-
-  // Map node names to indices
+  const flinks = links.filter(d => +d.Count >= minCount);
   const nameToIndex = new Map();
-  function id(name){
-    if (!nameToIndex.has(name)) nameToIndex.set(name, nameToIndex.size);
-    return nameToIndex.get(name);
-  }
-
-  const nodes = [];
-  const nodeByIndex = new Map();
-
-  flinks.forEach(d => {
-    d.source = id(d.SourceName);
-    d.target = id(d.TargetName);
-  });
-
-  // Build node array in name order
-  nameToIndex.forEach((idx, name) => {
-    nodes[idx] = { name };
-    nodeByIndex.set(idx, name);
-  });
-
+  function id(name){ if(!nameToIndex.has(name)) nameToIndex.set(name, nameToIndex.size); return nameToIndex.get(name); }
+  flinks.forEach(d => { d.source = id(String(d.SourceName)); d.target = id(String(d.TargetName)); });
+  const nodes = Array.from(nameToIndex.entries()).sort((a,b)=>a[1]-b[1]).map(([name]) => ({name}));
   const graph = { nodes, links: flinks.map(d => ({ source:d.source, target:d.target, value:+d.Count })) };
   return graph;
 }
@@ -80,62 +59,61 @@ function buildGraph(links, minCount){
 function draw(links, minCount){
   const graph = buildGraph(links, minCount);
   svg.selectAll("*").remove();
-
-  // Run Sankey
+  if (!graph.links.length){ statusEl.attr("class","error").text("No links after filtering. Try lowering Min count or check CSV headers (SourceName,TargetName,Count)."); return; }
   sankey(graph);
 
   // Links
-  svg.append("g")
-    .attr("fill", "none")
-    .selectAll("path")
-    .data(graph.links)
-    .enter().append("path")
+  svg.append("g").attr("fill","none").selectAll("path")
+    .data(graph.links).enter().append("path")
       .attr("class","link")
       .attr("d", d3.sankeyLinkHorizontal())
-      .attr("stroke", d => color(d.source.index % 10))
+      .attr("stroke", d => color(d.source % 10))
       .attr("stroke-width", d => Math.max(1, d.width))
-      .on("mouseover", (ev,d) => {
-        tooltip.style("visibility","visible")
-          .html(`${graph.nodes[d.source.index].name} → ${graph.nodes[d.target.index].name}<br><b>${d.value}</b> samples`);
+      .on("mouseover",(ev,d) => {
+        tooltip.style("visibility","visible").html(
+          `${graph.nodes[d.source].name} → ${graph.nodes[d.target].name}<br><b>${d.value}</b> samples`
+        );
       })
       .on("mousemove", ev => tooltip.style("left",(ev.pageX+12)+"px").style("top",(ev.pageY-20)+"px"))
       .on("mouseout", () => tooltip.style("visibility","hidden"));
 
   // Nodes
-  const node = svg.append("g")
-    .selectAll("g")
-    .data(graph.nodes)
-    .enter().append("g")
-      .attr("class","node");
-
+  const node = svg.append("g").selectAll("g").data(graph.nodes).enter().append("g").attr("class","node");
   node.append("rect")
-      .attr("x", d => d.x0)
-      .attr("y", d => d.y0)
+      .attr("x", d => d.x0).attr("y", d => d.y0)
       .attr("height", d => Math.max(1, d.y1 - d.y0))
       .attr("width", d => d.x1 - d.x0)
-      .attr("fill", d => color(d.index % 10))
-      .attr("opacity", 0.85);
-
+      .attr("fill", d => color(d.index % 10)).attr("opacity", .85);
   node.append("text")
       .attr("x", d => d.x0 < width/2 ? d.x1 + 6 : d.x0 - 6)
-      .attr("y", d => (d.y1 + d.y0)/2)
-      .attr("dy", "0.35em")
+      .attr("y", d => (d.y1 + d.y0)/2).attr("dy",".35em")
       .attr("text-anchor", d => d.x0 < width/2 ? "start" : "end")
-      .style("font-size","11px")
-      .text(d => d.name);
+      .style("font-size","11px").text(d => d.name);
+
+  statusEl.attr("class",null).text(`Loaded: ${links.length} rows | Drawn: ${graph.links.length} links, ${graph.nodes.length} nodes (minCount=${minCount})`);
 }
 
 function loadAndDraw(){
   const file = document.getElementById("dataset").value;
   const minCount = +document.getElementById("minCount").value || 1;
-  d3.csv(file, d3.autoType).then(data => {
-    // Expect columns: SourceName,TargetName,Count
+  statusEl.attr("class",null).text(`Loading ${file} …`);
+  d3.csv(file).then(data => {
+    // Ensure required columns exist
+    const need = ["SourceName","TargetName","Count"];
+    const hasAll = need.every(k => Object.prototype.hasOwnProperty.call(data.columns || data, k));
+    if (!hasAll){
+      statusEl.attr("class","error").text(`CSV must have headers: ${need.join(", ")}. Found: ${data.columns ? data.columns.join(", ") : "unknown"}`);
+      return;
+    }
     const links = data.map(d => ({
-      SourceName: String(d.SourceName),
-      TargetName: String(d.TargetName),
+      SourceName: String(d.SourceName).trim(),
+      TargetName: String(d.TargetName).trim(),
       Count: +d.Count
     })).filter(d => d.SourceName && d.TargetName && d.Count > 0);
     draw(links, minCount);
+  }).catch(err => {
+    console.error(err);
+    statusEl.attr("class","error").text(`Failed to load ${file}. If opening locally, serve over http(s) (e.g., python3 -m http.server).`);
   });
 }
 
