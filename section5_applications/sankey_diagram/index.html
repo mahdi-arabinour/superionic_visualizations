@@ -44,22 +44,57 @@ const statusEl = d3.select("#status");
 const color = d3.scaleOrdinal(d3.schemeTableau10);
 const tooltip = d3.select("#tt");
 
-const sankey = d3.sankey().nodeWidth(14).nodePadding(18).extent([[12,12],[width-12,height-12]]);
+const sankey = d3.sankey()
+  .nodeWidth(14)
+  .nodePadding(18)
+  .extent([[12, 12], [width - 12, height - 12]]);
+
+// Try multiple header sets
+function normalizeLinks(raw) {
+  const cols = raw.columns ? raw.columns.map(c => c.trim()) : [];
+  // Best candidates
+  const variants = [
+    {s:"SourceName", t:"TargetName", v:"Count"},
+    {s:"Source",     t:"Target",     v:"Count"},
+    {s:"source",     t:"target",     v:"value"},
+    {s:"Source",     t:"Target",     v:"Value"},
+  ];
+  let map = null;
+  for (const cand of variants) {
+    if (cols.includes(cand.s) && cols.includes(cand.t) && cols.includes(cand.v)) {
+      map = cand; break;
+    }
+  }
+  if (!map) {
+    throw new Error(`CSV headers must include one of:
+- SourceName,TargetName,Count
+- Source,Target,Count
+- source,target,value
+Found: ${cols.join(", ")}`);
+  }
+  return raw.map(d => ({
+    SourceName: String(d[map.s]).trim(),
+    TargetName: String(d[map.t]).trim(),
+    Count: +d[map.v]
+  })).filter(d => d.SourceName && d.TargetName && d.Count > 0);
+}
 
 function buildGraph(links, minCount){
   const flinks = links.filter(d => +d.Count >= minCount);
   const nameToIndex = new Map();
-  function id(name){ if(!nameToIndex.has(name)) nameToIndex.set(name, nameToIndex.size); return nameToIndex.get(name); }
-  flinks.forEach(d => { d.source = id(String(d.SourceName)); d.target = id(String(d.TargetName)); });
+  const id = name => (nameToIndex.has(name) ? nameToIndex.get(name) : (nameToIndex.set(name, nameToIndex.size), nameToIndex.get(name)));
+  flinks.forEach(d => { d.source = id(d.SourceName); d.target = id(d.TargetName); });
   const nodes = Array.from(nameToIndex.entries()).sort((a,b)=>a[1]-b[1]).map(([name]) => ({name}));
-  const graph = { nodes, links: flinks.map(d => ({ source:d.source, target:d.target, value:+d.Count })) };
-  return graph;
+  return { nodes, links: flinks.map(d => ({ source:d.source, target:d.target, value:+d.Count })) };
 }
 
 function draw(links, minCount){
   const graph = buildGraph(links, minCount);
   svg.selectAll("*").remove();
-  if (!graph.links.length){ statusEl.attr("class","error").text("No links after filtering. Try lowering Min count or check CSV headers (SourceName,TargetName,Count)."); return; }
+  if (!graph.links.length){
+    statusEl.attr("class","error").text("No links after filtering. Try lowering Min count or check CSV headers/values.");
+    return;
+  }
   sankey(graph);
 
   // Links
@@ -69,7 +104,7 @@ function draw(links, minCount){
       .attr("d", d3.sankeyLinkHorizontal())
       .attr("stroke", d => color(d.source % 10))
       .attr("stroke-width", d => Math.max(1, d.width))
-      .on("mouseover",(ev,d) => {
+      .on("mouseover", (ev,d) => {
         tooltip.style("visibility","visible").html(
           `${graph.nodes[d.source].name} → ${graph.nodes[d.target].name}<br><b>${d.value}</b> samples`
         );
@@ -90,30 +125,19 @@ function draw(links, minCount){
       .attr("text-anchor", d => d.x0 < width/2 ? "start" : "end")
       .style("font-size","11px").text(d => d.name);
 
-  statusEl.attr("class",null).text(`Loaded: ${links.length} rows | Drawn: ${graph.links.length} links, ${graph.nodes.length} nodes (minCount=${minCount})`);
+  statusEl.attr("class",null).text(`Loaded rows: ${links.length} | Drawn: ${graph.links.length} links, ${graph.nodes.length} nodes | minCount=${minCount}`);
 }
 
 function loadAndDraw(){
   const file = document.getElementById("dataset").value;
   const minCount = +document.getElementById("minCount").value || 1;
-  statusEl.attr("class",null).text(`Loading ${file} …`);
-  d3.csv(file).then(data => {
-    // Ensure required columns exist
-    const need = ["SourceName","TargetName","Count"];
-    const hasAll = need.every(k => Object.prototype.hasOwnProperty.call(data.columns || data, k));
-    if (!hasAll){
-      statusEl.attr("class","error").text(`CSV must have headers: ${need.join(", ")}. Found: ${data.columns ? data.columns.join(", ") : "unknown"}`);
-      return;
-    }
-    const links = data.map(d => ({
-      SourceName: String(d.SourceName).trim(),
-      TargetName: String(d.TargetName).trim(),
-      Count: +d.Count
-    })).filter(d => d.SourceName && d.TargetName && d.Count > 0);
+  statusEl.attr("class",null).text(`Loading ${file}…`);
+  d3.csv(file).then(raw => {
+    const links = normalizeLinks(raw);
     draw(links, minCount);
   }).catch(err => {
     console.error(err);
-    statusEl.attr("class","error").text(`Failed to load ${file}. If opening locally, serve over http(s) (e.g., python3 -m http.server).`);
+    statusEl.attr("class","error").text(err.message || `Failed to load ${file}. If opening locally, run: python3 -m http.server`);
   });
 }
 
