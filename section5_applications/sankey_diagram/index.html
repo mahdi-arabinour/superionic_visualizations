@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Sankey — Anode → Structure → Ion → Cathode</title>
+<title>Sankey — Anode → Structure → Ion → Cathode (Layered, No Cycles)</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 <style>
@@ -22,10 +22,10 @@
 
 <h2>Sankey — Anode → Structure → Ion → Cathode</h2>
 <div class="controls">
-  <label>CSV:</label>
+  <label>CSV (layered):</label>
   <select id="dataset">
-    <option value="data_simple_thresholded.csv" selected>Thresholded (simple)</option>
-    <option value="data_simple_raw.csv">RAW (simple)</option>
+    <option value="data_sankey_links_thresholded.csv" selected>Thresholded (layered)</option>
+    <option value="data_sankey_links_raw.csv">RAW (layered)</option>
   </select>
   <label>Min count:</label>
   <input id="minCount" type="number" value="3" min="1" step="1" style="width:70px" />
@@ -44,74 +44,71 @@ const statusEl = d3.select("#status");
 const color = d3.scaleOrdinal(d3.schemeTableau10);
 const tooltip = d3.select("#tt");
 
+// Force a 4-column layout
+const LAYERS = ["Anode", "Structure Type", "Ion Type", "Cathode"];
+const LIDX = new Map(LAYERS.map((d,i)=>[d,i]));
+
 const sankey = d3.sankey()
   .nodeWidth(14)
   .nodePadding(18)
+  .nodeAlign(d3.sankeyJustify)
   .extent([[12,12],[width-12,height-12]]);
 
-// ---- Robust CSV normalization (handles BOM, quotes, NBSP, commas in numbers) ----
-function sanitize(s){
-  return String(s ?? "")
-    .replace(/\uFEFF/g,"")   // BOM
-    .replace(/\u00A0/g," ")  // NBSP → space
-    .replace(/^"+|"+$/g,"")  // trim quotes
-    .replace(/\s+/g," ")
-    .trim();
-}
-function normalizeLinks(raw){
-  // Clean header names
-  const cols = (raw.columns || []).map(sanitize);
-  console.log("Detected CSV headers:", cols);
+// Clean text (strip BOM, quotes, NBSP)
+const clean = s => String(s ?? "")
+  .replace(/\uFEFF/g,"").replace(/\u00A0/g," ").replace(/^"+|"+$/g,"").trim();
 
-  // Accept common header variants
-  const variants = [
-    {s:"SourceName", t:"TargetName", v:"Count"},
-    {s:"Source",     t:"Target",     v:"Count"},
-    {s:"source",     t:"target",     v:"value"},
-    {s:"Source",     t:"Target",     v:"Value"},
-  ];
-  let map = null;
-  for(const cand of variants){
-    if(cols.includes(cand.s) && cols.includes(cand.t) && cols.includes(cand.v)){ map = cand; break; }
+// Build graph from *layered* CSV
+function buildGraph(rawRows, minCount){
+  // Expect headers: Source, SourceName, TargetLayer, TargetName, Count
+  const rows = rawRows.map(r => ({
+    srcLayer: clean(r["Source"]),
+    srcName : clean(r["SourceName"]),
+    tgtLayer: clean(r["TargetLayer"]),
+    tgtName : clean(r["TargetName"]),
+    count   : +String(r["Count"] || "0").replace(/,/g,"")
+  })).filter(r => LIDX.has(r.srcLayer) && LIDX.has(r.tgtLayer) && r.count > 0);
+
+  // Filter by min count
+  const flt = rows.filter(r => r.count >= minCount);
+
+  // Namespace node ids by layer to prevent cycles:
+  // e.g., "Structure Type:NASICON" vs "Cathode:NASICON"
+  const idFor = (layer, name) => `${layer}:${name}`;
+
+  const nameToNode = new Map();
+  function idx(layer, name){
+    const key = idFor(layer,name);
+    if (!nameToNode.has(key)) {
+      nameToNode.set(key, {
+        key,           // internal id
+        name,          // display label
+        layer,         // layer name
+        column: LIDX.get(layer) // 0..3
+      });
+    }
+    return nameToNode.get(key);
   }
-  if(!map){
-    throw new Error(`CSV must have headers like "SourceName,TargetName,Count". Found: ${cols.join(", ")}`);
-  }
 
-  // Clean rows
-  return raw.map(d => ({
-      SourceName: sanitize(d[map.s]),
-      TargetName: sanitize(d[map.t]),
-      Count: +String(d[map.v] ?? "0").replace(/,/g,"")
-    }))
-    .filter(d => d.SourceName && d.TargetName && d.Count > 0);
+  const links = flt.map(r => ({
+    source: idx(r.srcLayer, r.srcName),
+    target: idx(r.tgtLayer, r.tgtName),
+    value : r.count
+  }));
+
+  const nodes = Array.from(nameToNode.values());
+
+  // d3-sankey will compute x/y; we guide columns by setting node.depth via .x0/x1 after layout,
+  // but simpler: group by column using custom nodeSort (already ensured by namespacing + layer order)
+  return { nodes, links };
 }
 
-// ---- Build graph for d3-sankey ----
-function buildGraph(links, minCount){
-  const flinks = links.filter(d => +d.Count >= minCount);
-  const nameToIndex = new Map();
-  const id = name => { if(!nameToIndex.has(name)) nameToIndex.set(name, nameToIndex.size); return nameToIndex.get(name); };
-
-  flinks.forEach(d => { d.source = id(d.SourceName); d.target = id(d.TargetName); });
-
-  const nodes = Array.from(nameToIndex.entries())
-    .sort((a,b)=>a[1]-b[1])
-    .map(([name]) => ({ name }));
-
-  return { nodes, links: flinks.map(d => ({ source:d.source, target:d.target, value:+d.Count })) };
-}
-
-// ---- Draw ----
-function draw(links, minCount){
-  const graph = buildGraph(links, minCount);
+function draw(graph){
   svg.selectAll("*").remove();
 
-  if(!graph.links.length){
-    statusEl.attr("class","error").text("No links after filtering. Lower Min count or check CSV values.");
-    return;
-  }
-
+  // Run sankey
+  sankey
+    .nodeSort((a,b) => (a.column - b.column) || d3.ascending(a.name,b.name));
   sankey(graph);
 
   // Links
@@ -121,54 +118,67 @@ function draw(links, minCount){
     .enter().append("path")
       .attr("class","link")
       .attr("d", d3.sankeyLinkHorizontal())
-      .attr("stroke", d => color(d.source % 10))
+      .attr("stroke", d => color(d.source.column % 10))
       .attr("stroke-width", d => Math.max(1, d.width))
       .on("mouseover", (ev,d) => {
         tooltip.style("visibility","visible").html(
-          `${graph.nodes[d.source].name} → ${graph.nodes[d.target].name}<br><b>${d.value}</b> samples`
+          `${d.source.layer}: <b>${d.source.name}</b> → ${d.target.layer}: <b>${d.target.name}</b><br>` +
+          `<b>${d.value}</b> samples`
         );
       })
       .on("mousemove", ev => tooltip.style("left",(ev.pageX+12)+"px").style("top",(ev.pageY-20)+"px"))
       .on("mouseout", () => tooltip.style("visibility","hidden"));
 
   // Nodes
-  const node = svg.append("g").selectAll("g")
+  const gNode = svg.append("g").selectAll("g")
     .data(graph.nodes)
     .enter().append("g").attr("class","node");
 
-  node.append("rect")
+  gNode.append("rect")
       .attr("x", d => d.x0).attr("y", d => d.y0)
       .attr("height", d => Math.max(1, d.y1 - d.y0))
       .attr("width", d => d.x1 - d.x0)
-      .attr("fill", d => color(d.index % 10))
+      .attr("fill", d => color(d.column % 10))
       .attr("opacity", .85);
 
-  node.append("text")
+  gNode.append("text")
       .attr("x", d => d.x0 < width/2 ? d.x1 + 6 : d.x0 - 6)
       .attr("y", d => (d.y1 + d.y0)/2)
       .attr("dy", ".35em")
       .attr("text-anchor", d => d.x0 < width/2 ? "start" : "end")
-      .style("font-size", "11px")
+      .style("font-size","11px")
       .text(d => d.name);
 
   statusEl.attr("class",null).text(
-    `Loaded rows: ${links.length} | Drawn: ${graph.links.length} links, ${graph.nodes.length} nodes | minCount=${minCount}`
+    `Drawn: ${graph.links.length} links across ${graph.nodes.length} nodes`
   );
 }
 
-// ---- Load + wire UI ----
 function loadAndDraw(){
   const file = document.getElementById("dataset").value;
   const minCount = +document.getElementById("minCount").value || 1;
-  statusEl.attr("class",null).text(`Loading ${file}…`);
+  statusEl.attr("class",null).text(`Loading ${file} …`);
+
   d3.csv(file).then(raw => {
-    const links = normalizeLinks(raw);
-    draw(links, minCount);
+    // Header sanity
+    const cols = (raw.columns || []).map(clean);
+    const need = ["Source","SourceName","TargetLayer","TargetName","Count"];
+    const ok = need.every(k => cols.includes(k));
+    if (!ok) {
+      throw new Error(`Expected layered CSV with headers: ${need.join(", ")}. Found: ${cols.join(", ")}`);
+    }
+    const graph = buildGraph(raw, minCount);
+    if (!graph.links.length) {
+      statusEl.attr("class","error").text("No links after filtering. Lower Min count or check values.");
+      return;
+    }
+    draw(graph);
   }).catch(err => {
     console.error(err);
     statusEl.attr("class","error").text(err.message || `Failed to load ${file}. If opening locally, run: python3 -m http.server`);
   });
 }
+
 document.getElementById("apply").addEventListener("click", loadAndDraw);
 loadAndDraw();
 </script>
