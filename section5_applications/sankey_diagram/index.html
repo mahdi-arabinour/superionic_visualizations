@@ -8,7 +8,7 @@
 <style>
   body { font-family: Arial, sans-serif; background:#fff; color:#111; margin:28px; }
   h2 { margin:0 0 8px; }
-  .controls { margin:8px 0 14px; display:flex; gap:10px; align-items:center; }
+  .controls { margin:8px 0 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   svg { background:#fff; border:1px solid #ccc; border-radius:8px; }
   .node rect { stroke:#666; }
   .link { fill:none; stroke-opacity:.35; }
@@ -47,12 +47,23 @@ const tooltip = d3.select("#tt");
 const sankey = d3.sankey()
   .nodeWidth(14)
   .nodePadding(18)
-  .extent([[12, 12], [width - 12, height - 12]]);
+  .extent([[12,12],[width-12,height-12]]);
 
-// Try multiple header sets
-function normalizeLinks(raw) {
-  const cols = raw.columns ? raw.columns.map(c => c.trim()) : [];
-  // Best candidates
+// ---- Robust CSV normalization (handles BOM, quotes, NBSP, commas in numbers) ----
+function sanitize(s){
+  return String(s ?? "")
+    .replace(/\uFEFF/g,"")   // BOM
+    .replace(/\u00A0/g," ")  // NBSP → space
+    .replace(/^"+|"+$/g,"")  // trim quotes
+    .replace(/\s+/g," ")
+    .trim();
+}
+function normalizeLinks(raw){
+  // Clean header names
+  const cols = (raw.columns || []).map(sanitize);
+  console.log("Detected CSV headers:", cols);
+
+  // Accept common header variants
   const variants = [
     {s:"SourceName", t:"TargetName", v:"Count"},
     {s:"Source",     t:"Target",     v:"Count"},
@@ -60,46 +71,54 @@ function normalizeLinks(raw) {
     {s:"Source",     t:"Target",     v:"Value"},
   ];
   let map = null;
-  for (const cand of variants) {
-    if (cols.includes(cand.s) && cols.includes(cand.t) && cols.includes(cand.v)) {
-      map = cand; break;
-    }
+  for(const cand of variants){
+    if(cols.includes(cand.s) && cols.includes(cand.t) && cols.includes(cand.v)){ map = cand; break; }
   }
-  if (!map) {
-    throw new Error(`CSV headers must include one of:
-- SourceName,TargetName,Count
-- Source,Target,Count
-- source,target,value
-Found: ${cols.join(", ")}`);
+  if(!map){
+    throw new Error(`CSV must have headers like "SourceName,TargetName,Count". Found: ${cols.join(", ")}`);
   }
+
+  // Clean rows
   return raw.map(d => ({
-    SourceName: String(d[map.s]).trim(),
-    TargetName: String(d[map.t]).trim(),
-    Count: +d[map.v]
-  })).filter(d => d.SourceName && d.TargetName && d.Count > 0);
+      SourceName: sanitize(d[map.s]),
+      TargetName: sanitize(d[map.t]),
+      Count: +String(d[map.v] ?? "0").replace(/,/g,"")
+    }))
+    .filter(d => d.SourceName && d.TargetName && d.Count > 0);
 }
 
+// ---- Build graph for d3-sankey ----
 function buildGraph(links, minCount){
   const flinks = links.filter(d => +d.Count >= minCount);
   const nameToIndex = new Map();
-  const id = name => (nameToIndex.has(name) ? nameToIndex.get(name) : (nameToIndex.set(name, nameToIndex.size), nameToIndex.get(name)));
+  const id = name => { if(!nameToIndex.has(name)) nameToIndex.set(name, nameToIndex.size); return nameToIndex.get(name); };
+
   flinks.forEach(d => { d.source = id(d.SourceName); d.target = id(d.TargetName); });
-  const nodes = Array.from(nameToIndex.entries()).sort((a,b)=>a[1]-b[1]).map(([name]) => ({name}));
+
+  const nodes = Array.from(nameToIndex.entries())
+    .sort((a,b)=>a[1]-b[1])
+    .map(([name]) => ({ name }));
+
   return { nodes, links: flinks.map(d => ({ source:d.source, target:d.target, value:+d.Count })) };
 }
 
+// ---- Draw ----
 function draw(links, minCount){
   const graph = buildGraph(links, minCount);
   svg.selectAll("*").remove();
-  if (!graph.links.length){
-    statusEl.attr("class","error").text("No links after filtering. Try lowering Min count or check CSV headers/values.");
+
+  if(!graph.links.length){
+    statusEl.attr("class","error").text("No links after filtering. Lower Min count or check CSV values.");
     return;
   }
+
   sankey(graph);
 
   // Links
-  svg.append("g").attr("fill","none").selectAll("path")
-    .data(graph.links).enter().append("path")
+  svg.append("g").attr("fill","none")
+    .selectAll("path")
+    .data(graph.links)
+    .enter().append("path")
       .attr("class","link")
       .attr("d", d3.sankeyLinkHorizontal())
       .attr("stroke", d => color(d.source % 10))
@@ -113,21 +132,31 @@ function draw(links, minCount){
       .on("mouseout", () => tooltip.style("visibility","hidden"));
 
   // Nodes
-  const node = svg.append("g").selectAll("g").data(graph.nodes).enter().append("g").attr("class","node");
+  const node = svg.append("g").selectAll("g")
+    .data(graph.nodes)
+    .enter().append("g").attr("class","node");
+
   node.append("rect")
       .attr("x", d => d.x0).attr("y", d => d.y0)
       .attr("height", d => Math.max(1, d.y1 - d.y0))
       .attr("width", d => d.x1 - d.x0)
-      .attr("fill", d => color(d.index % 10)).attr("opacity", .85);
+      .attr("fill", d => color(d.index % 10))
+      .attr("opacity", .85);
+
   node.append("text")
       .attr("x", d => d.x0 < width/2 ? d.x1 + 6 : d.x0 - 6)
-      .attr("y", d => (d.y1 + d.y0)/2).attr("dy",".35em")
+      .attr("y", d => (d.y1 + d.y0)/2)
+      .attr("dy", ".35em")
       .attr("text-anchor", d => d.x0 < width/2 ? "start" : "end")
-      .style("font-size","11px").text(d => d.name);
+      .style("font-size", "11px")
+      .text(d => d.name);
 
-  statusEl.attr("class",null).text(`Loaded rows: ${links.length} | Drawn: ${graph.links.length} links, ${graph.nodes.length} nodes | minCount=${minCount}`);
+  statusEl.attr("class",null).text(
+    `Loaded rows: ${links.length} | Drawn: ${graph.links.length} links, ${graph.nodes.length} nodes | minCount=${minCount}`
+  );
 }
 
+// ---- Load + wire UI ----
 function loadAndDraw(){
   const file = document.getElementById("dataset").value;
   const minCount = +document.getElementById("minCount").value || 1;
@@ -140,7 +169,6 @@ function loadAndDraw(){
     statusEl.attr("class","error").text(err.message || `Failed to load ${file}. If opening locally, run: python3 -m http.server`);
   });
 }
-
 document.getElementById("apply").addEventListener("click", loadAndDraw);
 loadAndDraw();
 </script>
