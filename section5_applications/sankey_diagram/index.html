@@ -2,262 +2,179 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Battery Material Flow Sankey</title>
+<title>Sankey — Anode → Structure → Ion → Cathode (Layered, GitHub Pages)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 <style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;background:#f7f7f7}
-  h1{margin:0 0 10px;font-size:20px}
-  select,input,button,label{margin-right:10px}
-  svg{width:100%;height:calc(100vh - 110px);background:#fff;border:1px solid #e5e5e5;overflow:visible}
-  .link{fill:none;stroke-opacity:.45}
-  .link:hover{stroke-opacity:.8}
-  .node text{font-size:12px;fill:#111;pointer-events:none}
-  .layer-title{font-size:12px;fill:#444;font-weight:600}
-  .legend{font-size:12px;fill:#111}
-  .legend rect{width:12px;height:12px;stroke:#333}
+  :root { --bg:#fff; --fg:#111; --muted:#666; --border:#ccc; }
+  body { font-family: Arial, sans-serif; background:var(--bg); color:var(--fg); margin:28px; }
+  h2 { margin:0 0 8px; }
+  .controls { margin:8px 0 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  svg { background:#fff; border:1px solid var(--border); border-radius:8px; }
+  .node rect { stroke: var(--muted); }
+  .link { fill:none; stroke-opacity:.35; }
+  .tooltip { position:absolute; background:#fff; border:1px solid var(--border); border-radius:5px;
+             padding:6px 8px; font-size:11px; box-shadow:0 2px 6px rgba(0,0,0,.15); pointer-events:none; }
+  #status { margin-top:8px; font-size:12px; color:#333; }
+  #status.error { color:#b00020; }
 </style>
 </head>
 <body>
-<h1>Battery Material Flow Sankey</h1>
 
-<label>Data:
-  <select id="dataFile">
+<h2>Sankey — Anode → Structure → Ion → Cathode</h2>
+<div class="controls">
+  <label>CSV (layered):</label>
+  <!-- Put the CSV files in the SAME FOLDER as this HTML (GitHub Pages friendly) -->
+  <select id="dataset">
     <option value="data_thresholded.csv" selected>Thresholded (layered)</option>
     <option value="data_raw.csv">RAW (layered)</option>
   </select>
-</label>
+  <label>Min count:</label>
+  <input id="minCount" type="number" value="3" min="1" step="1" style="width:70px" />
+  <button id="apply">Apply</button>
+</div>
 
-<label>Layout:
-  <select id="layoutType">
-    <option value="4layer" selected>Anode → Structure Type → Ion Type → Cathode</option>
-    <option value="3layer">Anode → SSE Structure Type → Cathode</option>
-  </select>
-</label>
-
-<label>Min count:
-  <input type="number" id="minCount" value="1" min="1" style="width:70px" />
-</label>
-
-<label><input type="checkbox" id="showLayerTitles" checked /> Show layer titles</label>
-<label><input type="checkbox" id="showLegend" checked /> Show legend</label>
-<label>Label size:
-  <input type="number" id="labelSize" value="12" min="9" max="20" style="width:60px" />
-</label>
-
-<button id="renderBtn">Render</button>
-<button id="downloadBtn">Download SVG</button>
-
-<svg id="sankey"></svg>
+<svg id="chart" width="1200" height="720"></svg>
+<div id="tt" class="tooltip" style="visibility:hidden"></div>
+<div id="status">Loading…</div>
 
 <script>
-/* ---------- Config ---------- */
-const STRUCT = "SSE Structure Type";
-const STRUCT_ALIASES = new Set(["SSE Structure Type","Structure Type"]);
-const ionColors = {
-  "Li+":"#F6C431","Na+":"#53B3CB","K+":"#F17C67","Mg2+":"#6CBF84",
-  "Ca2+":"#A890D3","Al3+":"#FFB4E6","Zn2+":"#7FB2F0","Ag+":"#B0B0B0","O2-":"#3C3C3C"
-};
-const fallback = d3.scaleOrdinal(d3.schemeTableau10);
+const svg = d3.select("#chart"),
+      width = +svg.attr("width"),
+      height = +svg.attr("height");
+const statusEl = d3.select("#status");
+const color = d3.scaleOrdinal(d3.schemeTableau10);
+const tooltip = d3.select("#tt");
 
-/* ---------- D3 setup ---------- */
-const svg = d3.select("#sankey");
-const sankey = d3.sankey().nodeWidth(20).nodePadding(16); // index-based IDs
+// Force a 4-column layout to avoid cycles
+const LAYERS = ["Anode", "Structure Type", "Ion Type", "Cathode"];
+const LIDX = new Map(LAYERS.map((d,i)=>[d,i]));
 
-/* ---------- UI ---------- */
-document.getElementById("renderBtn").addEventListener("click", render);
-document.getElementById("downloadBtn").addEventListener("click", () => {
-  const serializer = new XMLSerializer();
-  const src = serializer.serializeToString(document.querySelector("svg"));
-  const blob = new Blob([src], {type:"image/svg+xml"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = "sankey.svg"; a.click();
-  URL.revokeObjectURL(url);
-});
+const sankey = d3.sankey()
+  .nodeWidth(14)
+  .nodePadding(18)
+  .nodeAlign(d3.sankeyJustify)
+  .extent([[12,12],[width-12,height-12]]);
 
-/* ---------- Helpers ---------- */
-function sanitize(s){
-  return String(s ?? "")
-    .replace(/\u200B|\u200C|\u200D|\uFEFF/g,"")   // zero-width chars
-    .replace(/\u2013|\u2014/g,"–")                // normalize dash
-    .trim();
-}
-function normLayer(s){
-  const x = sanitize(s);
-  return STRUCT_ALIASES.has(x) ? STRUCT : x;
-}
-function allowedPair(layout, sLayer, tLayer){
-  const a = normLayer(sLayer), b = normLayer(tLayer);
-  if (layout === "3layer") {
-    return (a==="Anode" && b===STRUCT) || (a===STRUCT && b==="Cathode");
+// Clean text (strip BOM, quotes, NBSP)
+const clean = s => String(s ?? "")
+  .replace(/\uFEFF/g,"")   // BOM
+  .replace(/\u00A0/g," ")  // NBSP → space
+  .replace(/^"+|"+$/g,"")  // trim quotes
+  .trim();
+
+// Build graph from *layered* CSV
+function buildGraph(rawRows, minCount){
+  // Expect headers: Source, SourceName, TargetLayer, TargetName, Count
+  const rows = rawRows.map(r => ({
+    srcLayer: clean(r["Source"]),
+    srcName : clean(r["SourceName"]),
+    tgtLayer: clean(r["TargetLayer"]),
+    tgtName : clean(r["TargetName"]),
+    count   : +String(r["Count"] || "0").replace(/,/g,"")
+  })).filter(r => LIDX.has(r.srcLayer) && LIDX.has(r.tgtLayer) && r.count > 0);
+
+  const flt = rows.filter(r => r.count >= minCount);
+
+  // Namespace nodes by their layer to prevent cycles
+  const idFor = (layer, name) => `${layer}:${name}`;
+  const nameToNode = new Map();
+  function idx(layer, name){
+    const key = idFor(layer,name);
+    if (!nameToNode.has(key)) {
+      nameToNode.set(key, { key, name, layer, column: LIDX.get(layer) });
+    }
+    return nameToNode.get(key);
   }
-  return (a==="Anode" && b===STRUCT) || (a===STRUCT && b==="Ion Type") || (a==="Ion Type" && b==="Cathode");
-}
-function colorForLink(l){
-  if (normLayer(l.tLayer)==="Ion Type" && ionColors[l.targetName]) return ionColors[l.targetName];
-  if (normLayer(l.sLayer)==="Ion Type" && ionColors[l.sourceName]) return ionColors[l.sourceName];
-  return fallback(l.sLayer + "|" + l.sourceName);
+
+  const links = flt.map(r => ({
+    source: idx(r.srcLayer, r.srcName),
+    target: idx(r.tgtLayer, r.tgtName),
+    value : r.count
+  }));
+  const nodes = Array.from(nameToNode.values());
+
+  return { nodes, links };
 }
 
-/* ---------- Main render ---------- */
-async function render(){
+function draw(graph){
   svg.selectAll("*").remove();
-  const dataset = document.getElementById("dataFile").value;
-  const layout  = document.getElementById("layoutType").value;
-  const minCnt  = +document.getElementById("minCount").value || 1;
-  const showLayerTitles = document.getElementById("showLayerTitles").checked;
-  const showLegend = document.getElementById("showLegend").checked;
-  const labelSize = +document.getElementById("labelSize").value || 12;
 
-  const {width, height} = svg.node().getBoundingClientRect();
-  sankey.extent([[1,1],[width-1,height-6]]);
+  sankey.nodeSort((a,b) => (a.column - b.column) || d3.ascending(a.name,b.name));
+  sankey(graph);
 
-  let rows;
-  try{
-    rows = await d3.csv(dataset, d => ({
-      Source: sanitize(d.Source),
-      SourceName: sanitize(d.SourceName),
-      TargetLayer: sanitize(d.TargetLayer),
-      TargetName: sanitize(d.TargetName),
-      Count: +d.Count || 0
-    }));
-  }catch(err){
-    console.error("Failed to load CSV:", err);
-    alert("Could not load " + dataset + " (ensure file is beside this HTML).");
-    return;
-  }
-  console.log(`Loaded ${rows.length} rows from ${dataset}`);
-
-  // Filter to adjacent pairs + threshold + non-empty
-  const dropped = { empty:0, small:0, badPair:0 };
-  const linksRaw = [];
-  for (const r of rows){
-    const sLayer = normLayer(r.Source);
-    const tLayer = normLayer(r.TargetLayer);
-    const sName  = sanitize(r.SourceName);
-    const tName  = sanitize(r.TargetName);
-    const val    = +r.Count || 0;
-
-    if (!sName || !tName) { dropped.empty++; continue; }
-    if (val < minCnt)     { dropped.small++; continue; }
-    if (!allowedPair(layout, sLayer, tLayer)) { dropped.badPair++; continue; }
-
-    linksRaw.push({ sLayer, tLayer, sourceName:sName, targetName:tName, value:val });
-  }
-  console.log(`Kept ${linksRaw.length} links; dropped:`, dropped);
-  if (!linksRaw.length){ console.warn("No links to draw."); return; }
-
-  // Build unique nodes keyed by (name|layer)
-  const nodeKeys = new Set();
-  linksRaw.forEach(l => { nodeKeys.add(`${l.sourceName}|${l.sLayer}`); nodeKeys.add(`${l.targetName}|${l.tLayer}`); });
-  const nodes = Array.from(nodeKeys).map(k => { const [name, layer] = k.split("|"); return { name, layer }; });
-  const index = new Map(nodes.map((n,i)=>[`${n.name}|${n.layer}`, i]));
-
-  // Map links to numeric indices with endpoint checks
-  const links = [];
-  let missingEndpoints = 0;
-  for (const l of linksRaw) {
-    const s = index.get(`${l.sourceName}|${l.sLayer}`);
-    const t = index.get(`${l.targetName}|${l.tLayer}`);
-    if (s === undefined || t === undefined) { missingEndpoints++; continue; }
-    if (s === t) continue; // drop self-links
-    links.push({ source: s, target: t, value: l.value, ...l });
-  }
-  console.log(`Links after endpoint check: ${links.length} (dropped missingEndpoints=${missingEndpoints})`);
-  if (!links.length){ console.warn("No links after endpoint check."); return; }
-
-  const graph = { nodes: nodes.map(d=>({...d})), links: links.map(d=>({...d})) };
-
-  try { sankey(graph); }
-  catch(e){ console.error("Sankey layout error:", e); alert("Sankey couldn't layout (see console)."); return; }
-
-  /* ----- Draw links ----- */
-  svg.append("g")
+  // Links
+  svg.append("g").attr("fill","none")
     .selectAll("path")
     .data(graph.links)
-    .join("path")
-    .attr("class","link")
-    .attr("d", d3.sankeyLinkHorizontal())
-    .attr("stroke", d => colorForLink(d))
-    .attr("stroke-width", d => Math.max(1, d.width))
-    .append("title")
-    .text(d => `${graph.nodes[d.source].layer}: ${graph.nodes[d.source].name} → ${graph.nodes[d.target].layer}: ${graph.nodes[d.target].name}\nCount: ${d.value}`);
+    .enter().append("path")
+      .attr("class","link")
+      .attr("d", d3.sankeyLinkHorizontal())
+      .attr("stroke", d => color(d.source.column % 10))
+      .attr("stroke-width", d => Math.max(1, d.width))
+      .on("mouseover", (ev,d) => {
+        tooltip.style("visibility","visible").html(
+          `${d.source.layer}: <b>${d.source.name}</b> → ${d.target.layer}: <b>${d.target.name}</b><br>` +
+          `<b>${d.value}</b> samples`
+        );
+      })
+      .on("mousemove", ev => tooltip.style("left",(ev.pageX+12)+"px").style("top",(ev.pageY-20)+"px"))
+      .on("mouseout", () => tooltip.style("visibility","hidden"));
 
-  /* ----- Draw nodes + labels (with halo for visibility) ----- */
-  const nodeSel = svg.append("g")
-    .selectAll(".node")
+  // Nodes
+  const gNode = svg.append("g").selectAll("g")
     .data(graph.nodes)
-    .join("g")
-    .attr("class","node");
+    .enter().append("g").attr("class","node");
 
-  nodeSel.append("rect")
-    .attr("x", d => d.x0)
-    .attr("y", d => d.y0)
-    .attr("width", sankey.nodeWidth())
-    .attr("height", d => Math.max(1, d.y1 - d.y0))
-    .attr("fill", d => fallback(d.layer + "|" + d.name))
-    .attr("stroke", "#333")
-    .append("title")
-    .text(d => `${d.layer}: ${d.name}\nΣ = ${d.value ?? 0}`);
+  gNode.append("rect")
+      .attr("x", d => d.x0).attr("y", d => d.y0)
+      .attr("height", d => Math.max(1, d.y1 - d.y0))
+      .attr("width", d => d.x1 - d.x0)
+      .attr("fill", d => color(d.column % 10))
+      .attr("opacity", .85);
 
-  const labels = nodeSel.append("text")
-    .attr("font-size", labelSize)
-    .attr("x", d => (d.x0 < width/2 ? d.x1 + 6 : d.x0 - 6))
-    .attr("y", d => (d.y1 + d.y0)/2)
-    .attr("dy",".35em")
-    .attr("text-anchor", d => (d.x0 < width/2 ? "start" : "end"))
-    .attr("fill", "#111")
-    .style("paint-order","stroke")
-    .style("stroke","#fff")
-    .style("stroke-width","3px")
-    .style("stroke-linejoin","round")
-    .text(d => d.name);
+  gNode.append("text")
+      .attr("x", d => d.x0 < width/2 ? d.x1 + 6 : d.x0 - 6)
+      .attr("y", d => (d.y1 + d.y0)/2)
+      .attr("dy", ".35em")
+      .attr("text-anchor", d => d.x0 < width/2 ? "start" : "end")
+      .style("font-size", "11px")
+      .text(d => d.name);
 
-  console.log("Label count:", labels.size());
-
-  /* ----- Layer titles (optional) ----- */
-  if (document.getElementById("showLayerTitles").checked) {
-    const layerX = d3.rollup(graph.nodes, v => d3.mean(v, d => d.x0), d => d.layer);
-    const titles = Array.from(layerX, ([layer, x]) => ({layer, x}));
-    svg.append("g").attr("class","layer-title")
-      .selectAll("text").data(titles).join("text")
-      .attr("x", d => d.x + (d.layer==="Anode" ? 0 : sankey.nodeWidth()))
-      .attr("y", 14)
-      .attr("text-anchor","start")
-      .text(d => d.layer);
-  }
-
-  /* ----- Legend (ion colors actually present) ----- */
-  if (document.getElementById("showLegend").checked) {
-    const ionsPresent = new Set();
-    graph.links.forEach(l => {
-      const sName = graph.nodes[l.source].name, sLayer = graph.nodes[l.source].layer;
-      const tName = graph.nodes[l.target].name, tLayer = graph.nodes[l.target].layer;
-      if (normLayer(sLayer)==="Ion Type" && ionColors[sName]) ionsPresent.add(sName);
-      if (normLayer(tLayer)==="Ion Type" && ionColors[tName]) ionsPresent.add(tName);
-    });
-    const items = Array.from(ionsPresent).sort();
-    if (items.length){
-      const g = svg.append("g").attr("class","legend");
-      const pad = 8, rowH = 16, box = 12;
-      const x0 = Math.max(12, width - 160), y0 = 24;
-      g.append("text").attr("x", x0).attr("y", y0).attr("font-weight",600).text("Ion Type");
-      const rows = g.selectAll("g.item").data(items).join("g").attr("class","item")
-        .attr("transform",(d,i)=>`translate(${x0},${y0 + 8 + (i+1)*rowH})`);
-      rows.append("rect").attr("width", box).attr("height", box).attr("fill", d => ionColors[d] || "#999");
-      rows.append("text").attr("x", box + pad).attr("y", box*0.8).text(d => d);
-      console.log("Legend items:", items);
-    } else {
-      console.log("Legend: no Ion Types present in rendered links.");
-    }
-  }
-
-  console.log(`Rendered ${graph.links.length} links, ${graph.nodes.length} nodes`);
+  statusEl.attr("class",null).text(
+    `Drawn: ${graph.links.length} links across ${graph.nodes.length} nodes`
+  );
 }
 
-// Auto render once on load
-render();
+function loadAndDraw(){
+  const file = document.getElementById("dataset").value;
+  const minCount = +document.getElementById("minCount").value || 1;
+  // GitHub Pages caching is aggressive — add cache-buster:
+  const url = `${file}?v=${Date.now()}`;
+  statusEl.attr("class",null).text(`Loading ${url} …`);
+
+  d3.csv(url).then(raw => {
+    // Header sanity (strip BOM on headers too)
+    const cols = (raw.columns || []).map(clean);
+    const need = ["Source","SourceName","TargetLayer","TargetName","Count"];
+    const ok = need.every(k => cols.includes(k));
+    if (!ok) throw new Error(`Expected layered CSV with headers: ${need.join(", ")}. Found: ${cols.join(", ")}`);
+
+    const graph = buildGraph(raw, minCount);
+    if (!graph.links.length) {
+      statusEl.attr("class","error").text("No links after filtering. Lower Min count or check values.");
+      return;
+    }
+    draw(graph);
+  }).catch(err => {
+    console.error(err);
+    statusEl.attr("class","error").text(err.message || `Failed to load ${file}`);
+  });
+}
+
+document.getElementById("apply").addEventListener("click", loadAndDraw);
+loadAndDraw();
 </script>
 </body>
 </html>
