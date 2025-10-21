@@ -24,8 +24,8 @@
 
 <label>Data:</label>
 <select id="dataFile">
-  <option value="data_thresholded_layered_full.csv" selected>Thresholded (layered)</option>
-  <option value="data_raw_layered_full.csv">RAW (layered)</option>
+  <option value="data_thresholded.csv" selected>Thresholded (layered)</option>
+  <option value="data_raw.csv">RAW (layered)</option>
 </select>
 
 <label>Layout:</label>
@@ -43,26 +43,17 @@
 <svg id="sankey"></svg>
 
 <script>
-const STRUCT = "SSE Structure Type";           // unify both spellings to this
+const STRUCT = "SSE Structure Type";
 const STRUCT_ALIASES = new Set(["SSE Structure Type","Structure Type"]);
 
 const ionColors = {
-  "Li+":  "#F6C431",  // gold
-  "Na+":  "#53B3CB",  // cyan-blue
-  "K+":   "#F17C67",  // salmon
-  "Mg2+": "#6CBF84",  // green
-  "Ca2+": "#A890D3",  // lavender
-  "Al3+": "#FFB4E6",  // pink
-  "Zn2+": "#7FB2F0",  // light blue
-  "Ag+":  "#B0B0B0",  // silver
-  "O2-":  "#3C3C3C"   // dark gray
+  "Li+":"#F6C431","Na+":"#53B3CB","K+":"#F17C67","Mg2+":"#6CBF84",
+  "Ca2+":"#A890D3","Al3+":"#FFB4E6","Zn2+":"#7FB2F0","Ag+":"#B0B0B0","O2-":"#3C3C3C"
 };
 const fallback = d3.scaleOrdinal(d3.schemeTableau10);
 
 const svg = d3.select("#sankey");
-const sankey = d3.sankey()
-  .nodeWidth(20)
-  .nodePadding(16);
+const sankey = d3.sankey().nodeWidth(20).nodePadding(16).nodeId(d => d.id);
 
 document.getElementById("renderBtn").addEventListener("click", render);
 document.getElementById("downloadBtn").addEventListener("click", () => {
@@ -94,57 +85,51 @@ function allowedPair(layout, sLayer, tLayer) {
 }
 
 function colorForLink(l) {
-  // If the link touches the Ion layer, color by the ion label for consistency.
   if (normalizeLayerName(l.tLayer) === "Ion Type" && ionColors[l.targetName]) return ionColors[l.targetName];
   if (normalizeLayerName(l.sLayer) === "Ion Type" && ionColors[l.sourceName]) return ionColors[l.sourceName];
-  // Otherwise, fall back to a stable color by source layer/name
   return fallback(l.sLayer + "|" + l.sourceName);
 }
 
 function render() {
-  const file    = document.getElementById("dataFile").value;
-  const layout  = document.getElementById("layoutType").value; // "3layer" or "4layer"
-  const minCnt  = +document.getElementById("minCount").value || 1;
+  const file   = document.getElementById("dataFile").value;
+  const layout = document.getElementById("layoutType").value;
+  const minCnt = +document.getElementById("minCount").value || 1;
 
   svg.selectAll("*").remove();
   const {width, height} = svg.node().getBoundingClientRect();
   sankey.extent([[1,1],[width-1,height-6]]);
 
   d3.csv(file, d3.autoType).then(rows => {
-    // Ensure required columns are present
     const needed = ["Source","SourceName","TargetLayer","TargetName","Count"];
-    for (const k of needed) {
-      if (!(k in rows[0])) {
-        console.error("Missing column in CSV:", k);
-        return;
-      }
-    }
+    for (const k of needed) { if (!(k in rows[0])) { console.error("Missing column:", k); return; } }
 
-    // Normalize and filter by layout & min count
+    // Normalize rows & filter
     const linksRaw = rows
       .filter(d => +d.Count >= minCnt)
       .map(d => ({
-        sLayer: normalizeLayerName(String(d.Source || "").trim()),
-        tLayer: normalizeLayerName(String(d.TargetLayer || "").trim()),
-        sourceName: String(d.SourceName || "").trim(),
-        targetName: String(d.TargetName || "").trim(),
+        sLayer: normalizeLayerName(String(d.Source||"").trim()),
+        tLayer: normalizeLayerName(String(d.TargetLayer||"").trim()),
+        sourceName: String(d.SourceName||"").trim(),
+        targetName: String(d.TargetName||"").trim(),
         value: +d.Count
       }))
       .filter(l => allowedPair(layout, l.sLayer, l.tLayer));
 
-    if (!linksRaw.length) {
-      console.warn("No links passed filters. Check layer names or Min count.");
-      return;
-    }
+    if (!linksRaw.length) { console.warn("No links passed filters."); return; }
 
-    // Build node list
-    const nodeNames = Array.from(new Set(linksRaw.flatMap(l => [l.sourceName, l.targetName])));
-    const nodes = nodeNames.map(name => ({ name }));
-    const index = new Map(nodeNames.map((n,i)=>[n,i]));
+    // Build nodes **keyed by (name, layer)** to avoid cycles
+    const nodeKeys = Array.from(new Set(
+      linksRaw.flatMap(l => [`${l.sourceName}|${l.sLayer}`, `${l.targetName}|${l.tLayer}`])
+    ));
+    const nodes = nodeKeys.map(k => {
+      const [name, layer] = k.split("|");
+      return { id: k, name, layer };
+    });
+    const index = new Map(nodes.map((n,i)=>[n.id, i]));
 
     const links = linksRaw.map(l => ({
-      source: index.get(l.sourceName),
-      target: index.get(l.targetName),
+      source: index.get(`${l.sourceName}|${l.sLayer}`),
+      target: index.get(`${l.targetName}|${l.tLayer}`),
       value:  l.value,
       sLayer: l.sLayer,
       tLayer: l.tLayer,
@@ -152,8 +137,8 @@ function render() {
       targetName: l.targetName
     }));
 
-    const graph = {nodes: nodes.map(d=>({...d})), links: links.map(d=>({...d}))};
-    sankey(graph);
+    const graph = { nodes: nodes.map(d=>({...d})), links: links.map(d=>({...d})) };
+    sankey(graph); // now acyclic because nodes are per-layer
 
     // Links
     svg.append("g")
@@ -165,7 +150,7 @@ function render() {
       .attr("stroke", d => colorForLink(d))
       .attr("stroke-width", d => Math.max(1, d.width))
       .append("title")
-      .text(d => `${d.sLayer}: ${d.source.name} → ${d.tLayer}: ${d.target.name}\nCount: ${d.value}`);
+      .text(d => `${d.sLayer}: ${graph.nodes[d.source].name} → ${d.tLayer}: ${graph.nodes[d.target].name}\nCount: ${d.value}`);
 
     // Nodes
     const node = svg.append("g")
@@ -179,10 +164,10 @@ function render() {
       .attr("y", d => d.y0)
       .attr("width", sankey.nodeWidth())
       .attr("height", d => Math.max(1, d.y1 - d.y0))
-      .attr("fill", d => fallback(d.name))
+      .attr("fill", d => fallback(d.layer + "|" + d.name))
       .attr("stroke", "#333")
       .append("title")
-      .text(d => `${d.name}\nΣ = ${d.value ?? 0}`);
+      .text(d => `${d.layer}: ${d.name}\nΣ = ${d.value ?? 0}`);
 
     node.append("text")
       .attr("x", d => d.x0 - 6)
@@ -196,7 +181,7 @@ function render() {
   });
 }
 
-// Initial draw
+// initial draw
 render();
 </script>
 </body>
