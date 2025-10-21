@@ -1,10 +1,10 @@
 Source,SourceName,TargetLayer,TargetName,Count
 Anode,Ag + a-SIC (60:40),Structure Type,Amorphous SIC,1
 Anode,Ag-C composite,Structure Type,Argyrodite,1
-Anode,CoSe₂@rGO,Structure Type,Metal selenide heterostructure,4
-Anode,Cu₃.₂₁Bi₄.₇₉S₉ anode,Structure Type,NASICON,1
-Anode,Cu₃.₂₁Bi₄.₇₉S₉ anode,Structure Type,Sulfide,1
-Anode,Fe-NiSe₂,Structure Type,Metal selenide heterostructure,4
+Anode,CoSe2@rGO,Structure Type,Metal selenide heterostructure,4
+Anode,Cu3.21Bi4.79S9 anode,Structure Type,NASICON,1
+Anode,Cu3.21Bi4.79S9 anode,Structure Type,Sulfide,1
+Anode,Fe-NiSe2,Structure Type,Metal selenide heterostructure,4
 Anode,Graphite,Structure Type,LGPS-type,1
 Anode,Graphite,Structure Type,NASICON,1
 Anode,Hard carbon,Structure Type,NASICON,2
@@ -29,7 +29,7 @@ Anode,Li metal,Structure Type,Complex hydride lithium superionic conductor,1
 Anode,Li metal,Structure Type,Glassy sulfide,1
 Anode,Li metal,Structure Type,Halide,1
 Anode,Li metal,Structure Type,Halide (Li-In-Cl),1
-Anode,Li metal,Structure Type,Halide (Li₃InCl₆),1
+Anode,Li metal,Structure Type,Halide (Li3InCl6),1
 Anode,Li metal,Structure Type,Halide (trigonal),1
 Anode,Li metal,Structure Type,Halide SE + layered oxide composite,1
 Anode,Li metal,Structure Type,NASICON,1
@@ -40,14 +40,14 @@ Anode,Li metal,Structure Type,Polymer composite with superionic filler,5
 Anode,Li metal,Structure Type,Polymer electrolyte,1
 Anode,Li metal,Structure Type,Sulfide SE + layered oxide composite,1
 Anode,Li metal,Structure Type,Surface-chemisorbed oxide nanosheets,1
-Anode,Li metal,Structure Type,UCl₃-type LaCl₃ lattice,1
+Anode,Li metal,Structure Type,UCl3-type LaCl3 lattice,1
 Anode,Li metal,Structure Type,monoclinic),1
 Anode,Li metal,Structure Type,polymer composite,1
 Anode,Li metal,Structure Type,β-phase,3
 Anode,Li-In,Structure Type,Amorphous oxyhalide,1
 Anode,Li-In,Structure Type,Argyrodite,1
 Anode,Li-In,Structure Type,Sulfide (Spinel-type),1
-Anode,Li-In (protected with Li₆PS₅Cl),Structure Type,"Halide (Oxychloride, amorphous)",1
+Anode,Li-In (protected with Li6PS5Cl),Structure Type,"Halide (Oxychloride, amorphous)",1
 Anode,Li-In (with Li3YCl6 interlayer),Structure Type,Amorphous oxyhalide,1
 Anode,Li-In alloy,Structure Type,Argyrodite,4
 Anode,Li-In alloy,Structure Type,Cl-),1
@@ -61,15 +61,15 @@ Anode,Li-In alloy,Structure Type,Sulfide,1
 Anode,Li-In alloy,Structure Type,Sulfide (O-doped),1
 Anode,Li-In alloy,Structure Type,thio-LISICON II,1
 Anode,Li-In alloy (with LPSC interlayer),Structure Type,Halide (hcp),1
-Anode,Li-In alloy (with Li₆PS₅Cl interlayer),Structure Type,Halide (monoclinic),1
+Anode,Li-In alloy (with Li6PS5Cl interlayer),Structure Type,Halide (monoclinic),1
 Anode,Lithium metal,Structure Type,Cubic argyrodite,2
 Anode,Lithium metal,Structure Type,Halide (amorphous-crystalline),1
 Anode,Lithium metal foil,Structure Type,Halide (trigonal),1
 Anode,Lithium metal foil,Structure Type,NASICON,1
-Anode,Lithium metal foil (50 µm),Structure Type,Halide (trigonal),2
-Anode,Li₁₁Sn₆ with Li₃PS₄ additive,Structure Type,Halide (phase III),1
-Anode,Li₁₁Sn₆ with Li₃PS₄ additive,Structure Type,"Halide (phase III, Y system)",1
-Anode,Li₄Ti₅O₁₂,Structure Type,LGPS-type,1
+Anode,Lithium metal foil (50 μm),Structure Type,Halide (trigonal),2
+Anode,Li11Sn6 with Li3PS4 additive,Structure Type,Halide (phase III),1
+Anode,Li11Sn6 with Li3PS4 additive,Structure Type,"Halide (phase III, Y system)",1
+Anode,Li4Ti5O12,Structure Type,LGPS-type,1
 Anode,NTP (NaTi2(PO4)3),Structure Type,Natural polymer (lignin-based),1
 Anode,NTP-2 (VO-rich),Structure Type,NASICON,1
 Anode,NVP@Zn,Structure Type,NASICON,1
@@ -81,7 +81,7 @@ Anode,Na metal,Structure Type,NASICON,2
 Anode,Na metal,Structure Type,Sulfide (crystalline),1
 Anode,Na metal,Structure Type,Thiophosphate,1
 Anode,Na-Sn alloy,Structure Type,Thiophosphate (cubic),1
-Anode,Na-Sn alloy (counter,Structure Type,Sulfide glass-ceramic (cubic Na₃PS₄),1
+Anode,Na-Sn alloy (counter,Structure Type,Sulfide glass-ceramic (cubic Na3PS4),1
 Anode,Na15Sn4,Structure Type,Halide (amorphous,1
 Anode,Na15Sn4,Structure Type,nanocrystalline),1
 Anode,Na15Sn4 (protected with Na3PS4 interlayer),Structure Type,Halide,1
@@ -89,11 +89,11 @@ Anode,Na15Sn4 (with Na3PS4 interlayer),Structure Type,Amorphous-nanocrystalline 
 Anode,Na15Sn4 (with Na3PS4 interlayer),Structure Type,Halide,1
 Anode,Na15Sn4 + KB,Structure Type,Amorphous oxysulfide,1
 Anode,NaP5 CSA,Structure Type,NASICON,1
-Anode,Na₃Sn alloy (counter electrode),Structure Type,Sulfide,1
+Anode,Na3Sn alloy (counter electrode),Structure Type,Sulfide,1
 Anode,NiO + electrolyte,Structure Type,Core-shell nanocomposite,1
 Anode,Sodium metal,Structure Type,NASICON,3
-Anode,reference),Structure Type,Sulfide glass-ceramic (cubic Na₃PS₄),1
-Anode,⁶Li metal,Structure Type,Garnet-polymer composite,1
+Anode,reference),Structure Type,Sulfide glass-ceramic (cubic Na3PS4),1
+Anode,6Li metal,Structure Type,Garnet-polymer composite,1
 Structure Type,3D porous polymer + ether network,Ion Type,Li+,1
 Structure Type,Amorphous SIC,Ion Type,Ag+,1
 Structure Type,Amorphous glass,Ion Type,Li+,1
@@ -116,7 +116,7 @@ Structure Type,Glassy sulfide,Ion Type,Li+,2
 Structure Type,Halide,Ion Type,Li+,1
 Structure Type,Halide,Ion Type,Na+,2
 Structure Type,Halide (Li-In-Cl),Ion Type,Li+,1
-Structure Type,Halide (Li₃InCl₆),Ion Type,Li+,1
+Structure Type,Halide (Li3InCl6),Ion Type,Li+,1
 Structure Type,"Halide (Oxychloride, amorphous)",Ion Type,Li+,1
 Structure Type,Halide (amorphous,Ion Type,Na+,1
 Structure Type,Halide (amorphous-crystalline),Ion Type,Li+,2
@@ -153,19 +153,19 @@ Structure Type,Sulfide (Spinel-type),Ion Type,Li+,1
 Structure Type,Sulfide (crystalline),Ion Type,Na+,1
 Structure Type,Sulfide SE + layered oxide composite,Ion Type,Li+,1
 Structure Type,Sulfide glass-ceramic,Ion Type,Li+,1
-Structure Type,Sulfide glass-ceramic (cubic Na₃PS₄),Ion Type,Na+,2
+Structure Type,Sulfide glass-ceramic (cubic Na3PS4),Ion Type,Na+,2
 Structure Type,Surface-chemisorbed oxide nanosheets,Ion Type,Li+,1
 Structure Type,Thio-LISICON tetragonal,Ion Type,Li+,1
 Structure Type,Thiophosphate,Ion Type,Na+,1
 Structure Type,Thiophosphate (cubic),Ion Type,Na+,1
-Structure Type,UCl₃-type LaCl₃ lattice,Ion Type,Li+,1
+Structure Type,UCl3-type LaCl3 lattice,Ion Type,Li+,1
 Structure Type,monoclinic),Ion Type,Li+,1
 Structure Type,nanocrystalline),Ion Type,Na+,1
 Structure Type,polymer composite,Ion Type,Li+,1
 Structure Type,thio-LISICON II,Ion Type,Li+,1
 Structure Type,β-phase,Ion Type,Li+,3
 Ion Type,Ag+,Cathode,I2,1
-Ion Type,K+,Cathode,K₂Sₓ,1
+Ion Type,K+,Cathode,K2Sx,1
 Ion Type,Li+,Cathode,High-loading,1
 Ion Type,Li+,Cathode,High-voltage,1
 Ion Type,Li+,Cathode,LCO,1
@@ -174,16 +174,16 @@ Ion Type,Li+,Cathode,LNCMO,1
 Ion Type,Li+,Cathode,Li,2
 Ion Type,Li+,Cathode,Li metal,10
 Ion Type,Li+,Cathode,Li4Ti5O12,1
-Ion Type,Li+,Cathode,LiCoO₂,12
-Ion Type,Li+,Cathode,LiCoO₂@LiNbO₃,1
-Ion Type,Li+,Cathode,LiFePO₄,5
-Ion Type,Li+,Cathode,LiFePO₄@rGO,2
+Ion Type,Li+,Cathode,LiCoO2,12
+Ion Type,Li+,Cathode,LiCoO2@LiNbO3,1
+Ion Type,Li+,Cathode,LiFePO4,5
+Ion Type,Li+,Cathode,LiFePO4@rGO,2
 Ion Type,Li+,Cathode,LiNbO3-coated,2
-Ion Type,Li+,Cathode,LiNbO₃-coated,2
+Ion Type,Li+,Cathode,LiNbO3-coated,2
 Ion Type,Li+,Cathode,LiNi0.7Mn0.15Co0.15O2,2
-Ion Type,Li+,Cathode,LiNi₀.₅Co₀.₂Mn₀.₃O₂,1
-Ion Type,Li+,Cathode,LiNi₀.₈₃Co₀.₁₁Mn₀.₀₆O₂,1
-Ion Type,Li+,Cathode,LiNi₀.₉₀Co₀.₀₅Mn₀.₀₅O₂,1
+Ion Type,Li+,Cathode,LiNi0.5Co0.2Mn0.3O2,1
+Ion Type,Li+,Cathode,LiNi0.83Co0.11Mn0.06O2,1
+Ion Type,Li+,Cathode,LiNi0.90Co0.05Mn0.05O2,1
 Ion Type,Li+,Cathode,Lithium,2
 Ion Type,Li+,Cathode,NCM111,1
 Ion Type,Li+,Cathode,NCM523,2
@@ -199,8 +199,8 @@ Ion Type,Li+,Cathode,S-C,1
 Ion Type,Li+,Cathode,S-MWCNT-Li5.5AsS4.5Br1.5,2
 Ion Type,Li+,Cathode,S-NCM88,1
 Ion Type,Li+,Cathode,TiS2,2
-Ion Type,Li+,Cathode,TiS₂,2
-Ion Type,Na+,Cathode,FeS₂,2
+Ion Type,Li+,Cathode,TiS2,2
+Ion Type,Na+,Cathode,FeS2,2
 Ion Type,Na+,Cathode,NCTVP,2
 Ion Type,Na+,Cathode,NFM@5%NVP,1
 Ion Type,Na+,Cathode,NTP-KAS,1
@@ -208,12 +208,12 @@ Ion Type,Na+,Cathode,NVP,4
 Ion Type,Na+,Cathode,Na,4
 Ion Type,Na+,Cathode,NaCrO2,2
 Ion Type,Na+,Cathode,NaP5,1
-Ion Type,Na+,Cathode,NaTi₂(PO₄)₃,1
-Ion Type,Na+,Cathode,Na₃V₂(PO₄)₃,4
-Ion Type,Na+,Cathode,Na₃V₂(PO₄)₃@rGO,2
+Ion Type,Na+,Cathode,NaTi2(PO4)3,1
+Ion Type,Na+,Cathode,Na3V2(PO4)3,4
+Ion Type,Na+,Cathode,Na3V2(PO4)3@rGO,2
 Ion Type,Na+,Cathode,TiS2,1
-Ion Type,Na+,Cathode,TiS₂,3
+Ion Type,Na+,Cathode,TiS2,3
 Ion Type,Na+,Cathode,VMW-0.1,2
 Ion Type,O2+,Cathode,Lithiated,1
 Ion Type,Zn2+,Cathode,NVP@Zn,1
-Ion Type,Zn2+,Cathode,α-MnO₂,1
+Ion Type,Zn2+,Cathode,α-MnO2,1
