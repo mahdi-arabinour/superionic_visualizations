@@ -1,295 +1,180 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
+<meta charset="UTF-8" />
+<title>Sankey — Anode → Structure → Ion → Cathode (Layered, GitHub Pages)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Sankey — Anode → Structure → Ion → Cathode (Standalone, loads data.csv)</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 <style>
-  :root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-  body { margin: 0; background: #0b0c10; color: #eaf0f6; }
-  header { padding: 16px 20px; border-bottom: 1px solid #1f2430; background: #0f1116; position: sticky; top: 0; z-index: 10; }
-  h1 { font-size: 18px; margin: 0 0 6px; }
-  .wrap { max-width: 1200px; margin: 0 auto; padding: 16px 20px 40px; }
-  .panel { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); }
-  .card { background: #121520; border: 1px solid #232a3a; border-radius: 14px; padding: 14px; }
-  .card h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #cfd7e3; }
-  label { font-size: 12px; opacity: .9; display: block; margin-bottom: 6px; }
-  input[type="number"] { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #2c3447; background: #0f1320; color:#eaf0f6; }
-  select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #2c3447; background: #0f1320; color:#eaf0f6; }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .btn { appearance: none; border: 1px solid #2f3a52; background: #1a2240; color: #eaf0f6; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; }
-  .btn.secondary { background: #101526; }
-  .hint { font-size: 12px; opacity: .75; }
-  .canvas { margin-top: 16px; height: 640px; background: #0d1120; border: 1px solid #1f2536; border-radius: 14px; overflow: hidden; }
-  .footer { margin-top: 8px; font-size:12px; opacity:.75 }
-  a { color: #86c5ff; }
+  :root { --bg:#fff; --fg:#111; --muted:#666; --border:#ccc; }
+  body { font-family: Arial, sans-serif; background:var(--bg); color:var(--fg); margin:28px; }
+  h2 { margin:0 0 8px; }
+  .controls { margin:8px 0 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  svg { background:#fff; border:1px solid var(--border); border-radius:8px; }
+  .node rect { stroke: var(--muted); }
+  .link { fill:none; stroke-opacity:.35; }
+  .tooltip { position:absolute; background:#fff; border:1px solid var(--border); border-radius:5px;
+             padding:6px 8px; font-size:11px; box-shadow:0 2px 6px rgba(0,0,0,.15); pointer-events:none; }
+  #status { margin-top:8px; font-size:12px; color:#333; }
+  #status.error { color:#b00020; }
 </style>
 </head>
 <body>
-<header>
-  <h1>5️⃣ Sankey — Anode → Structure Type → Ion Type → Cathode</h1>
-  <div class="hint">Place this file and <b>data.csv</b> in the same folder. Link thickness = sample count. Low-frequency links can be merged into “Other”. Half-cells supported.</div>
-</header>
 
-<div class="wrap">
-  <div class="panel">
-    <div class="card">
-      <h3>Layout</h3>
-      <label for="layout">Choose levels</label>
-      <select id="layout">
-        <option value="4">Anode → Structure Type → Ion Type → Cathode</option>
-        <option value="3">Anode → Structure Type → Cathode</option>
-      </select>
-      <div class="row" style="margin-top:10px">
-        <label><input type="checkbox" id="groupOther" checked> Group low-count links into “Other”</label>
-      </div>
-      <div class="row" style="margin-top:6px">
-        <label><input type="checkbox" id="rtl"> RTL labels</label>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Filtering</h3>
-      <label for="minCount">Minimum link count (inclusive)</label>
-      <input id="minCount" type="number" min="1" step="1" value="3"/>
-      <div class="hint" style="margin-top:6px">Links with count &lt; min are merged into an “Other – &lt;Column&gt;” node at the target level (when enabled).</div>
-    </div>
-
-    <div class="card">
-      <h3>Data</h3>
-      <div class="row">
-        <button class="btn" id="reload">Reload data.csv</button>
-        <button class="btn secondary" id="render">Render</button>
-      </div>
-      <div class="hint" style="margin-top:6px">CSV headers must be exactly: <code>Anode,Structure Type,Ion Type,Cathode</code></div>
-    </div>
-
-    <div class="card">
-      <h3>Export</h3>
-      <div class="row">
-        <button class="btn" id="downloadSVG">Download SVG</button>
-      </div>
-      <div class="footer">Tip: Run via a local server if your browser blocks file requests (e.g., <code>python -m http.server</code>).</div>
-    </div>
-  </div>
-
-  <div id="stage" class="canvas">
-    <svg id="svg" width="100%" height="100%"></svg>
-  </div>
+<h2>Sankey — Anode → Structure → Ion → Cathode</h2>
+<div class="controls">
+  <label>CSV (layered):</label>
+  <!-- Put the CSV files in the SAME FOLDER as this HTML (GitHub Pages friendly) -->
+  <select id="dataset">
+    <option value="data_thresholded.csv" selected>Thresholded (layered)</option>
+    <option value="data_raw.csv">RAW (layered)</option>
+  </select>
+  <label>Min count:</label>
+  <input id="minCount" type="number" value="3" min="1" step="1" style="width:70px" />
+  <button id="apply">Apply</button>
 </div>
 
-<!-- D3 + D3-Sankey from CDN -->
-<script src="https://unpkg.com/d3@7"></script>
-<script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+<svg id="chart" width="1200" height="720"></svg>
+<div id="tt" class="tooltip" style="visibility:hidden"></div>
+<div id="status">Loading…</div>
 
 <script>
-function buildSankeyData(rows, columns, minCount, groupOther) {
-  const linkCounts = new Map();
-  const nodeLevels = new Map();
+const svg = d3.select("#chart"),
+      width = +svg.attr("width"),
+      height = +svg.attr("height");
+const statusEl = d3.select("#status");
+const color = d3.scaleOrdinal(d3.schemeTableau10);
+const tooltip = d3.select("#tt");
 
-  for (const r of rows) {
-    const vals = columns.map(c => (r[c] || '').trim());
-    for (let lvl = 0; lvl < columns.length - 1; lvl++) {
-      const src = vals[lvl];
-      const tgt = vals[lvl + 1];
-      if (!src || !tgt) continue;
-      const key = `${lvl}|${src}\\u0001${tgt}`;
-      linkCounts.set(key, (linkCounts.get(key) || 0) + 1);
-      if (!nodeLevels.has(src)) nodeLevels.set(src, new Set());
-      nodeLevels.get(src).add(lvl);
-      if (!nodeLevels.has(tgt)) nodeLevels.set(tgt, new Set());
-      nodeLevels.get(tgt).add(lvl + 1);
+// Force a 4-column layout to avoid cycles
+const LAYERS = ["Anode", "Structure Type", "Ion Type", "Cathode"];
+const LIDX = new Map(LAYERS.map((d,i)=>[d,i]));
+
+const sankey = d3.sankey()
+  .nodeWidth(14)
+  .nodePadding(18)
+  .nodeAlign(d3.sankeyJustify)
+  .extent([[12,12],[width-12,height-12]]);
+
+// Clean text (strip BOM, quotes, NBSP)
+const clean = s => String(s ?? "")
+  .replace(/\uFEFF/g,"")   // BOM
+  .replace(/\u00A0/g," ")  // NBSP → space
+  .replace(/^"+|"+$/g,"")  // trim quotes
+  .trim();
+
+// Build graph from *layered* CSV
+function buildGraph(rawRows, minCount){
+  // Expect headers: Source, SourceName, TargetLayer, TargetName, Count
+  const rows = rawRows.map(r => ({
+    srcLayer: clean(r["Source"]),
+    srcName : clean(r["SourceName"]),
+    tgtLayer: clean(r["TargetLayer"]),
+    tgtName : clean(r["TargetName"]),
+    count   : +String(r["Count"] || "0").replace(/,/g,"")
+  })).filter(r => LIDX.has(r.srcLayer) && LIDX.has(r.tgtLayer) && r.count > 0);
+
+  const flt = rows.filter(r => r.count >= minCount);
+
+  // Namespace nodes by their layer to prevent cycles
+  const idFor = (layer, name) => `${layer}:${name}`;
+  const nameToNode = new Map();
+  function idx(layer, name){
+    const key = idFor(layer,name);
+    if (!nameToNode.has(key)) {
+      nameToNode.set(key, { key, name, layer, column: LIDX.get(layer) });
     }
+    return nameToNode.get(key);
   }
 
-  const grouped = new Map();
-  const otherTag = lvl => `Other – ${columns[lvl + 1]}`;
-  const bySrc = new Map();
-  for (const [key, cnt] of linkCounts.entries()) {
-    const [lvlStr, pair] = key.split('|');
-    const lvl = +lvlStr;
-    const [src, tgt] = pair.split('\\u0001');
-    const k = `${lvl}|${src}`;
-    if (!bySrc.has(k)) bySrc.set(k, new Map());
-    bySrc.get(k).set(tgt, cnt);
-  }
-
-  for (const [k, tgtMap] of bySrc.entries()) {
-    const [lvlStr, src] = k.split('|');
-    const lvl = +lvlStr;
-    let otherSum = 0;
-    for (const [tgt, cnt] of tgtMap.entries()) {
-      if (groupOther && cnt < minCount) {
-        otherSum += cnt;
-      } else {
-        const key = `${lvl}|${src}\\u0001${tgt}`;
-        grouped.set(key, (grouped.get(key) || 0) + cnt);
-      }
-    }
-    if (groupOther && otherSum > 0) {
-      const key = `${lvl}|${src}\\u0001${otherTag(lvl)}`;
-      grouped.set(key, (grouped.get(key) || 0) + otherSum);
-      if (!nodeLevels.has(otherTag(lvl))) nodeLevels.set(otherTag(lvl), new Set());
-      nodeLevels.get(otherTag(lvl)).add(lvl + 1);
-    }
-  }
-
-  const nodeIndex = new Map();
-  const nodes = [];
-  function addNode(name, level) {
-    const key = `${name}\\u0001${level}`;
-    if (!nodeIndex.has(key)) {
-      nodeIndex.set(key, nodes.length);
-      nodes.push({ name, level });
-    }
-    return nodeIndex.get(key);
-  }
-
-  for (const [name, setLvls] of nodeLevels.entries()) {
-    for (const lvl of setLvls) addNode(name, lvl);
-  }
-
-  const links = [];
-  for (const [key, value] of grouped.entries()) {
-    const [lvlStr, pair] = key.split('|');
-    const lvl = +lvlStr;
-    const [src, tgt] = pair.split('\\u0001');
-    const source = addNode(src, lvl);
-    const target = addNode(tgt, lvl + 1);
-    links.push({ source, target, value });
-  }
+  const links = flt.map(r => ({
+    source: idx(r.srcLayer, r.srcName),
+    target: idx(r.tgtLayer, r.tgtName),
+    value : r.count
+  }));
+  const nodes = Array.from(nameToNode.values());
 
   return { nodes, links };
 }
 
-const svg = d3.select('#svg');
-const stage = document.getElementById('stage');
+function draw(graph){
+  svg.selectAll("*").remove();
 
-function renderSankey(rows) {
-  const layout = document.getElementById('layout').value;
-  const minCount = Math.max(1, parseInt(document.getElementById('minCount').value || '1', 10));
-  const groupOther = document.getElementById('groupOther').checked;
-  const rtl = document.getElementById('rtl').checked;
+  sankey.nodeSort((a,b) => (a.column - b.column) || d3.ascending(a.name,b.name));
+  sankey(graph);
 
-  const columns = layout === '3'
-    ? ['Anode','Structure Type','Cathode']
-    : ['Anode','Structure Type','Ion Type','Cathode'];
-
-  const { nodes, links } = buildSankeyData(rows, columns, minCount, groupOther);
-
-  const { width, height } = stage.getBoundingClientRect();
-  svg.attr('viewBox', `0 0 ${width} ${height}`);
-  svg.selectAll('*').remove();
-
-  const margin = { top: 24, right: 24, bottom: 24, left: 24 };
-  const W = width - margin.left - margin.right;
-  const H = height - margin.top - margin.bottom;
-
-  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-  const sankey = d3.sankey()
-    .nodeId(d => `${d.name}\\u0001${d.level}`)
-    .nodeAlign(d3.sankeyLeft)
-    .nodeWidth(16)
-    .nodePadding(20)
-    .extent([[0,0],[W,H]]);
-
-  const graph = sankey({
-    nodes: nodes.map(d => ({ ...d })),
-    links: links.map(l => ({ ...l }))
-  });
-
-  g.append('g')
-    .attr('fill','none')
-    .attr('stroke','currentColor')
-    .attr('stroke-opacity', 0.4)
-    .selectAll('path')
+  // Links
+  svg.append("g").attr("fill","none")
+    .selectAll("path")
     .data(graph.links)
-    .join('path')
-    .attr('d', d3.sankeyLinkHorizontal())
-    .attr('stroke-width', d => Math.max(1, d.width))
-    .append('title')
-    .text(d => `${d.source.name} → ${d.target.name}: ${d.value}`);
+    .enter().append("path")
+      .attr("class","link")
+      .attr("d", d3.sankeyLinkHorizontal())
+      .attr("stroke", d => color(d.source.column % 10))
+      .attr("stroke-width", d => Math.max(1, d.width))
+      .on("mouseover", (ev,d) => {
+        tooltip.style("visibility","visible").html(
+          `${d.source.layer}: <b>${d.source.name}</b> → ${d.target.layer}: <b>${d.target.name}</b><br>` +
+          `<b>${d.value}</b> samples`
+        );
+      })
+      .on("mousemove", ev => tooltip.style("left",(ev.pageX+12)+"px").style("top",(ev.pageY-20)+"px"))
+      .on("mouseout", () => tooltip.style("visibility","hidden"));
 
-  const node = g.append('g')
-    .selectAll('g')
+  // Nodes
+  const gNode = svg.append("g").selectAll("g")
     .data(graph.nodes)
-    .join('g');
+    .enter().append("g").attr("class","node");
 
-  node.append('rect')
-    .attr('x', d => d.x0)
-    .attr('y', d => d.y0)
-    .attr('height', d => Math.max(1, d.y1 - d.y0))
-    .attr('width', d => Math.max(1, d.x1 - d.x0))
-    .attr('rx', 8).attr('ry', 8)
-    .attr('fill', 'currentColor')
-    .attr('fill-opacity', 0.15)
-    .attr('stroke', 'currentColor')
-    .append('title')
-    .text(d => `${d.name}\\nΣ=${d.value ?? 0}`);
+  gNode.append("rect")
+      .attr("x", d => d.x0).attr("y", d => d.y0)
+      .attr("height", d => Math.max(1, d.y1 - d.y0))
+      .attr("width", d => d.x1 - d.x0)
+      .attr("fill", d => color(d.column % 10))
+      .attr("opacity", .85);
 
-  const label = node.append('text')
-    .attr('dy', '0.35em')
-    .text(d => d.name);
+  gNode.append("text")
+      .attr("x", d => d.x0 < width/2 ? d.x1 + 6 : d.x0 - 6)
+      .attr("y", d => (d.y1 + d.y0)/2)
+      .attr("dy", ".35em")
+      .attr("text-anchor", d => d.x0 < width/2 ? "start" : "end")
+      .style("font-size", "11px")
+      .text(d => d.name);
 
-  if (rtl) {
-    label
-      .attr('x', d => d.x0 - 6)
-      .attr('y', d => (d.y0 + d.y1) / 2)
-      .attr('text-anchor', 'end');
-  } else {
-    label
-      .attr('x', d => d.x1 + 6)
-      .attr('y', d => (d.y0 + d.y1) / 2)
-      .attr('text-anchor', 'start');
-  }
+  statusEl.attr("class",null).text(
+    `Drawn: ${graph.links.length} links across ${graph.nodes.length} nodes`
+  );
 }
 
-let cachedRows = [];
+function loadAndDraw(){
+  const file = document.getElementById("dataset").value;
+  const minCount = +document.getElementById("minCount").value || 1;
+  // GitHub Pages caching is aggressive — add cache-buster:
+  const url = `${file}?v=${Date.now()}`;
+  statusEl.attr("class",null).text(`Loading ${url} …`);
 
-async function loadCSV() {
-  const url = 'data.csv?v=' + Date.now();
-  const rows = await d3.csv(url);
-  const required = ['Anode','Structure Type','Ion Type','Cathode'];
-  for (const r of rows) {
-    for (const k of required) if (!(k in r)) r[k] = '';
-    required.forEach(k => r[k] = (r[k] || '').trim());
-  }
-  cachedRows = rows;
-  return rows;
+  d3.csv(url).then(raw => {
+    // Header sanity (strip BOM on headers too)
+    const cols = (raw.columns || []).map(clean);
+    const need = ["Source","SourceName","TargetLayer","TargetName","Count"];
+    const ok = need.every(k => cols.includes(k));
+    if (!ok) throw new Error(`Expected layered CSV with headers: ${need.join(", ")}. Found: ${cols.join(", ")}`);
+
+    const graph = buildGraph(raw, minCount);
+    if (!graph.links.length) {
+      statusEl.attr("class","error").text("No links after filtering. Lower Min count or check values.");
+      return;
+    }
+    draw(graph);
+  }).catch(err => {
+    console.error(err);
+    statusEl.attr("class","error").text(err.message || `Failed to load ${file}`);
+  });
 }
 
-async function reloadAndRender() {
-  try {
-    const rows = await loadCSV();
-    renderSankey(rows);
-  } catch (e) {
-    alert('Failed to load data.csv: ' + e.message);
-  }
-}
-
-document.getElementById('render').addEventListener('click', () => renderSankey(cachedRows));
-document.getElementById('layout').addEventListener('change', () => renderSankey(cachedRows));
-document.getElementById('minCount').addEventListener('change', () => renderSankey(cachedRows));
-document.getElementById('groupOther').addEventListener('change', () => renderSankey(cachedRows));
-document.getElementById('rtl').addEventListener('change', () => renderSankey(cachedRows));
-document.getElementById('reload').addEventListener('click', reloadAndRender);
-document.getElementById('downloadSVG').addEventListener('click', () => {
-  const serializer = new XMLSerializer();
-  const svgNode = document.getElementById('svg');
-  const src = serializer.serializeToString(svgNode);
-  const blob = new Blob([src], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'sankey.svg';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-});
-
-reloadAndRender();
+document.getElementById("apply").addEventListener("click", loadAndDraw);
+loadAndDraw();
 </script>
 </body>
 </html>
