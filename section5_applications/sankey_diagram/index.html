@@ -7,16 +7,16 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 <style>
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:16px; background:#f7f7f7; }
-  h1 { margin:0 0 10px; font-size:20px; }
-  select, input, button, label { margin-right:10px; }
-  svg { width:100%; height: calc(100vh - 110px); background:#fff; border:1px solid #e5e5e5; }
-  .link { fill:none; stroke-opacity:.45; }
-  .link:hover { stroke-opacity:.8; }
-  .node text { font-size:12px; fill:#111; pointer-events:none; }
-  .layer-title { font-size:12px; fill:#444; font-weight:600; }
-  .legend { font-size:12px; fill:#111; }
-  .legend rect { width:12px; height:12px; stroke:#333; }
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;background:#f7f7f7}
+  h1{margin:0 0 10px;font-size:20px}
+  select,input,button,label{margin-right:10px}
+  svg{width:100%;height:calc(100vh - 110px);background:#fff;border:1px solid #e5e5e5;overflow:visible}
+  .link{fill:none;stroke-opacity:.45}
+  .link:hover{stroke-opacity:.8}
+  .node text{font-size:12px;fill:#111;pointer-events:none}
+  .layer-title{font-size:12px;fill:#444;font-weight:600}
+  .legend{font-size:12px;fill:#111}
+  .legend rect{width:12px;height:12px;stroke:#333}
 </style>
 </head>
 <body>
@@ -63,7 +63,7 @@ const fallback = d3.scaleOrdinal(d3.schemeTableau10);
 
 /* ---------- D3 setup ---------- */
 const svg = d3.select("#sankey");
-const sankey = d3.sankey().nodeWidth(20).nodePadding(16);
+const sankey = d3.sankey().nodeWidth(20).nodePadding(16); // index-based IDs
 
 /* ---------- UI ---------- */
 document.getElementById("renderBtn").addEventListener("click", render);
@@ -92,7 +92,6 @@ function allowedPair(layout, sLayer, tLayer){
   if (layout === "3layer") {
     return (a==="Anode" && b===STRUCT) || (a===STRUCT && b==="Cathode");
   }
-  // 4-layer
   return (a==="Anode" && b===STRUCT) || (a===STRUCT && b==="Ion Type") || (a==="Ion Type" && b==="Cathode");
 }
 function colorForLink(l){
@@ -185,7 +184,7 @@ async function render(){
     .append("title")
     .text(d => `${graph.nodes[d.source].layer}: ${graph.nodes[d.source].name} → ${graph.nodes[d.target].layer}: ${graph.nodes[d.target].name}\nCount: ${d.value}`);
 
-  /* ----- Draw nodes + labels ----- */
+  /* ----- Draw nodes + labels (with halo for visibility) ----- */
   const nodeSel = svg.append("g")
     .selectAll(".node")
     .data(graph.nodes)
@@ -202,29 +201,35 @@ async function render(){
     .append("title")
     .text(d => `${d.layer}: ${d.name}\nΣ = ${d.value ?? 0}`);
 
-  // Label positioning: right side if left half; otherwise to the left
-  nodeSel.append("text")
+  const labels = nodeSel.append("text")
     .attr("font-size", labelSize)
     .attr("x", d => (d.x0 < width/2 ? d.x1 + 6 : d.x0 - 6))
-    .attr("y", d => (d.y1 + d.y0) / 2)
+    .attr("y", d => (d.y1 + d.y0)/2)
     .attr("dy",".35em")
     .attr("text-anchor", d => (d.x0 < width/2 ? "start" : "end"))
+    .attr("fill", "#111")
+    .style("paint-order","stroke")
+    .style("stroke","#fff")
+    .style("stroke-width","3px")
+    .style("stroke-linejoin","round")
     .text(d => d.name);
 
+  console.log("Label count:", labels.size());
+
   /* ----- Layer titles (optional) ----- */
-  if (showLayerTitles) {
+  if (document.getElementById("showLayerTitles").checked) {
     const layerX = d3.rollup(graph.nodes, v => d3.mean(v, d => d.x0), d => d.layer);
     const titles = Array.from(layerX, ([layer, x]) => ({layer, x}));
     svg.append("g").attr("class","layer-title")
       .selectAll("text").data(titles).join("text")
       .attr("x", d => d.x + (d.layer==="Anode" ? 0 : sankey.nodeWidth()))
       .attr("y", 14)
-      .attr("text-anchor", d => d.layer==="Anode" ? "start" : "start")
+      .attr("text-anchor","start")
       .text(d => d.layer);
   }
 
   /* ----- Legend (ion colors actually present) ----- */
-  if (showLegend) {
+  if (document.getElementById("showLegend").checked) {
     const ionsPresent = new Set();
     graph.links.forEach(l => {
       const sName = graph.nodes[l.source].name, sLayer = graph.nodes[l.source].layer;
@@ -242,6 +247,9 @@ async function render(){
         .attr("transform",(d,i)=>`translate(${x0},${y0 + 8 + (i+1)*rowH})`);
       rows.append("rect").attr("width", box).attr("height", box).attr("fill", d => ionColors[d] || "#999");
       rows.append("text").attr("x", box + pad).attr("y", box*0.8).text(d => d);
+      console.log("Legend items:", items);
+    } else {
+      console.log("Legend: no Ion Types present in rendered links.");
     }
   }
 
