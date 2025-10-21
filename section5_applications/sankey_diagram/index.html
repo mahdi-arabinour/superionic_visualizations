@@ -47,8 +47,8 @@ const STRUCT = "SSE Structure Type";
 const STRUCT_ALIASES = new Set(["SSE Structure Type","Structure Type"]);
 
 const ionColors = {
-  "Li+":"#F6C431","Na+":"#53B3CB","K+":"#F17C67","Mg2+":"#6CBF84",
-  "Ca2+":"#A890D3","Al3+":"#FFB4E6","Zn2+":"#7FB2F0","Ag+":"#B0B0B0","O2-":"#3C3C3C"
+  "Li+": "#F6C431", "Na+": "#53B3CB", "K+": "#F17C67", "Mg2+": "#6CBF84",
+  "Ca2+": "#A890D3", "Al3+": "#FFB4E6", "Zn2+": "#7FB2F0", "Ag+": "#B0B0B0", "O2-": "#3C3C3C"
 };
 const fallback = d3.scaleOrdinal(d3.schemeTableau10);
 
@@ -103,7 +103,6 @@ function render() {
     const needed = ["Source","SourceName","TargetLayer","TargetName","Count"];
     for (const k of needed) { if (!(k in rows[0])) { console.error("Missing column:", k); return; } }
 
-    // Normalize rows & filter
     const linksRaw = rows
       .filter(d => +d.Count >= minCnt)
       .map(d => ({
@@ -117,7 +116,7 @@ function render() {
 
     if (!linksRaw.length) { console.warn("No links passed filters."); return; }
 
-    // Build nodes **keyed by (name, layer)** to avoid cycles
+    // Unique nodes per (name, layer)
     const nodeKeys = Array.from(new Set(
       linksRaw.flatMap(l => [`${l.sourceName}|${l.sLayer}`, `${l.targetName}|${l.tLayer}`])
     ));
@@ -138,9 +137,8 @@ function render() {
     }));
 
     const graph = { nodes: nodes.map(d=>({...d})), links: links.map(d=>({...d})) };
-    sankey(graph); // now acyclic because nodes are per-layer
+    sankey(graph);
 
-    // Links
     svg.append("g")
       .selectAll("path")
       .data(graph.links)
@@ -152,7 +150,6 @@ function render() {
       .append("title")
       .text(d => `${d.sLayer}: ${graph.nodes[d.source].name} → ${d.tLayer}: ${graph.nodes[d.target].name}\nCount: ${d.value}`);
 
-    // Nodes
     const node = svg.append("g")
       .selectAll(".node")
       .data(graph.nodes)
@@ -181,7 +178,6 @@ function render() {
   });
 }
 
-// initial draw
 render();
 </script>
 </body>
