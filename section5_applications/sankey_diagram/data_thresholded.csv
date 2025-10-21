@@ -1,0 +1,104 @@
+Anode,Structure Type,Ion Type,Cathode,Count
+Li metal,Other,Li⁺,LiNi₀.₅Co₀.₂Mn₀.₃O₂,1
+Li metal,Other,Li⁺,-,2
+Li metal,Other,Li⁺,LiCoO₂,3
+Li metal,Other,Li⁺,NCM83,1
+⁶Li metal,Other,Li⁺,-,1
+Li₄Ti₅O₁₂,Other,Li⁺,LiNbO₃-coated,1
+Graphite,Other,Li⁺,LiNbO₃-coated,1
+-,Other,Li⁺,-,1
+In,Other,Li⁺,LiCoO₂,1
+K metal,Other,K⁺,K₂Sₓ,1
+InLi alloy,Other,Li⁺,NMC811,1
+Li-In,Other,Li⁺,NCM811,1
+In,Other,Li⁺,NCM811,1
+InLi,Other,Li⁺,NCM811,1
+Li-In (protected with Li₆PS₅Cl),Other,Li⁺,LiNi₀.₈₃Co₀.₁₁Mn₀.₀₆O₂,1
+Li-In,Other,Li⁺,TiS₂,1
+Li metal,Other,Li⁺,LiFePO₄,4
+Na,Other,Na⁺,Na,1
+Na,Other,Na⁺,Na₃V₂(PO₄)₃,1
+Na metal,Other,Na⁺,-,1
+NTP-2 (VO-rich),Other,Na⁺,Na₃V₂(PO₄)₃,1
+Na metal,Other,Na⁺,NaTi₂(PO₄)₃,1
+Na metal,Other,Na⁺,NFM@5%NVP,1
+NaP5 composite sodium anode,Other,Na⁺,NaP5,1
+NaP5 CSA,Other,Na⁺,Na₃V₂(PO₄)₃,1
+Cu₃.₂₁Bi₄.₇₉S₉ anode,Other,Na⁺,Na,1
+Cu₃.₂₁Bi₄.₇₉S₉ anode,Other,Na⁺,Na₃V₂(PO₄)₃,1
+Fe-NiSe₂,Other,Li⁺,-,1
+CoSe₂@rGO,Other,Li⁺,-,1
+Fe-NiSe₂,Other,Na⁺,-,1
+CoSe₂@rGO,Other,Na⁺,-,1
+Fe-NiSe₂,Other,Li⁺,LiFePO₄@rGO,1
+CoSe₂@rGO,Other,Li⁺,LiFePO₄@rGO,1
+Fe-NiSe₂,Other,Na⁺,Na₃V₂(PO₄)₃@rGO,1
+CoSe₂@rGO,Other,Na⁺,Na₃V₂(PO₄)₃@rGO,1
+Li metal,Other,Li+,Li metal,7
+Li-In alloy,Other,Li+,NCM622,1
+Li-In alloy,Other,Li+,LiNi0.7Mn0.15Co0.15O2,2
+Li metal,Other,Li+,NCM811,1
+Li-In alloy,Other,Li+,NCM712,3
+Li-In alloy,Other,Li+,NCM811,1
+In,Other,Li+,TiS2,1
+InLi alloy,Other,Li+,TiS2,1
+In,Other,Li+,S-MWCNT-Li5.5AsS4.5Br1.5,1
+InLi alloy,Other,Li+,S-MWCNT-Li5.5AsS4.5Br1.5,1
+Li-In alloy,Other,Li+,LiNbO3-coated,1
+Ag-C composite,Other,Li+,LiNbO3-coated,1
+Li-In (with Li3YCl6 interlayer),Other,Li+,NCM811,1
+Li-In,Other,Li+,LCO,1
+Ag + a-SIC (60:40),Other,Ag+,I2,1
+Na metal,Other,Na+,Na,2
+Na15Sn4 + KB,Other,Na+,TiS2,1
+Na15Sn4 (protected with Na3PS4 interlayer),Other,Na+,NVP,1
+Na15Sn4 (with Na3PS4 interlayer),Other,Na+,NVP,2
+Na15Sn4,Other,Na+,NaCrO2,2
+NiO + electrolyte,Other,O2-,Lithiated,1
+Li,Other,Li+,NMC,1
+Li,Other,Li+,NCM811,2
+Li,Other,Li+,-,1
+Li,Other,Li+,LFP,1
+NTP (NaTi2(PO4)3),Other,Na+,NVP,1
+-,Other,Na+,-,1
+Li metal,Other,Li+,NMC811,1
+Li metal,Other,Li⁺,Li4Ti5O12,1
+Li-In alloy (with Li₆PS₅Cl interlayer),Other,Li⁺,LiNi₀.₉₀Co₀.₀₅Mn₀.₀₅O₂,1
+Li-In alloy (with LPSC interlayer),Other,Li⁺,TiS₂,1
+Li-In alloy,Other,Li⁺,LiCoO₂,4
+Li-In alloy,Other,Li⁺,S-NCM88,1
+Li₁₁Sn₆ with Li₃PS₄ additive,Other,Li⁺,LiCoO₂,2
+Indium foil,Other,Li⁺,NCM622,1
+Li-In alloy,Other,Li⁺,NCM811,1
+Li-In alloy,Other,Li⁺,NMC111,1
+Lithium metal foil (50 µm),Other,Li⁺,LiCoO₂,1
+Lithium metal foil (50 µm),Other,Li⁺,NCM811,1
+Lithium metal foil,Other,Li⁺,LiCoO₂,1
+Lithium metal foil,Other,Li⁺,LiFePO₄,1
+Graphite,Other,Li⁺,NCM523,1
+Sodium metal,Other,Na⁺,NTP-KAS,1
+Sodium metal,Other,Na⁺,NCTVP,1
+Hard carbon,Other,Na⁺,NCTVP,1
+Sodium metal,Other,Na⁺,VMW-0.1,1
+Hard carbon,Other,Na⁺,VMW-0.1,1
+Lithium metal,Other,Li⁺,Lithium,2
+Lithium metal,Other,Li⁺,LiCoO₂@LiNbO₃,1
+NVP@Zn (Zn foil coated with NVP),Other,Zn²⁺,NVP@Zn,1
+NVP@Zn,Other,Zn²⁺,α-MnO₂,1
+Li,Other,Li⁺,Li,2
+Li metal,Other,Li⁺,NCM83125,1
+Li,Other,Li⁺,NCM83125,1
+Li metal,Other,Li⁺,High-voltage,1
+Li metal,Other,Li⁺,High-loading,1
+Li metal,Other,Li⁺,Li metal,3
+Li metal,Other,Li⁺,NCM811,2
+Li metal,Other,Li⁺,NCM523,1
+Li metal,Other,Li⁺,LNCMO,1
+Li metal,Other,Li⁺,LFP,1
+Na-Sn alloy,Other,Na⁺,TiS₂,1
+Na metal,Other,Na⁺,FeS₂,1
+Na₃Sn alloy (counter electrode),Other,Na⁺,FeS₂,1
+Li metal,Other,Li⁺,S-C,1
+Na-Sn alloy (counter,Other,Na⁺,TiS₂,1
+reference),Other,Na⁺,TiS₂,1
+Li metal,Other,Li⁺,NCM111,1
