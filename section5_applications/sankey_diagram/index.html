@@ -53,8 +53,9 @@ const ionColors = {
 const fallback = d3.scaleOrdinal(d3.schemeTableau10);
 
 /* ---------- D3 setup ---------- */
+// IMPORTANT: do NOT set nodeId; we use default index-based IDs
 const svg = d3.select("#sankey");
-const sankey = d3.sankey().nodeWidth(20).nodePadding(16).nodeId(d => d.id);
+const sankey = d3.sankey().nodeWidth(20).nodePadding(16);
 
 /* ---------- UI ---------- */
 document.getElementById("renderBtn").addEventListener("click", render);
@@ -83,7 +84,6 @@ function allowedPair(layout, sLayer, tLayer){
   if (layout === "3layer") {
     return (a==="Anode" && b===STRUCT) || (a===STRUCT && b==="Cathode");
   }
-  // 4-layer layout
   return (a==="Anode" && b===STRUCT) || (a===STRUCT && b==="Ion Type") || (a==="Ion Type" && b==="Cathode");
 }
 function colorForLink(l){
@@ -118,11 +118,6 @@ async function render(){
   }
   console.log(`Loaded ${rows.length} rows from ${dataset}`);
 
-  const needed = ["Source","SourceName","TargetLayer","TargetName","Count"];
-  for (const k of needed){
-    if (!(k in rows[0])) { console.error("Missing header:", k, "Found:", Object.keys(rows[0])); alert("CSV headers invalid."); return; }
-  }
-
   // Keep only valid, adjacent links for the chosen layout
   const dropped = { empty:0, small:0, badPair:0 };
   const linksRaw = [];
@@ -143,13 +138,13 @@ async function render(){
 
   if (!linksRaw.length){ console.warn("No links to draw."); return; }
 
-  // Build unique nodes keyed by (name|layer) → cycle-safe even if labels repeat
+  // Build unique nodes keyed by (name|layer)
   const nodeKeys = new Set();
   linksRaw.forEach(l => { nodeKeys.add(`${l.sourceName}|${l.sLayer}`); nodeKeys.add(`${l.targetName}|${l.tLayer}`); });
-  const nodes = Array.from(nodeKeys).map(k => { const [name, layer] = k.split("|"); return { id:k, name, layer }; });
-  const index = new Map(nodes.map((n,i)=>[n.id,i]));
+  const nodes = Array.from(nodeKeys).map(k => { const [name, layer] = k.split("|"); return { name, layer }; });
+  const index = new Map(nodes.map((n,i)=>[`${n.name}|${n.layer}`, i]));
 
-  // Map to index; drop any self-links defensively
+  // Map links to numeric indices (default sankey id mode)
   const links = linksRaw.map(l => ({
     source: index.get(`${l.sourceName}|${l.sLayer}`),
     target: index.get(`${l.targetName}|${l.tLayer}`),
@@ -159,7 +154,6 @@ async function render(){
 
   const graph = { nodes: nodes.map(d=>({...d})), links: links.map(d=>({...d})) };
 
-  // Layout (wrapped in try just in case)
   try { sankey(graph); }
   catch(e){ console.error("Sankey layout error:", e); alert("Sankey couldn't layout (see console)."); return; }
 
@@ -175,7 +169,7 @@ async function render(){
     .append("title")
     .text(d => `${graph.nodes[d.source].layer}: ${graph.nodes[d.source].name} → ${graph.nodes[d.target].layer}: ${graph.nodes[d.target].name}\nCount: ${d.value}`);
 
-  // Draw nodes (use nodeSel to avoid name collisions)
+  // Draw nodes
   const nodeSel = svg.append("g")
     .selectAll(".node")
     .data(graph.nodes)
