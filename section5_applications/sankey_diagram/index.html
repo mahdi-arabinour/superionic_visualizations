@@ -9,11 +9,14 @@
 <style>
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:16px; background:#f7f7f7; }
   h1 { margin:0 0 10px; font-size:20px; }
-  select, input, button { margin-right:10px; }
-  svg { width:100%; height: calc(100vh - 80px); background:#fff; border:1px solid #e5e5e5; }
+  select, input, button, label { margin-right:10px; }
+  svg { width:100%; height: calc(100vh - 110px); background:#fff; border:1px solid #e5e5e5; }
   .link { fill:none; stroke-opacity:.45; }
   .link:hover { stroke-opacity:.8; }
-  .node text { font-size:12px; pointer-events:none; }
+  .node text { font-size:12px; fill:#111; pointer-events:none; }
+  .layer-title { font-size:12px; fill:#444; font-weight:600; }
+  .legend { font-size:12px; fill:#111; }
+  .legend rect { width:12px; height:12px; stroke:#333; }
 </style>
 </head>
 <body>
@@ -37,6 +40,12 @@
   <input type="number" id="minCount" value="1" min="1" style="width:70px" />
 </label>
 
+<label><input type="checkbox" id="showLayerTitles" checked /> Show layer titles</label>
+<label><input type="checkbox" id="showLegend" checked /> Show legend</label>
+<label>Label size:
+  <input type="number" id="labelSize" value="12" min="9" max="20" style="width:60px" />
+</label>
+
 <button id="renderBtn">Render</button>
 <button id="downloadBtn">Download SVG</button>
 
@@ -53,7 +62,6 @@ const ionColors = {
 const fallback = d3.scaleOrdinal(d3.schemeTableau10);
 
 /* ---------- D3 setup ---------- */
-// Use default index-based IDs (do NOT set nodeId)
 const svg = d3.select("#sankey");
 const sankey = d3.sankey().nodeWidth(20).nodePadding(16);
 
@@ -99,6 +107,9 @@ async function render(){
   const dataset = document.getElementById("dataFile").value;
   const layout  = document.getElementById("layoutType").value;
   const minCnt  = +document.getElementById("minCount").value || 1;
+  const showLayerTitles = document.getElementById("showLayerTitles").checked;
+  const showLegend = document.getElementById("showLegend").checked;
+  const labelSize = +document.getElementById("labelSize").value || 12;
 
   const {width, height} = svg.node().getBoundingClientRect();
   sankey.extent([[1,1],[width-1,height-6]]);
@@ -119,12 +130,7 @@ async function render(){
   }
   console.log(`Loaded ${rows.length} rows from ${dataset}`);
 
-  const needed = ["Source","SourceName","TargetLayer","TargetName","Count"];
-  for (const k of needed){
-    if (!(k in rows[0])) { console.error("Missing header:", k, "Found:", Object.keys(rows[0])); alert("CSV headers invalid."); return; }
-  }
-
-  // Keep only valid, adjacent links for the chosen layout
+  // Filter to adjacent pairs + threshold + non-empty
   const dropped = { empty:0, small:0, badPair:0 };
   const linksRaw = [];
   for (const r of rows){
@@ -141,7 +147,6 @@ async function render(){
     linksRaw.push({ sLayer, tLayer, sourceName:sName, targetName:tName, value:val });
   }
   console.log(`Kept ${linksRaw.length} links; dropped:`, dropped);
-
   if (!linksRaw.length){ console.warn("No links to draw."); return; }
 
   // Build unique nodes keyed by (name|layer)
@@ -150,27 +155,25 @@ async function render(){
   const nodes = Array.from(nodeKeys).map(k => { const [name, layer] = k.split("|"); return { name, layer }; });
   const index = new Map(nodes.map((n,i)=>[`${n.name}|${n.layer}`, i]));
 
-  // Map links to numeric indices with hard endpoint checks
+  // Map links to numeric indices with endpoint checks
   const links = [];
   let missingEndpoints = 0;
   for (const l of linksRaw) {
-    const sKey = `${l.sourceName}|${l.sLayer}`;
-    const tKey = `${l.targetName}|${l.tLayer}`;
-    const s = index.get(sKey);
-    const t = index.get(tKey);
+    const s = index.get(`${l.sourceName}|${l.sLayer}`);
+    const t = index.get(`${l.targetName}|${l.tLayer}`);
     if (s === undefined || t === undefined) { missingEndpoints++; continue; }
     if (s === t) continue; // drop self-links
     links.push({ source: s, target: t, value: l.value, ...l });
   }
   console.log(`Links after endpoint check: ${links.length} (dropped missingEndpoints=${missingEndpoints})`);
-  if (!links.length){ console.warn("No links to draw after endpoint check."); return; }
+  if (!links.length){ console.warn("No links after endpoint check."); return; }
 
   const graph = { nodes: nodes.map(d=>({...d})), links: links.map(d=>({...d})) };
 
   try { sankey(graph); }
   catch(e){ console.error("Sankey layout error:", e); alert("Sankey couldn't layout (see console)."); return; }
 
-  // Draw links
+  /* ----- Draw links ----- */
   svg.append("g")
     .selectAll("path")
     .data(graph.links)
@@ -182,7 +185,7 @@ async function render(){
     .append("title")
     .text(d => `${graph.nodes[d.source].layer}: ${graph.nodes[d.source].name} → ${graph.nodes[d.target].layer}: ${graph.nodes[d.target].name}\nCount: ${d.value}`);
 
-  // Draw nodes (nodeSel → avoid name collision)
+  /* ----- Draw nodes + labels ----- */
   const nodeSel = svg.append("g")
     .selectAll(".node")
     .data(graph.nodes)
@@ -199,15 +202,48 @@ async function render(){
     .append("title")
     .text(d => `${d.layer}: ${d.name}\nΣ = ${d.value ?? 0}`);
 
+  // Label positioning: right side if left half; otherwise to the left
   nodeSel.append("text")
-    .attr("x", d => d.x0 - 6)
-    .attr("y", d => (d.y1 + d.y0)/2)
+    .attr("font-size", labelSize)
+    .attr("x", d => (d.x0 < width/2 ? d.x1 + 6 : d.x0 - 6))
+    .attr("y", d => (d.y1 + d.y0) / 2)
     .attr("dy",".35em")
-    .attr("text-anchor","end")
-    .text(d => d.name)
-    .filter(d => d.x0 < svg.node().getBoundingClientRect().width / 2)
-    .attr("x", d => d.x1 + 6)
-    .attr("text-anchor","start");
+    .attr("text-anchor", d => (d.x0 < width/2 ? "start" : "end"))
+    .text(d => d.name);
+
+  /* ----- Layer titles (optional) ----- */
+  if (showLayerTitles) {
+    const layerX = d3.rollup(graph.nodes, v => d3.mean(v, d => d.x0), d => d.layer);
+    const titles = Array.from(layerX, ([layer, x]) => ({layer, x}));
+    svg.append("g").attr("class","layer-title")
+      .selectAll("text").data(titles).join("text")
+      .attr("x", d => d.x + (d.layer==="Anode" ? 0 : sankey.nodeWidth()))
+      .attr("y", 14)
+      .attr("text-anchor", d => d.layer==="Anode" ? "start" : "start")
+      .text(d => d.layer);
+  }
+
+  /* ----- Legend (ion colors actually present) ----- */
+  if (showLegend) {
+    const ionsPresent = new Set();
+    graph.links.forEach(l => {
+      const sName = graph.nodes[l.source].name, sLayer = graph.nodes[l.source].layer;
+      const tName = graph.nodes[l.target].name, tLayer = graph.nodes[l.target].layer;
+      if (normLayer(sLayer)==="Ion Type" && ionColors[sName]) ionsPresent.add(sName);
+      if (normLayer(tLayer)==="Ion Type" && ionColors[tName]) ionsPresent.add(tName);
+    });
+    const items = Array.from(ionsPresent).sort();
+    if (items.length){
+      const g = svg.append("g").attr("class","legend");
+      const pad = 8, rowH = 16, box = 12;
+      const x0 = Math.max(12, width - 160), y0 = 24;
+      g.append("text").attr("x", x0).attr("y", y0).attr("font-weight",600).text("Ion Type");
+      const rows = g.selectAll("g.item").data(items).join("g").attr("class","item")
+        .attr("transform",(d,i)=>`translate(${x0},${y0 + 8 + (i+1)*rowH})`);
+      rows.append("rect").attr("width", box).attr("height", box).attr("fill", d => ionColors[d] || "#999");
+      rows.append("text").attr("x", box + pad).attr("y", box*0.8).text(d => d);
+    }
+  }
 
   console.log(`Rendered ${graph.links.length} links, ${graph.nodes.length} nodes`);
 }
