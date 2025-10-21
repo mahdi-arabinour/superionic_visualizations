@@ -53,7 +53,7 @@ const ionColors = {
 const fallback = d3.scaleOrdinal(d3.schemeTableau10);
 
 /* ---------- D3 setup ---------- */
-// IMPORTANT: do NOT set nodeId; we use default index-based IDs
+// Use default index-based IDs (do NOT set nodeId)
 const svg = d3.select("#sankey");
 const sankey = d3.sankey().nodeWidth(20).nodePadding(16);
 
@@ -72,7 +72,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
 function sanitize(s){
   return String(s ?? "")
     .replace(/\u200B|\u200C|\u200D|\uFEFF/g,"")   // zero-width chars
-    .replace(/\u2013|\u2014/g,"–")                // normalize dash to en-dash
+    .replace(/\u2013|\u2014/g,"–")                // normalize dash
     .trim();
 }
 function normLayer(s){
@@ -84,6 +84,7 @@ function allowedPair(layout, sLayer, tLayer){
   if (layout === "3layer") {
     return (a==="Anode" && b===STRUCT) || (a===STRUCT && b==="Cathode");
   }
+  // 4-layer
   return (a==="Anode" && b===STRUCT) || (a===STRUCT && b==="Ion Type") || (a==="Ion Type" && b==="Cathode");
 }
 function colorForLink(l){
@@ -118,6 +119,11 @@ async function render(){
   }
   console.log(`Loaded ${rows.length} rows from ${dataset}`);
 
+  const needed = ["Source","SourceName","TargetLayer","TargetName","Count"];
+  for (const k of needed){
+    if (!(k in rows[0])) { console.error("Missing header:", k, "Found:", Object.keys(rows[0])); alert("CSV headers invalid."); return; }
+  }
+
   // Keep only valid, adjacent links for the chosen layout
   const dropped = { empty:0, small:0, badPair:0 };
   const linksRaw = [];
@@ -144,13 +150,20 @@ async function render(){
   const nodes = Array.from(nodeKeys).map(k => { const [name, layer] = k.split("|"); return { name, layer }; });
   const index = new Map(nodes.map((n,i)=>[`${n.name}|${n.layer}`, i]));
 
-  // Map links to numeric indices (default sankey id mode)
-  const links = linksRaw.map(l => ({
-    source: index.get(`${l.sourceName}|${l.sLayer}`),
-    target: index.get(`${l.targetName}|${l.tLayer}`),
-    value:  l.value,
-    ...l
-  })).filter(d => d.source !== d.target);
+  // Map links to numeric indices with hard endpoint checks
+  const links = [];
+  let missingEndpoints = 0;
+  for (const l of linksRaw) {
+    const sKey = `${l.sourceName}|${l.sLayer}`;
+    const tKey = `${l.targetName}|${l.tLayer}`;
+    const s = index.get(sKey);
+    const t = index.get(tKey);
+    if (s === undefined || t === undefined) { missingEndpoints++; continue; }
+    if (s === t) continue; // drop self-links
+    links.push({ source: s, target: t, value: l.value, ...l });
+  }
+  console.log(`Links after endpoint check: ${links.length} (dropped missingEndpoints=${missingEndpoints})`);
+  if (!links.length){ console.warn("No links to draw after endpoint check."); return; }
 
   const graph = { nodes: nodes.map(d=>({...d})), links: links.map(d=>({...d})) };
 
@@ -169,7 +182,7 @@ async function render(){
     .append("title")
     .text(d => `${graph.nodes[d.source].layer}: ${graph.nodes[d.source].name} → ${graph.nodes[d.target].layer}: ${graph.nodes[d.target].name}\nCount: ${d.value}`);
 
-  // Draw nodes
+  // Draw nodes (nodeSel → avoid name collision)
   const nodeSel = svg.append("g")
     .selectAll(".node")
     .data(graph.nodes)
