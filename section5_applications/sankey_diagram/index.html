@@ -1,234 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Battery Material Flow Sankey (robust)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
+<title>Battery Material Flow Sankey</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 <style>
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 16px; background:#fafafa; }
-  h2 { margin: 0 0 12px; }
-  label { margin-right: 6px; }
-  select, input, button { margin-right: 10px; }
-  svg { width: 100%; height: calc(100vh - 70px); background:#fff; border:1px solid #e5e5e5; }
-  .link { fill: none; stroke-opacity: 0.45; }
+  body { font-family: sans-serif; margin: 15px; background: #f9f9f9; }
+  h1 { font-size: 1.4em; margin-bottom: 10px; }
+  svg { width: 100%; height: 85vh; background: white; }
+  .node rect { cursor: move; fill-opacity: 0.9; shape-rendering: crispEdges; }
+  .node text { pointer-events: none; text-shadow: 0 1px 0 #fff; font-size: 12px; }
+  .link { fill: none; stroke-opacity: 0.4; }
   .link:hover { stroke-opacity: 0.8; }
-  .node rect { rx:8px; ry:8px; }
-  .node text { font-size: 12px; pointer-events: none; }
 </style>
 </head>
 <body>
+<h1>Battery Material Flow Sankey</h1>
 
-<h2>Battery Material Flow Sankey</h2>
+<div>
+  <label>Data:
+    <select id="dataSelect">
+      <option value="data_thresholded.csv">Thresholded (layered)</option>
+      <option value="data_raw.csv">Raw (layered)</option>
+    </select>
+  </label>
 
-<label>Data:</label>
-<select id="dataFile">
-  <option value="data_thresholded.csv" selected>Thresholded (layered)</option>
-  <option value="data_raw.csv">RAW (layered)</option>
-</select>
-<input type="file" id="csvFile" accept=".csv" />
+  <label>Layout:
+    <select id="layoutSelect">
+      <option value="anode-sse-cathode">Anode → SSE Structure Type → Cathode</option>
+      <option value="anode-sse-ion-cathode">Anode → Structure Type → Ion Type → Cathode</option>
+    </select>
+  </label>
 
-<label>Layout:</label>
-<select id="layoutType">
-  <option value="4layer" selected>Anode → Structure Type → Ion Type → Cathode</option>
-  <option value="3layer">Anode → SSE Structure Type → Cathode</option>
-</select>
+  <label>Min count:
+    <input id="minCount" type="number" value="1" min="1" style="width:60px;">
+  </label>
 
-<label>Min count:</label>
-<input type="number" id="minCount" value="1" min="1" style="width:70px" />
-
-<button id="renderBtn">Render</button>
-<button id="downloadBtn">Download SVG</button>
+  <button id="renderBtn">Render</button>
+  <button id="downloadBtn">Download SVG</button>
+</div>
 
 <svg id="sankey"></svg>
 
 <script>
-const STRUCT = "SSE Structure Type";
-const STRUCT_ALIASES = new Set(["SSE Structure Type","Structure Type"]);
-const ionColors = {
-  "Li+":"%23F6C431".replace("%23","#"), "Na+":"#53B3CB", "K+":"#F17C67", "Mg2+":"#6CBF84",
-  "Ca2+":"#A890D3", "Al3+":"#FFB4E6", "Zn2+":"#7FB2F0", "Ag+":"#B0B0B0", "O2-":"#3C3C3C"
-};
-const fallback = d3.scaleOrdinal(d3.schemeTableau10);
-
 const svg = d3.select("#sankey");
-const sankey = d3.sankey().nodeWidth(20).nodePadding(16).nodeId(d => d.id);
+const width = window.innerWidth - 40, height = window.innerHeight * 0.8;
+const sankey = d3.sankey().nodeWidth(20).nodePadding(15).extent([[1,1],[width-1,height-6]]);
+const color = d3.scaleOrdinal(d3.schemeTableau10);
 
 document.getElementById("renderBtn").addEventListener("click", render);
-document.getElementById("downloadBtn").addEventListener("click", () => {
-  const serializer = new XMLSerializer();
-  const src = serializer.serializeToString(document.querySelector("svg"));
-  const blob = new Blob([src], {type:"image/svg+xml"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = "sankey.svg"; a.click();
-  URL.revokeObjectURL(url);
-});
+document.getElementById("downloadBtn").addEventListener("click", downloadSVG);
 
-// ---------- helpers ----------
-function normalizeLayerName(layer) {
-  layer = sanitize(layer);
-  if (STRUCT_ALIASES.has(layer)) return STRUCT;
-  return layer;
-}
-function allowedPair(layout, sLayer, tLayer) {
-  sLayer = normalizeLayerName(sLayer);
-  tLayer = normalizeLayerName(tLayer);
-  if (layout === "3layer") {
-    return (sLayer === "Anode" && tLayer === STRUCT) ||
-           (sLayer === STRUCT && tLayer === "Cathode");
-  } else {
-    return (sLayer === "Anode" && tLayer === STRUCT) ||
-           (sLayer === STRUCT && tLayer === "Ion Type") ||
-           (sLayer === "Ion Type" && tLayer === "Cathode");
-  }
-}
-function sanitize(x) {
-  return String(x ?? "")
-    .replace(/\u200B|\u200C|\u200D|\uFEFF/g, "") // zero-width chars
-    .replace(/\u2013|\u2014/g, "–")               // normalize dash to en-dash
-    .trim();
-}
-function colorForLink(l) {
-  if (normalizeLayerName(l.tLayer) === "Ion Type" && ionColors[l.targetName]) return ionColors[l.targetName];
-  if (normalizeLayerName(l.sLayer) === "Ion Type" && ionColors[l.sourceName]) return ionColors[l.sourceName];
-  return fallback(l.sLayer + "|" + l.sourceName);
+function sanitize(s) {
+  return s ? s.trim().replace(/\s+/g," ") : "";
 }
 
-// Optional: load via file picker OR by path
-function loadCsvFlexible(filePath) {
-  const fileInput = document.getElementById("csvFile");
-  return new Promise((resolve, reject) => {
-    if (fileInput.files && fileInput.files[0]) {
-      const fr = new FileReader();
-      fr.onload = e => resolve(d3.csvParse(e.target.result, d3.autoType));
-      fr.onerror = reject;
-      fr.readAsText(fileInput.files[0]);
-    } else {
-      d3.csv(filePath, d3.autoType).then(resolve).catch(reject);
-    }
-  });
-}
-
-// ---------- main render ----------
-function render() {
-  const dataset = document.getElementById("dataFile").value;
-  const layout  = document.getElementById("layoutType").value;
-  const minCnt  = +document.getElementById("minCount").value || 1;
-
+async function render() {
   svg.selectAll("*").remove();
-  const {width, height} = svg.node().getBoundingClientRect();
-  sankey.extent([[1,1],[width-1,height-6]]);
+  const file = document.getElementById("dataSelect").value;
+  const minCount = +document.getElementById("minCount").value || 1;
+  const layout = document.getElementById("layoutSelect").value;
 
-  loadCsvFlexible(dataset).then(rows => {
-    if (!rows || !rows.length) { console.warn("CSV is empty."); return; }
-
-    // Validate headers
-    const needed = ["Source","SourceName","TargetLayer","TargetName","Count"];
-    for (const k of needed) {
-      if (!(k in rows[0])) {
-        console.error("Missing header:", k, "Found headers:", Object.keys(rows[0]));
-        alert("CSV must have headers: " + needed.join(", "));
-        return;
-      }
-    }
-
-    console.log(`Loaded ${rows.length} rows from ${dataset}`);
-
-    // Normalize + filter and collect stats
-    let raw = rows.map(d => ({
-      sLayer: normalizeLayerName(d.Source),
-      tLayer: normalizeLayerName(d.TargetLayer),
-      sourceName: sanitize(d.SourceName),
-      targetName: sanitize(d.TargetName),
-      value: +d.Count || 0
+  console.log(`Loading ${file}...`);
+  let data;
+  try {
+    data = await d3.csv(file, d => ({
+      Source: sanitize(d.Source),
+      SourceName: sanitize(d.SourceName),
+      TargetLayer: sanitize(d.TargetLayer),
+      TargetName: sanitize(d.TargetName),
+      Count: +d.Count || 1
     }));
+  } catch(e) {
+    console.error("Failed to load:", e);
+    alert("Could not load " + file);
+    return;
+  }
+  console.log(`Loaded ${data.length} rows from ${file}`);
 
-    // Drop empties and too-small values
-    const dropped = { emptyNames:0, tooSmall:0, layoutMismatch:0 };
-    raw = raw.filter(l => {
-      if (!l.sourceName || !l.targetName) { dropped.emptyNames++; return false; }
-      if (l.value < minCnt) { dropped.tooSmall++; return false; }
-      if (!allowedPair(layout, l.sLayer, l.tLayer)) { dropped.layoutMismatch++; return false; }
-      return true;
-    });
+  // filter
+  data = data.filter(d => d.SourceName && d.TargetName && d.Count >= minCount);
+  if (!data.length) { alert("No data after filtering."); return; }
 
-    // Build node set by (name, layer)
-    const nodeKeys = new Set();
-    raw.forEach(l => { nodeKeys.add(`${l.sourceName}|${l.sLayer}`); nodeKeys.add(`${l.targetName}|${l.tLayer}`); });
-    const nodes = Array.from(nodeKeys).map(k => { const [name, layer] = k.split("|"); return { id:k, name, layer }; });
-    const idx = new Map(nodes.map((n,i)=>[n.id,i]));
+  // fix circulars
+  const nodes = [], links = [];
+  const nodeByName = new Map();
+  function node(name, layer) {
+    const key = name + "|" + layer;
+    if (!nodeByName.has(key)) nodeByName.set(key, {name, layer});
+    return nodeByName.get(key);
+  }
 
-    // Map links; drop any whose endpoints aren’t found (defensive)
-    const links = [];
-    let missingEndpoints = 0;
-    for (const l of raw) {
-      const s = idx.get(`${l.sourceName}|${l.sLayer}`);
-      const t = idx.get(`${l.targetName}|${l.tLayer}`);
-      if (s == null || t == null) { missingEndpoints++; continue; }
-      links.push({ source:s, target:t, value:l.value, ...l });
-    }
+  for (const d of data) {
+    const src = node(d.SourceName, d.Source);
+    const tgt = node(d.TargetName, d.TargetLayer);
+    if (src.name === tgt.name && src.layer === tgt.layer) continue;
+    links.push({source: src, target: tgt, value: d.Count});
+  }
 
-    console.log(`Kept ${links.length} links, dropped:`, dropped, `missingEndpoints:${missingEndpoints}`);
+  const graph = {nodes: Array.from(nodeByName.values()), links};
+  sankey(graph);
 
-    if (!links.length) { console.warn("No links to render after filtering."); return; }
+  const link = svg.append("g").attr("fill","none").attr("stroke-opacity",0.5)
+    .selectAll("path").data(graph.links).join("path")
+    .attr("class","link")
+    .attr("d", d3.sankeyLinkHorizontal())
+    .attr("stroke", d => color(d.source.layer))
+    .attr("stroke-width", d => Math.max(1, d.width));
 
-    const graph = { nodes: nodes.map(d=>({...d})), links: links.map(d=>({...d})) };
+  const node = svg.append("g").selectAll("g").data(graph.nodes).join("g")
+    .attr("transform", d => `translate(${d.x0},${d.y0})`);
 
-    // Run sankey; if anything weird sneaks through, catch instead of throw
-    try {
-      sankey(graph);
-    } catch (e) {
-      console.error("Sankey layout error:", e);
-      alert("Sankey couldn't layout (see console). Likely a bad row with empty names.");
-      return;
-    }
+  node.append("rect")
+    .attr("height", d => d.y1 - d.y0)
+    .attr("width", sankey.nodeWidth())
+    .attr("fill", d => color(d.layer))
+    .attr("stroke","#000");
 
-    // Links
-    svg.append("g")
-      .selectAll("path")
-      .data(graph.links)
-      .join("path")
-      .attr("class","link")
-      .attr("d", d3.sankeyLinkHorizontal())
-      .attr("stroke", d => colorForLink(d))
-      .attr("stroke-width", d => Math.max(1, d.width))
-      .append("title")
-      .text(d => `${d.sLayer}: ${graph.nodes[d.source].name} → ${d.tLayer}: ${graph.nodes[d.target].name}\nCount: ${d.value}`);
+  node.append("text")
+    .attr("x", -6)
+    .attr("y", d => (d.y1 - d.y0)/2)
+    .attr("dy", "0.35em")
+    .attr("text-anchor", "end")
+    .text(d => d.name)
+    .filter(d => d.x0 < width / 2)
+    .attr("x", 6 + sankey.nodeWidth())
+    .attr("text-anchor", "start");
 
-    // Nodes
-    const node = svg.append("g").selectAll(".node")
-      .data(graph.nodes)
-      .join("g")
-      .attr("class","node");
-
-    node.append("rect")
-      .attr("x", d => d.x0)
-      .attr("y", d => d.y0)
-      .attr("width", sankey.nodeWidth())
-      .attr("height", d => Math.max(1, d.y1 - d.y0))
-      .attr("fill", d => fallback(d.layer + "|" + d.name))
-      .attr("stroke", "#333")
-      .append("title")
-      .text(d => `${d.layer}: ${d.name}\nΣ = ${d.value ?? 0}`);
-
-    node.append("text")
-      .attr("x", d => d.x0 - 6)
-      .attr("y", d => (d.y1 + d.y0) / 2)
-      .attr("dy",".35em")
-      .attr("text-anchor","end")
-      .text(d => d.name)
-      .filter(d => d.x0 < width / 2)
-      .attr("x", d => d.x1 + 6)
-      .attr("text-anchor","start");
-  }).catch(err => {
-    console.error("Failed to load CSV:", err);
-    alert("Could not load CSV. Check the file path or use the file picker.");
-  });
+  console.log(`Rendered ${graph.links.length} links, ${graph.nodes.length} nodes`);
 }
 
-// initial draw
-render();
+function downloadSVG(){
+  const serializer = new XMLSerializer();
+  const source = serializer.serializeToString(svg.node());
+  const blob = new Blob([source], {type: "image/svg+xml;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "sankey.svg";
+  a.click(); URL.revokeObjectURL(url);
+}
 </script>
 </body>
 </html>
