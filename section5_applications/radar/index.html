@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radar (Spider) Chart — Structure Types</title>
+<title>Section 6 — Radar (Spider) Chart</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
@@ -57,7 +57,10 @@ const chartDiv = d3.select("#chart");
 const tooltip  = d3.select("#tooltip");
 
 /* ----------------- UTIL ----------------- */
-function v(x){ const n = +x; return Number.isFinite(n) ? n : NaN; }
+const v = (x) => {
+  const n = +x;
+  return Number.isFinite(n) ? n : NaN;
+};
 
 /* ----------------- UI ----------------- */
 document.getElementById("download").addEventListener("click", () => {
@@ -78,9 +81,9 @@ let selected = new Set();
 init();
 
 async function init(){
-  // Reads radar_ready.csv from same folder.
   // Expected columns:
-  // Structure_Type, log_cond_norm, inv_Ea_norm, cycle_norm, ret_norm, simplicity
+  // Structure_Type, log_cond_norm (or log_sigma), inv_Ea_norm (or inv_Ea),
+  // cycle_norm (or logN), ret_norm (or retention), simplicity
   data = await d3.csv("radar_ready.csv", d => ({
     Structure_Type: (d.Structure_Type || "").trim(),
     log_cond_norm:  v(d.log_cond_norm ?? d.log_sigma),
@@ -129,13 +132,14 @@ function redraw(){
   const rScale = d3.scaleLinear().domain([0,1]).range([0, radius]);
   const angle = (i) => (Math.PI * 2 * i / axes.length) - Math.PI/2; // start at top
 
-  // grid circles and tick labels
+  // dashed grid circles + tick labels
   const levels = [0.25, 0.5, 0.75, 1];
   g.append("g").selectAll("circle")
     .data(levels).join("circle")
     .attr("r", d => rScale(d))
     .attr("fill", "none")
-    .attr("stroke", "#d9d9d9");
+    .attr("stroke", "#d3d3d3")
+    .attr("stroke-dasharray","3,3");
 
   g.append("g").selectAll("text")
     .data(levels).join("text")
@@ -168,8 +172,8 @@ function redraw(){
     .angle(d => angle(d.index))
     .curve(d3.curveLinearClosed);
 
-  // polygons
-  g.append("g").selectAll("path")
+  // polygons with hover emphasis
+  const polys = g.append("g").selectAll("path")
     .data(visible.map(s => ({
       key: s.Structure_Type,
       values: axes.map((ax,i) => ({ index: i, value: v(s[ax.key]) }))
@@ -181,6 +185,8 @@ function redraw(){
       .attr("stroke-width", 1.5)
       .attr("fill-opacity", opacity)
       .on("mousemove", (event, d) => {
+        polys.attr("stroke-width", p => p===d ? 2.5 : 1.5)
+             .attr("fill-opacity", p => p===d ? Math.min(opacity+0.15, 0.95) : opacity);
         const html = `<strong>${d.key}</strong><br>` + d.values.map((v,i) =>
           `${axes[i].label}: ${Number.isFinite(v.value) ? v.value.toFixed(2) : "NA"}`
         ).join("<br>");
@@ -188,19 +194,66 @@ function redraw(){
                .style("left", (event.clientX+12)+"px")
                .style("top", (event.clientY-12)+"px");
       })
-      .on("mouseleave", ()=>tooltip.style("opacity",0));
+      .on("mouseleave", ()=> {
+        polys.attr("stroke-width", 1.5).attr("fill-opacity", opacity);
+        tooltip.style("opacity",0);
+      });
 
-  // legend (top-right)
+  // vertex dots (easier to read)
+  g.append("g").selectAll("circle.vertex")
+    .data(visible.flatMap(s => axes.map((ax,i) => {
+      const val = v(s[ax.key]);
+      const r = Number.isFinite(val) ? rScale(val) : 0;
+      return {
+        key: s.Structure_Type,
+        x: Math.cos(angle(i)) * r,
+        y: Math.sin(angle(i)) * r,
+        color: color(s.Structure_Type),
+        val, label: ax.label
+      };
+    })))
+    .join("circle")
+    .attr("class","vertex")
+    .attr("cx", d => d.x)
+    .attr("cy", d => d.y)
+    .attr("r", 2.5)
+    .attr("fill", d => d.color)
+    .attr("stroke","#fff")
+    .attr("stroke-width",1);
+
+  /* ---------- Legend: Structure Type only, with values list ---------- */
   const legend = svg.append("g").attr("class","legend")
-    .attr("transform", `translate(${W - 220}, 20)`);
-  legend.append("text").text("Structure Type").attr("font-weight",700).attr("y",-6);
-  const rows = legend.selectAll("g.row").data(visible).join("g").attr("class","row")
+    .attr("transform", `translate(${W - 300}, 20)`);
+
+  legend.append("text")
+    .text("Structure Type")
+    .attr("font-weight",700)
+    .attr("y",-6);
+
+  const rows = legend.selectAll("g.row")
+    .data(visible)
+    .join("g")
+    .attr("class","row")
     .attr("transform",(d,i)=>`translate(0,${i*18})`);
-  rows.append("rect").attr("class","chip").attr("fill",d=>color(d.Structure_Type));
-  rows.append("text").attr("x",18).attr("y",11).text(d=>{
-    const simp = v(d.simplicity);
-    return `${d.Structure_Type}${Number.isFinite(simp)?` — Simplicity ${simp.toFixed(2)}`:""}`;
-  });
+
+  rows.append("rect")
+    .attr("class","chip")
+    .attr("width",12)
+    .attr("height",12)
+    .attr("rx",3).attr("ry",3)
+    .attr("fill",d=>color(d.Structure_Type));
+
+  rows.append("text")
+    .attr("x",18)
+    .attr("y",11)
+    .text(d => {
+      // build compact string [logσ, 1/Ea, logN, Ret, Simp]
+      const vals = axes.map(ax => {
+        const num = v(d[ax.key]);
+        return Number.isFinite(num) ? num.toFixed(2) : "NA";
+      }).join(", ");
+      return `${d.Structure_Type} — [${vals}]`;
+    });
 }
 </script>
 </body>
