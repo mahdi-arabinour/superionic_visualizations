@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Sunburst — Ion+Structure Labels, Legend Restored</title>
+  <title>Sunburst — Zoomable + Legend + Smart Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root { color-scheme: dark; }
@@ -28,9 +28,9 @@
       position:relative;
       height:min(88vh,900px);
       min-height:520px;
+      cursor:default;
     }
     svg { width:100%; height:100%; display:block; }
-
     /* Legend */
     .legend {
       background:#0f141f; border:1px solid #2a3240; border-radius:12px;
@@ -38,7 +38,6 @@
     }
     .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
     .legendGroup { display:flex; flex-direction:column; gap:6px; }
-
     .ionRow {
       display:grid; grid-template-columns:18px 1fr 18px;
       gap:10px; align-items:center; padding:6px 8px;
@@ -49,7 +48,6 @@
     .chev { width:18px; text-align:center; color:#a9b3c8; }
     .sublist { margin-left:26px; display:none; }
     .sublist.open { display:block; }
-
     .structRow, .stratRow {
       display:grid; grid-template-columns:14px 1fr 18px;
       gap:8px; align-items:center; padding:4px 6px;
@@ -70,11 +68,17 @@
 
     .dimmed { opacity:.18; transition:opacity .15s ease; }
     .highlight { opacity:1; transition:opacity .15s ease; }
+
+    /* Center target (click to reset zoom) */
+    .centerCircle {
+      fill:#0d1424; stroke:#2b3650; stroke-width:1px; cursor:pointer;
+    }
+    .centerCircle:hover { stroke:#5a6c95; }
   </style>
 </head>
 <body>
   <header>
-    <strong>Sunburst</strong>
+    <strong>Sunburst (Zoomable)</strong>
     <label style="font-size:13px;">
       <input type="checkbox" id="labelToggle" checked>
       Show labels
@@ -96,26 +100,30 @@
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script>
-    const DEF_COND = 1e-6;
-    const SCALE_MODE = 'log';
+    // ----- Config -----
+    const DEF_COND = 1e-6;   // default height for missing conductivity
+    const SCALE_MODE = 'log'; // 'log' or 'linear'
+    const ZOOM_MS = 800;      // zoom transition duration
+    // -------------------
 
-    let root, gArcs, colorIon, maxRGlobal = 0;
+    let root, gArcs, gLabels, colorIon, maxRGlobal=0, currentRoot=null;
     let labelsVisible = true;
 
     // Legend interaction state
-    const selIons = new Set(), selStructs = new Set(), selStrats = new Set();
-    let hoverKey = null;
+    const selIons=new Set(), selStructs=new Set(), selStrats=new Set();
+    let hoverKey=null;
 
-    document.addEventListener('DOMContentLoaded', async () => {
-      const dataObj = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
-      draw(dataObj);
-      window.addEventListener('resize', () => requestAnimationFrame(() => draw(dataObj)));
-      document.getElementById('labelToggle').addEventListener('change', e => {
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      const dataObj = await (await fetch('data.simplified.json',{cache:'no-store'})).json();
+      initChart(dataObj);
+      window.addEventListener('resize', () => requestAnimationFrame(()=>initChart(dataObj)));
+      document.getElementById('labelToggle').addEventListener('change', e=>{
         labelsVisible = e.target.checked;
         toggleLabels();
       });
     });
 
+    // ---------- Data shaping ----------
     function obj2children(obj){
       return Object.entries(obj).map(([ion, structures]) => ({
         name: ion,
@@ -134,72 +142,97 @@
 
     function computeLeafCond(h, def){
       h.each(n=>{
-        if (n.data && Array.isArray(n.data.values)) {
+        if(n.data && Array.isArray(n.data.values)){
           const vals = n.data.values.filter(Number.isFinite);
           n.data.cond = vals.length ? vals[0] : def;
-          n.data.hasCond = vals.length > 0;
+          n.data.hasCond = vals.length>0;
         }
       });
     }
 
-    function draw(dataObj){
+    // ---------- Chart init / redraw ----------
+    function initChart(dataObj){
       const chartEl = document.getElementById('chart');
       const legendEl = document.querySelector('.legendGroup');
       const tooltip  = document.getElementById('tooltip');
-      chartEl.innerHTML = ''; legendEl.innerHTML = '';
+      chartEl.innerHTML=''; legendEl.innerHTML='';
 
+      // Size
       const rect = chartEl.getBoundingClientRect();
       const cw = Math.max(500, rect.width);
       const ch = Math.max(500, rect.height);
       const side = Math.min(cw, ch);
 
+      // Hierarchy
       const data = { name:'root', children: obj2children(dataObj) };
       root = d3.hierarchy(data, d=>d.children)
                .sum(d => Array.isArray(d?.values) ? 1 : 0)
-               .sort((a,b) => (b.value||0) - (a.value||0));
-
-      const ringThickness = Math.max(40, side * 0.08);
-      const leafBase      = Math.max(12, side * 0.03);
-      const extraLeafMax  = Math.max(90, side * 0.22);
-
+               .sort((a,b)=>(b.value||0)-(a.value||0));
       computeLeafCond(root, DEF_COND);
-      d3.partition().size([2*Math.PI, (root.height + 1) * ringThickness])(root);
 
-      const leaves   = root.leaves();
-      const condVals = leaves.map(l => l.data.cond || DEF_COND);
+      // Ring metrics
+      const ringThickness = Math.max(40, side*0.08);
+      const leafBase      = Math.max(12, side*0.03);
+      const extraLeafMax  = Math.max(90, side*0.22);
+
+      // Partition (absolute coordinates in "px-like" radius)
+      d3.partition().size([2*Math.PI, (root.height+1)*ringThickness])(root);
+
+      // Conductivity scale
+      const condVals = root.leaves().map(l => l.data.cond || DEF_COND);
       let [cmin,cmax] = d3.extent(condVals);
-      if (!(cmax > cmin)) { cmin = Math.max(1e-12, cmin*0.8); cmax = cmin*10; }
-
-      const baseScale = (SCALE_MODE === 'linear'
-        ? d3.scaleLinear().domain([cmin,cmax])
-        : d3.scaleLog().domain([Math.max(cmin,1e-12), Math.max(cmax,1e-12)]));
+      if(!(cmax>cmin)){ cmin=Math.max(1e-12, cmin*0.8); cmax=cmin*10; }
+      const baseScale = (SCALE_MODE==='linear'
+          ? d3.scaleLinear().domain([cmin,cmax])
+          : d3.scaleLog().domain([Math.max(cmin,1e-12), Math.max(cmax,1e-12)]));
       const condScale = baseScale.range([0, extraLeafMax]).clamp(true);
 
+      // Color
       const ions = (root.children||[]).map(d=>d.data.name);
       colorIon = d3.scaleOrdinal(ions, d3.quantize(t=>d3.interpolateRainbow(t), Math.max(3, ions.length)));
 
-      const outerR = d => d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || DEF_COND);
-      const maxR   = d3.max(root.descendants(), d => outerR(d)) + 6; // padding for stroke
+      // Geometry helpers
+      const outerExtraPx = d => (!d.children ? (leafBase + condScale(d.data.cond || DEF_COND)) : 0);
+      const outerRAbs = d => d.children ? d.y1 : d.y1 + outerExtraPx(d);
+
+      const maxR = d3.max(root.descendants(), d => outerRAbs(d)) + 6;
       maxRGlobal = maxR;
 
+      // SVG
       const svg = d3.select(chartEl).append('svg')
         .attr('width','100%').attr('height','100%')
         .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
+
+      // Center circle to zoom out
+      svg.append('circle')
+        .attr('class','centerCircle')
+        .attr('r', Math.max(18, side*0.04))
+        .on('click', ()=>zoomTo(root));
+
       const g = svg.append('g');
-      gArcs = g;
+      gArcs   = g.append('g');     // arcs group
+      gLabels = g.append('g');     // labels group
 
       const arc = d3.arc()
-        .startAngle(d=>d.x0)
-        .endAngle(d=>d.x1)
-        .padAngle(d=>Math.min(0.006,(d.x1-d.x0)/6))
-        .padRadius(maxR * 0.9)
-        .innerRadius(d=>d.y0)
-        .outerRadius(d=>outerR(d));
+        .startAngle(d=>d._x0)
+        .endAngle(d=>d._x1)
+        .innerRadius(d=>d._y0)
+        .outerRadius(d=>d._y1);
+
+      // We'll maintain "_x0,_x1,_y0,_y1" as the **current** displayed coords,
+      // starting from the absolute geometry of each node (with conductivity).
+      root.each(d=>{
+        d._x0 = d.x0;
+        d._x1 = d.x1;
+        const extra = outerExtraPx(d);
+        d._y0 = d.y0;
+        d._y1 = d.y1 + (d.children?0:extra);
+      });
 
       const nodes = root.descendants().filter(d=>d.depth>0);
 
-      const paths = g.selectAll('path').data(nodes).join('path')
-        .attr('d', arc)
+      const paths = gArcs.selectAll('path').data(nodes).join('path')
+        .attr('d', arcFor(arc))
         .attr('fill', d => {
           let ion=d; while(ion.depth>1) ion=ion.parent;
           const base=colorIon(ion.data.name);
@@ -207,7 +240,9 @@
           return base;
         })
         .attr('stroke','#fff').attr('stroke-opacity',0.28)
-        .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.6, side * 0.0012));
+        .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.6, side * 0.0012))
+        .style('cursor','pointer')
+        .on('click', (e,d)=>{ e.stopPropagation(); zoomTo(d); });
 
       // dataset tags for legend mapping
       paths.each(function(d){
@@ -220,6 +255,7 @@
       });
 
       // Tooltip
+      const tooltip = document.getElementById('tooltip');
       const tooltipVal = v => (!Number.isFinite(v) ? 'n/a'
         : (v < 0.01 ? `${(v*1000).toFixed(3)} mS·cm⁻¹` : `${Number(v).toPrecision(3)} S·cm⁻¹`));
       paths.on('mousemove',(evt,d)=>{
@@ -236,44 +272,131 @@
         tooltip.style.left=(evt.clientX+10)+'px'; tooltip.style.top=(evt.clientY+10)+'px';
       }).on('mouseleave',()=>{ tooltip.style.display='none'; });
 
-      // -------- LABELS: Ion + Structure only --------
-      const angleToPixels = (d, radius) => (d.x1 - d.x0) * radius;
-      const labels = g.selectAll('text')
-        .data(nodes.filter(d => d.children && (d.depth===1 || d.depth===2)))
+      // ---------- Labels ----------
+      const angleToPixels = (d, radius) => (d._x1 - d._x0) * radius;
+
+      const labels = gLabels.selectAll('text')
+        .data(nodes)
         .join('text')
-        .attr('class', 'label visibleLabel')
-        .attr('dy', '0.32em')
-        .attr('transform', d => {
-          const a = (d.x0 + d.x1) / 2 * 180 / Math.PI;
-          const r = (d.y0 + outerR(d)) / 2;
-          return `rotate(${a-90}) translate(${r},0) rotate(${a<180?0:180})`;
-        })
-        .text(d => d.data.name);
+        .attr('class','label visibleLabel')
+        .attr('dy','0.32em')
+        .text(d=>d.data.name);
 
-      labels.each(function(d){
-        const rMid = (d.y0 + outerR(d)) / 2;
-        const arcPixels = angleToPixels(d, rMid);
-        let fs = d.depth===1 ? 14 : 11;
-        fs = fs * Math.min(1.2, Math.max(0.7, (rMid / maxRGlobal) * 1.5));
-        this.style.fontSize = fs + 'px';
-        this.style.fill = d.depth===1 ? '#ffffff' : '#d5d9e0';
-        this.style.fontWeight = d.depth===1 ? '600' : '500';
-        const minNeeded = Math.min(70, fs * 5);
-        this.classList.toggle('hiddenLabel', arcPixels < minNeeded);
-      });
+      function positionLabels(){
+        labels
+          .attr('transform', d => {
+            const a = (d._x0 + d._x1)/2 * 180/Math.PI;
+            const r = (d._y0 + d._y1)/2;
+            return `rotate(${a-90}) translate(${r},0) rotate(${a<180?0:180})`;
+          })
+          .each(function(d){
+            // Default visibility rules:
+            // - Global view (currentRoot===root): show labels for depth 1 & 2 only
+            // - Zoomed view: show labels for all nodes within the zoomed branch (including formulas)
+            let show = false;
+            if (currentRoot === null || currentRoot === root) {
+              show = (d.depth===1 || d.depth===2);
+            } else {
+              // show labels inside zoomed branch
+              show = isDescendantOf(d, currentRoot) || d===currentRoot;
+            }
 
-      toggleLabels();
+            // Also require enough arc length room
+            const rMid=(d._y0 + d._y1)/2;
+            const arcPixels = angleToPixels(d, rMid);
+            let baseFS = d.depth===1 ? 14 : (d.depth===2 ? 11 : 9);
+            baseFS = baseFS * Math.min(1.2, Math.max(0.7, (rMid/maxRGlobal)*1.5));
+            this.style.fontSize = baseFS+'px';
+            this.style.fill = d.depth===1 ? '#fff' : (d.depth===2 ? '#d5d9e0' : '#b9c2d3');
+            this.style.fontWeight = d.depth===1 ? '600' : (d.depth===2 ? '500' : '400');
+
+            const minNeeded = Math.min(70, baseFS * 5);
+            const finalVisible = show && arcPixels >= minNeeded;
+
+            this.classList.toggle('hiddenLabel', !finalVisible);
+            this.classList.toggle('visibleLabel', finalVisible);
+          });
+
+        toggleLabels();
+      }
+
+      // initial label placement
+      positionLabels();
 
       // Header stat
       document.getElementById('rtStats').textContent =
-        `Formulas w/ conductivity: ${leaves.filter(d=>d.data.hasCond).length}/${leaves.length}`;
+        `Formulas w/ conductivity: ${root.leaves().filter(d=>d.data.hasCond).length}/${root.leaves().length}`;
 
-      // ---------- Build legend & enable highlight ----------
+      // ---------- Legend ----------
       buildLegendTree(legendEl);
       applyHighlight();
+
+      // Set initial zoom state
+      currentRoot = root;
+      // Background click zooms out
+      svg.on('click', ()=> zoomTo(root));
+
+      // ----- Zoom mechanics -----
+      function zoomTo(target){
+        if (!target) return;
+        const v = target;
+
+        // Compute scaling from current root to target view
+        const kx = (2*Math.PI) / (v.x1 - v.x0);
+        const ky = (maxR)      / (v.y1 - v.y0);
+
+        // Interpolators from current displayed coords to target coords
+        const interp = nodes.map(d=>{
+          // Target coords in the zoomed frame
+          const tx0 = (d.x0 - v.x0) * kx;
+          const tx1 = (d.x1 - v.x0) * kx;
+          const ty0 = (d.y0 - v.y0) * ky;
+          const baseY1 = (d.y1 - v.y0) * ky;
+          const extra = (!d.children ? outerExtraPx(d) * ky : 0);
+          const ty1 = baseY1 + extra;
+          return {
+            d,
+            x0i: d3.interpolateNumber(d._x0, tx0),
+            x1i: d3.interpolateNumber(d._x1, tx1),
+            y0i: d3.interpolateNumber(d._y0, ty0),
+            y1i: d3.interpolateNumber(d._y1, ty1),
+          };
+        });
+
+        currentRoot = target;
+
+        d3.transition().duration(ZOOM_MS).tween('zoomTween', ()=>{
+          return t=>{
+            interp.forEach(o=>{
+              o.d._x0 = o.x0i(t);
+              o.d._x1 = o.x1i(t);
+              o.d._y0 = o.y0i(t);
+              o.d._y1 = o.y1i(t);
+            });
+            // redraw paths and labels in-flight
+            paths.attr('d', arcFor(arc));
+            positionLabels();
+            applyHighlight();
+          };
+        });
+      }
+
+      // Helper: wrap arc access to current fields
+      function arcFor(arc){
+        return function(d){
+          return arc({
+            _x0:d._x0, _x1:d._x1, _y0:d._y0, _y1:d._y1,
+            x0:d._x0, x1:d._x1, y0:d._y0, y1:d._y1
+          });
+        };
+      }
+
+      function isDescendantOf(node, ancestor){
+        return node === ancestor || node.ancestors().indexOf(ancestor) !== -1;
+      }
     }
 
-    // ---------- Legend (Ion -> Structure -> Strategy) ----------
+    // ---------- Legend UI ----------
     function buildLegendTree(container){
       container.innerHTML='';
       (root.children||[]).forEach(ionNode=>{
@@ -282,7 +405,7 @@
         const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(ion);
         const nm  = document.createElement('div'); nm.textContent = ion;
         const cv  = document.createElement('div'); cv.className='chev'; cv.textContent = '▸';
-        ionRow.append(sw, nm, cv); container.appendChild(ionRow);
+        ionRow.append(sw,nm,cv); container.appendChild(ionRow);
 
         const subStruct = document.createElement('div'); subStruct.className='sublist';
         container.appendChild(subStruct);
@@ -372,6 +495,7 @@
       });
     }
 
+    // ---------- Label toggle ----------
     function toggleLabels(){
       d3.selectAll('.label')
         .attr('class', labelsVisible ? 'label visibleLabel' : 'label hiddenLabel');
