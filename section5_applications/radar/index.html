@@ -2,23 +2,89 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>D3 Radar — Sharp edges + level labels at marked angle</title>
+<title>D3 Radar — Sharp + Bold Level Labels</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  :root{--bg:#f7f7fb;--panel:#fff;--grid:#e7e9ef;--axis:#b4bac8;--text:#101828;--muted:#6b7280;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
-  .wrap{max-width:1100px;margin:28px auto;padding:0 18px;}
-  h1{margin:0 0 14px;font-size:20px;font-weight:600}
-  .card{display:grid;grid-template-columns:1fr 240px;gap:22px;background:var(--panel);border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(12,17,29,.08)}
+  :root{
+    --bg:#f7f7fb;
+    --panel:#fff;
+    --grid:#e7e9ef;
+    --axis:#b4bac8;
+    --text:#101828;
+    --muted:#6b7280;
+  }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;
+  }
+  .wrap{
+    max-width:1100px;
+    margin:28px auto;
+    padding:0 18px;
+  }
+  h1{
+    margin:0 0 14px;
+    font-size:20px;
+    font-weight:600;
+  }
+  .card{
+    display:grid;
+    grid-template-columns:1fr 240px;
+    gap:22px;
+    background:var(--panel);
+    border-radius:16px;
+    padding:18px;
+    box-shadow:0 10px 30px rgba(12,17,29,0.08);
+  }
   @media (max-width:900px){.card{grid-template-columns:1fr}}
-  #legend .item{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px}
-  .swatch{width:14px;height:14px;border-radius:3px;display:inline-block}
-  .gridCircle{fill:none;stroke:var(--grid)}
-  .axis line{stroke:var(--axis);stroke-width:1}
-  .axisLabel{fill:#374151;font-size:12px;font-weight:500}
-  .value-label{font-size:11px;fill:#111827;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
-  .levelLabel {font-size:12px;font-weight:700;fill:#0f172a;text-shadow:0 1px 2px rgba(255,255,255,0.9); /* subtle highlight */}
+  #legend .item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:8px;
+    font-size:13px;
+  }
+  .swatch{
+    width:14px;
+    height:14px;
+    border-radius:3px;
+    display:inline-block;
+  }
+  .gridCircle{
+    fill:none;
+    stroke:var(--grid);
+  }
+  .axis line{
+    stroke:var(--axis);
+    stroke-width:1;
+  }
+  .axisLabel{
+    fill:#374151;
+    font-size:12px;
+    font-weight:500;
+  }
+  .value-label{
+    font-size:11px;
+    fill:#111827;
+    paint-order:stroke;
+    stroke:#fff;
+    stroke-width:3px;
+    stroke-linejoin:round;
+  }
+  /* ✅ Bold, distinct level ticks */
+  .levelLabel{
+    font-size:12px;
+    font-weight:700;
+    fill:#0f172a;
+    paint-order:stroke;
+    stroke:#fff;
+    stroke-width:3px;
+    stroke-linejoin:round;
+    text-shadow:0 1px 2px rgba(255,255,255,0.9);
+  }
 </style>
 </head>
 <body>
@@ -40,20 +106,17 @@ const margin = {top:60,right:70,bottom:60,left:70};
 const cx = W/2, cy = H/2;
 const radius = Math.min(W, H)/2 - Math.max(margin.left, margin.top);
 
-// ====== Customize these two to control the level labels ======
-const levelTicks = [200, 400, 600, 800, 1000];     // values to show as rings + labels
-const levelLabelAngleDeg = -120;                    // where you marked (top-left). Tweak e.g. -115/-125
-// =============================================================
+// === Customize tick positions and placement angle ===
+const levelTicks = [200, 400, 600, 800, 1000];   // tick values
+const levelLabelAngleDeg = -120;                 // top-left direction
+// =====================================================
 
 d3.csv(CSV_PATH).then(raw => {
   const cols = raw.columns ?? Object.keys(raw[0]);
   const groupKey = cols[0];
   const categories = cols.slice(1);
-
-  // coerce to numbers
   raw.forEach(r => categories.forEach(c => r[c] = +r[c]));
 
-  // scale domain based on BOTH data and desired tick labels so rings always fit
   const dataMax = d3.max(raw, r => d3.max(categories, c => r[c]));
   const ticksMax = d3.max(levelTicks);
   const maxVal = Math.max(dataMax || 0, ticksMax || 0);
@@ -61,17 +124,18 @@ d3.csv(CSV_PATH).then(raw => {
 
   const angleSlice = (Math.PI*2)/categories.length;
   const color = d3.scaleOrdinal(d3.schemeTableau10);
-  const fmtValue = d3.format(",.2~f");  // values on vertices
+  const fmtValue = d3.format(",.2~f");
 
-  // --- Grid rings (use explicit tick values) ---
+  // Grid rings
   const gGrid = svg.append("g");
   levelTicks.forEach(t => {
     gGrid.append("circle")
       .attr("class","gridCircle")
-      .attr("cx",cx).attr("cy",cy).attr("r", rScale(t));
+      .attr("cx",cx).attr("cy",cy)
+      .attr("r", rScale(t));
   });
 
-  // --- Level labels placed along the marked direction ---
+  // Level labels (200,400,...) at marked angle
   const a = levelLabelAngleDeg * Math.PI / 180;
   levelTicks.forEach(t => {
     const r = rScale(t);
@@ -81,19 +145,19 @@ d3.csv(CSV_PATH).then(raw => {
       .attr("class","levelLabel")
       .attr("x", lx)
       .attr("y", ly)
-      .attr("text-anchor", Math.cos(a) > 0.35 ? "start" : (Math.cos(a) < -0.35 ? "end" : "middle"))
+      .attr("text-anchor",
+        Math.cos(a) > 0.35 ? "start" : (Math.cos(a) < -0.35 ? "end" : "middle"))
       .attr("dominant-baseline","middle")
-      .text(d3.format(",")(t)); // "200", "400", ...
+      .text(d3.format(",")(t));
   });
 
-  // --- Axes + axis labels (pushed out to avoid value overlap) ---
+  // Axes
   const gAxis = svg.append("g").attr("class","axis");
   const axisLabelOffset = 50;
   categories.forEach((cat, i) => {
     const ang = angleSlice*i - Math.PI/2;
     const x = cx + Math.cos(ang)*radius;
     const y = cy + Math.sin(ang)*radius;
-
     gAxis.append("line").attr("x1",cx).attr("y1",cy).attr("x2",x).attr("y2",y);
 
     const lx = cx + Math.cos(ang)*(radius + axisLabelOffset);
@@ -108,17 +172,15 @@ d3.csv(CSV_PATH).then(raw => {
       .text(cat);
   });
 
-  // --- SHARP radar polygons (no smoothing) ---
+  // Sharp radar polygons
   const line = d3.lineRadial()
     .radius(d => rScale(d.value))
     .angle((d,i) => i*angleSlice)
-    .curve(d3.curveLinearClosed); // sharp edges
+    .curve(d3.curveLinearClosed);
 
-  // --- Draw each series with point value labels ---
   raw.forEach((row, si) => {
     const series = categories.map((c, j) => ({ axis:c, value:+row[c], angle:j*angleSlice }));
 
-    // area + stroke
     svg.append("path")
       .datum(series)
       .attr("transform", `translate(${cx},${cy})`)
@@ -130,22 +192,22 @@ d3.csv(CSV_PATH).then(raw => {
 
     const g = svg.append("g").attr("transform", `translate(${cx},${cy})`);
 
-    // points
+    // Points
     g.selectAll("circle.point")
       .data(series).enter().append("circle")
-      .attr("r", 3.2)
+      .attr("r",3.2)
       .attr("cx", d => Math.cos(d.angle - Math.PI/2)*rScale(d.value))
       .attr("cy", d => Math.sin(d.angle - Math.PI/2)*rScale(d.value))
       .attr("fill", color(si));
 
-    // numeric labels near points (offset so they don't clash with axis labels)
+    // Numeric labels near points
     g.selectAll("text.value-label")
       .data(series).enter().append("text")
       .attr("class","value-label")
       .attr("x", d => Math.cos(d.angle - Math.PI/2)*rScale(d.value))
       .attr("y", d => Math.sin(d.angle - Math.PI/2)*rScale(d.value))
-      .attr("dx", d => Math.cos(d.angle - Math.PI/2) * 12)
-      .attr("dy", d => Math.sin(d.angle - Math.PI/2) * 12)
+      .attr("dx", d => Math.cos(d.angle - Math.PI/2)*12)
+      .attr("dy", d => Math.sin(d.angle - Math.PI/2)*12)
       .attr("text-anchor", d => {
         const ux = Math.cos(d.angle - Math.PI/2);
         if (Math.abs(ux) < 0.35) return "middle";
@@ -154,7 +216,7 @@ d3.csv(CSV_PATH).then(raw => {
       .text(d => fmtValue(d.value));
   });
 
-  // legend
+  // Legend
   raw.forEach((row,i)=>{
     const it = legend.append("div").attr("class","item");
     it.append("span").attr("class","swatch").style("background", color(i));
