@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Radar (Spider) Chart — Structure Types</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root { --bg:#f7f7f7; --panel:#fff; --grid:#d9d9d9; --text:#111; }
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;background:var(--bg);color:var(--text)}
+  h1{margin:0 0 8px;font-size:20px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+  .toolbar label{display:flex;gap:6px;align-items:center}
+  .card{background:var(--panel);border:1px solid #e5e5e5;border-radius:10px;padding:10px}
+  #chart{width:100%;height:76vh}
+  svg{width:100%;height:100%}
+  .axisLabel{font-size:12px;fill:#333;text-anchor:middle}
+  .tickLabel{font-size:10px;fill:#666}
+  .legend{font-size:12px}
+  .legend .chip{width:12px;height:12px;rx:3;ry:3;stroke:#222}
+  .tooltip{position:fixed;pointer-events:none;background:#000;color:#fff;padding:6px 8px;border-radius:6px;font-size:12px;opacity:0;transform:translate(-50%,-120%)}
+  .checkboxes{display:flex;flex-wrap:wrap;gap:8px;max-width:100%}
+  .checkboxes label{background:#f1f1f1;border:1px solid #ddd;border-radius:999px;padding:4px 8px;cursor:pointer}
+  .checkboxes input{margin-right:6px}
+</style>
+</head>
+<body>
+<h1>Section 6 — Radar (Spider) Chart (reads <code>radar_ready.csv</code>)</h1>
+
+<div class="toolbar card">
+  <label>Opacity:
+    <input id="opacity" type="range" min="0.2" max="0.9" step="0.05" value="0.55">
+  </label>
+  <button id="download">Download SVG</button>
+</div>
+
+<div class="toolbar card">
+  <div><strong>Show structure types:</strong></div>
+  <div id="structureFilters" class="checkboxes"></div>
+</div>
+
+<div id="chart" class="card"></div>
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+/* ----------------- CONFIG ----------------- */
+const axes = [
+  { key: "log_cond_norm",  label: "log₁₀(σ)" },
+  { key: "inv_Ea_norm",    label: "1/Ea" },
+  { key: "cycle_norm",     label: "log₁₀(N)" },
+  { key: "ret_norm",       label: "Retention %" },
+  { key: "simplicity",     label: "Synthesis Simplicity" }
+];
+const palette = d3.schemeTableau10.concat(["#a6cee3","#b2df8a","#fb9a99","#fdbf6f","#cab2d6","#ffff99"]);
+
+const chartDiv = d3.select("#chart");
+const tooltip  = d3.select("#tooltip");
+
+/* ----------------- UTIL ----------------- */
+function v(x){ const n = +x; return Number.isFinite(n) ? n : NaN; }
+
+/* ----------------- UI ----------------- */
+document.getElementById("download").addEventListener("click", () => {
+  const svg = chartDiv.select("svg").node();
+  const s = new XMLSerializer().serializeToString(svg);
+  const blob = new Blob([s], {type: "image/svg+xml;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement("a"), {href:url, download:"radar_chart.svg"});
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+document.getElementById("opacity").addEventListener("input", redraw);
+
+/* ----------------- LOAD CSV ----------------- */
+let data = [];
+let selected = new Set();
+
+init();
+
+async function init(){
+  // Reads radar_ready.csv from same folder.
+  // Expected columns:
+  // Structure_Type, log_cond_norm, inv_Ea_norm, cycle_norm, ret_norm, simplicity
+  data = await d3.csv("radar_ready.csv", d => ({
+    Structure_Type: (d.Structure_Type || "").trim(),
+    log_cond_norm:  v(d.log_cond_norm ?? d.log_sigma),
+    inv_Ea_norm:    v(d.inv_Ea_norm   ?? d.inv_Ea),
+    cycle_norm:     v(d.cycle_norm    ?? d.logN),
+    ret_norm:       v(d.ret_norm      ?? d.retention),
+    simplicity:     v(d.simplicity)
+  }));
+
+  if (!data.length) {
+    alert("radar_ready.csv not found or empty.\nPlace it beside index.html and reload.");
+    return;
+  }
+
+  // Build toggles
+  selected = new Set(data.map(d => d.Structure_Type));
+  buildStructureFilters();
+
+  redraw();
+}
+
+function buildStructureFilters(){
+  const container = d3.select("#structureFilters");
+  const names = data.map(d => d.Structure_Type);
+  container.selectAll("label").data(names, d=>d).join(enter=>{
+    const lab = enter.append("label")
+      .html(d => `<input type="checkbox" checked data-name="${d}"><span>${d}</span>`);
+    lab.select("input").on("change", (e) => {
+      const n = e.target.getAttribute("data-name");
+      if (e.target.checked) selected.add(n); else selected.delete(n);
+      redraw();
+    });
+  });
+}
+
+/* ----------------- DRAW ----------------- */
+function redraw(){
+  const W = chartDiv.node().clientWidth;
+  const H = chartDiv.node().clientHeight;
+  chartDiv.selectAll("*").remove();
+
+  const svg = chartDiv.append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  const g = svg.append("g").attr("transform", `translate(${W/2},${H/2})`);
+
+  const radius = Math.min(W, H) * 0.38;
+  const rScale = d3.scaleLinear().domain([0,1]).range([0, radius]);
+  const angle = (i) => (Math.PI * 2 * i / axes.length) - Math.PI/2; // start at top
+
+  // grid circles and tick labels
+  const levels = [0.25, 0.5, 0.75, 1];
+  g.append("g").selectAll("circle")
+    .data(levels).join("circle")
+    .attr("r", d => rScale(d))
+    .attr("fill", "none")
+    .attr("stroke", "#d9d9d9");
+
+  g.append("g").selectAll("text")
+    .data(levels).join("text")
+    .attr("class","tickLabel")
+    .attr("y", d => -rScale(d) - 2)
+    .attr("text-anchor","middle")
+    .text(d => d);
+
+  // spokes and axis labels
+  g.append("g").selectAll("line")
+    .data(axes).join("line")
+    .attr("x1", 0).attr("y1", 0)
+    .attr("x2", (d,i)=> Math.cos(angle(i)) * radius)
+    .attr("y2", (d,i)=> Math.sin(angle(i)) * radius)
+    .attr("stroke", "#c7c7c7");
+
+  g.append("g").selectAll("text.axisLabel")
+    .data(axes).join("text")
+    .attr("class","axisLabel")
+    .attr("x", (d,i)=> Math.cos(angle(i)) * (radius + 16))
+    .attr("y", (d,i)=> Math.sin(angle(i)) * (radius + 16))
+    .text(d => d.label);
+
+  const visible = data.filter(d => selected.has(d.Structure_Type));
+  const color = d3.scaleOrdinal().domain(visible.map(d => d.Structure_Type)).range(palette);
+  const opacity = +document.getElementById("opacity").value;
+
+  const line = d3.lineRadial()
+    .radius(d => rScale(d.value))
+    .angle(d => angle(d.index))
+    .curve(d3.curveLinearClosed);
+
+  // polygons
+  g.append("g").selectAll("path")
+    .data(visible.map(s => ({
+      key: s.Structure_Type,
+      values: axes.map((ax,i) => ({ index: i, value: v(s[ax.key]) }))
+    })))
+    .join("path")
+      .attr("d", d => line(d.values))
+      .attr("fill", d => color(d.key))
+      .attr("stroke", d => d3.color(color(d.key)).darker(0.6))
+      .attr("stroke-width", 1.5)
+      .attr("fill-opacity", opacity)
+      .on("mousemove", (event, d) => {
+        const html = `<strong>${d.key}</strong><br>` + d.values.map((v,i) =>
+          `${axes[i].label}: ${Number.isFinite(v.value) ? v.value.toFixed(2) : "NA"}`
+        ).join("<br>");
+        tooltip.style("opacity",1).html(html)
+               .style("left", (event.clientX+12)+"px")
+               .style("top", (event.clientY-12)+"px");
+      })
+      .on("mouseleave", ()=>tooltip.style("opacity",0));
+
+  // legend (top-right)
+  const legend = svg.append("g").attr("class","legend")
+    .attr("transform", `translate(${W - 220}, 20)`);
+  legend.append("text").text("Structure Type").attr("font-weight",700).attr("y",-6);
+  const rows = legend.selectAll("g.row").data(visible).join("g").attr("class","row")
+    .attr("transform",(d,i)=>`translate(0,${i*18})`);
+  rows.append("rect").attr("class","chip").attr("fill",d=>color(d.Structure_Type));
+  rows.append("text").attr("x",18).attr("y",11).text(d=>{
+    const simp = v(d.simplicity);
+    return `${d.Structure_Type}${Number.isFinite(simp)?` — Simplicity ${simp.toFixed(2)}`:""}`;
+  });
+}
+</script>
+</body>
+</html>
