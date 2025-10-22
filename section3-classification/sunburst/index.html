@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Sunburst — Fit Screen + Legend + Label Toggle</title>
+  <title>Sunburst — Fit Screen + Legend + Smart Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root { color-scheme: dark; }
@@ -66,7 +66,7 @@
       color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3;
       display:none; z-index:10; box-shadow:0 6px 18px rgba(0,0,0,.45);
     }
-    .label { font-size:9px; fill:#eee; text-anchor:middle; pointer-events:none; }
+    .label { fill:#eee; text-anchor:middle; pointer-events:none; }
     .hiddenLabel { opacity:0; transition:opacity .2s ease; }
     .visibleLabel { opacity:1; transition:opacity .2s ease; }
 
@@ -103,7 +103,7 @@
     const SCALE_MODE = 'log';   // 'log' or 'linear' for height
     // ------------------------
 
-    let root, gArcs, colorIon;
+    let root, gArcs, colorIon, maxRGlobal = 0;
     let labelsVisible = true;
 
     // Selection/highlight state (legend)
@@ -188,6 +188,7 @@
       // True outer radius including conductivity bump
       const outerR = d => d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || DEF_COND);
       const maxR   = d3.max(root.descendants(), d => outerR(d)) + 6; // padding for stroke
+      maxRGlobal = maxR;
 
       // SVG with viewBox that fits all blades
       const svg = d3.select(chartEl).append('svg')
@@ -245,17 +246,32 @@
         tt.style.left=(evt.clientX+10)+'px'; tt.style.top=(evt.clientY+10)+'px';
       }).on('mouseleave',()=>{ document.getElementById('tooltip').style.display='none'; });
 
-      // Labels
+      // ---------- SMART LABELS (exclude formula leaves) ----------
+      const angleToPixels = (d, radius) => (d.x1 - d.x0) * radius; // arc length ~ angle * r
+
       const labels = g.selectAll('text')
-        .data(nodes)
+        .data(nodes.filter(d => d.children))  // keep only Ion/Structure/Strategy
         .join('text')
         .attr('class', 'label visibleLabel')
+        .attr('dy', '0.32em')
         .attr('transform', d => {
           const a = (d.x0 + d.x1) / 2 * 180 / Math.PI;
           const r = (d.y0 + outerR(d)) / 2;
           return `rotate(${a-90}) translate(${r},0) rotate(${a<180?0:180})`;
         })
-        .text(d => d.data.name.length>28 ? d.data.name.slice(0,28) + '…' : d.data.name);
+        .text(d => d.data.name);
+
+      // Autosize + hide if not enough room
+      labels.each(function(d){
+        const rMid = (d.y0 + outerR(d)) / 2;
+        const arcPixels = angleToPixels(d, rMid);
+        // font size from 8px..14px based on available radius
+        const fs = Math.max(8, Math.min(14, (rMid / maxRGlobal) * 18));
+        this.style.fontSize = fs + 'px';
+        // hide if arc too short for ~6 chars at current size
+        const minNeeded = Math.min(70, fs * 6);
+        this.classList.toggle('hiddenLabel', arcPixels < minNeeded);
+      });
 
       toggleLabels(); // apply initial checkbox state
 
