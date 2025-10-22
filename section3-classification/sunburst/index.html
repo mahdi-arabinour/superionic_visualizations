@@ -31,6 +31,7 @@
       cursor:default;
     }
     svg { width:100%; height:100%; display:block; }
+
     /* Legend */
     .legend {
       background:#0f141f; border:1px solid #2a3240; border-radius:12px;
@@ -38,6 +39,7 @@
     }
     .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
     .legendGroup { display:flex; flex-direction:column; gap:6px; }
+
     .ionRow {
       display:grid; grid-template-columns:18px 1fr 18px;
       gap:10px; align-items:center; padding:6px 8px;
@@ -48,6 +50,7 @@
     .chev { width:18px; text-align:center; color:#a9b3c8; }
     .sublist { margin-left:26px; display:none; }
     .sublist.open { display:block; }
+
     .structRow, .stratRow {
       display:grid; grid-template-columns:14px 1fr 18px;
       gap:8px; align-items:center; padding:4px 6px;
@@ -154,7 +157,7 @@
     function initChart(dataObj){
       const chartEl = document.getElementById('chart');
       const legendEl = document.querySelector('.legendGroup');
-      const tooltip  = document.getElementById('tooltip');
+      const tooltip  = document.getElementById('tooltip');   // keep ONLY this declaration
       chartEl.innerHTML=''; legendEl.innerHTML='';
 
       // Size
@@ -175,7 +178,7 @@
       const leafBase      = Math.max(12, side*0.03);
       const extraLeafMax  = Math.max(90, side*0.22);
 
-      // Partition (absolute coordinates in "px-like" radius)
+      // Partition (absolute coordinates)
       d3.partition().size([2*Math.PI, (root.height+1)*ringThickness])(root);
 
       // Conductivity scale
@@ -219,8 +222,7 @@
         .innerRadius(d=>d._y0)
         .outerRadius(d=>d._y1);
 
-      // We'll maintain "_x0,_x1,_y0,_y1" as the **current** displayed coords,
-      // starting from the absolute geometry of each node (with conductivity).
+      // Initialize current display coords
       root.each(d=>{
         d._x0 = d.x0;
         d._x1 = d.x1;
@@ -254,8 +256,7 @@
         this.dataset.strat = strat?.data?.name || '';
       });
 
-      // Tooltip
-      const tooltip = document.getElementById('tooltip');
+      // Tooltip (use the tooltip defined above; DO NOT redeclare)
       const tooltipVal = v => (!Number.isFinite(v) ? 'n/a'
         : (v < 0.01 ? `${(v*1000).toFixed(3)} mS·cm⁻¹` : `${Number(v).toPrecision(3)} S·cm⁻¹`));
       paths.on('mousemove',(evt,d)=>{
@@ -290,18 +291,15 @@
             return `rotate(${a-90}) translate(${r},0) rotate(${a<180?0:180})`;
           })
           .each(function(d){
-            // Default visibility rules:
-            // - Global view (currentRoot===root): show labels for depth 1 & 2 only
-            // - Zoomed view: show labels for all nodes within the zoomed branch (including formulas)
+            // Default view: only Ion & Structure labels.
+            // Zoomed view: show all labels within the zoomed branch (including formulas).
             let show = false;
             if (currentRoot === null || currentRoot === root) {
               show = (d.depth===1 || d.depth===2);
             } else {
-              // show labels inside zoomed branch
               show = isDescendantOf(d, currentRoot) || d===currentRoot;
             }
 
-            // Also require enough arc length room
             const rMid=(d._y0 + d._y1)/2;
             const arcPixels = angleToPixels(d, rMid);
             let baseFS = d.depth===1 ? 14 : (d.depth===2 ? 11 : 9);
@@ -341,13 +339,10 @@
         if (!target) return;
         const v = target;
 
-        // Compute scaling from current root to target view
         const kx = (2*Math.PI) / (v.x1 - v.x0);
         const ky = (maxR)      / (v.y1 - v.y0);
 
-        // Interpolators from current displayed coords to target coords
         const interp = nodes.map(d=>{
-          // Target coords in the zoomed frame
           const tx0 = (d.x0 - v.x0) * kx;
           const tx1 = (d.x1 - v.x0) * kx;
           const ty0 = (d.y0 - v.y0) * ky;
@@ -381,7 +376,6 @@
         });
       }
 
-      // Helper: wrap arc access to current fields
       function arcFor(arc){
         return function(d){
           return arc({
@@ -414,8 +408,7 @@
           e.stopPropagation();
           subStruct.classList.toggle('open');
           cv.textContent = subStruct.classList.contains('open') ? '▾' : '▸';
-          if (selIons.has(ion)) selIons.delete(ion); else selIons.add(ion);
-          applyHighlight();
+          applyHighlightToggle(selIons, ion);
         });
         ionRow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}`; applyHighlight(); });
         ionRow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
@@ -434,11 +427,9 @@
 
           srow.addEventListener('click',(ev)=>{
             ev.stopPropagation();
-            const key=`ION:${ion}|STRUCT:${struct}`;
-            if (selStructs.has(key)) selStructs.delete(key); else selStructs.add(key);
+            applyHighlightToggle(selStructs, `ION:${ion}|STRUCT:${struct}`);
             subStrat.classList.toggle('open');
             cv2.textContent=subStrat.classList.contains('open') ? '▾' : '▸';
-            applyHighlight();
           });
           srow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}|STRUCT:${struct}`; applyHighlight(); });
           srow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
@@ -454,15 +445,18 @@
 
             trow.addEventListener('click',(ev)=>{
               ev.stopPropagation();
-              const key=`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`;
-              if (selStrats.has(key)) selStrats.delete(key); else selStrats.add(key);
-              applyHighlight();
+              applyHighlightToggle(selStrats, `ION:${ion}|STRUCT:${struct}|STRAT:${strat}`);
             });
             trow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`; applyHighlight(); });
             trow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
           });
         });
       });
+    }
+
+    function applyHighlightToggle(set, key){
+      if (set.has(key)) set.delete(key); else set.add(key);
+      applyHighlight();
     }
 
     // ---------- Highlight logic ----------
