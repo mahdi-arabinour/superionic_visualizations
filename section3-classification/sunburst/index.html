@@ -2,14 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Sunburst — Interactive Legend + Compact Layout</title>
+  <title>Sunburst — 580 px Chart</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root { color-scheme: dark; }
-    html, body { height:100%; }
+    html, body { height:100%; margin:0; }
     body {
-      margin:0;
-      font-family:system-ui,Segoe UI,Roboto,sans-serif;
+      font-family: system-ui, Segoe UI, Roboto, sans-serif;
       background:#0f1115; color:#e8e8ea;
       display:flex; flex-direction:column;
     }
@@ -19,19 +18,17 @@
       border-bottom:1px solid #262a32;
     }
     #wrap { flex:1; display:flex; padding:10px 12px; gap:12px; min-height:0; }
-    /* Two columns: chart and legend */
     #chartCard {
       flex:1;
       display:grid;
-      grid-template-columns: minmax(420px, 1fr) 320px;
+      grid-template-columns: minmax(560px, 1.4fr) 320px; /* wider chart */
       gap:12px; align-items:start; min-height:0;
     }
     .chartBody {
       background:#101626; border:1px dashed #333a49; border-radius:12px;
       position:relative;
-      /* Smaller, responsive height with a hard fallback so getBoundingClientRect() never returns 0 */
-      height:min(420px, 60vh);
-      min-height:320px;
+      height:580px;              /* fixed 580px height */
+      min-height:580px;
     }
     svg { width:100%; height:100%; display:block; }
 
@@ -44,7 +41,7 @@
     .legendGroup { display:flex; flex-direction:column; gap:6px; }
 
     .ionRow {
-      display:grid; grid-template-columns: 18px 1fr 18px;
+      display:grid; grid-template-columns:18px 1fr 18px;
       gap:10px; align-items:center; padding:6px 8px;
       border-radius:8px; user-select:none; cursor:pointer;
     }
@@ -53,7 +50,6 @@
     .chev { width:18px; text-align:center; color:#a9b3c8; }
     .sublist { margin-left:26px; display:none; }
     .sublist.open { display:block; }
-
     .structRow, .stratRow {
       display:grid; grid-template-columns:14px 1fr 18px;
       gap:8px; align-items:center; padding:4px 6px;
@@ -72,7 +68,7 @@
 </head>
 <body>
   <header>
-    <strong>Sunburst (Interactive Legend)</strong>
+    <strong>Sunburst (580 px Fixed)</strong>
     <span id="rtStats" style="font-size:12px;color:#9fb3cc;"></span>
   </header>
 
@@ -90,26 +86,16 @@
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script>
-    // ----------------- CONFIG -----------------
-    const DEF_COND = 1e-6;      // default height for missing data
-    const SCALE_MODE = 'log';   // radial height scale
-    // ------------------------------------------
-
+    const DEF_COND = 1e-6;
+    const SCALE_MODE = 'log';
     let root, svgGlobal, gArcs, colorIon;
     const selIons = new Set(), selStructs = new Set(), selStrats = new Set();
     let hoverKey = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const dataObj = await (await fetch('data.simplified.json', {cache: 'no-store'})).json();
-        draw(dataObj);
-        // Redraw on resize (throttled by rAF)
-        window.addEventListener('resize', () => requestAnimationFrame(() => draw(dataObj)));
-      } catch (e) {
-        console.error('[sunburst] data load error:', e);
-        document.getElementById('chart').innerHTML =
-          '<div style="position:absolute;inset:0;display:grid;place-items:center;color:#f87171">Failed to load data.simplified.json</div>';
-      }
+      const dataObj = await (await fetch('data.simplified.json', {cache: 'no-store'})).json();
+      draw(dataObj);
+      window.addEventListener('resize', () => requestAnimationFrame(() => draw(dataObj)));
     });
 
     function obj2children(obj){
@@ -142,202 +128,77 @@
       const chartEl = document.getElementById('chart');
       const legendEl = document.querySelector('.legendGroup');
       const tooltip = document.getElementById('tooltip');
-
       chartEl.innerHTML = ''; legendEl.innerHTML = '';
 
-      // --- robust sizing ---
-      let rect = chartEl.getBoundingClientRect();
-      let cw = Math.max(320, Math.floor(chartEl.clientWidth  || rect.width  || 420));
-      let ch = Math.max(320, Math.floor(chartEl.clientHeight || rect.height || 420));
-      const side = Math.min(cw, ch);     // keep it square
-      if (!isFinite(side) || side <= 0) return;  // safety
-
+      const rect = chartEl.getBoundingClientRect();
+      const side = Math.min(rect.width, rect.height);
       const data = { name:'root', children: obj2children(dataObj) };
+      root = d3.hierarchy(data, d=>d.children).sum(d=>Array.isArray(d?.values)?1:0);
 
-      root = d3.hierarchy(data, d=>d.children)
-               .sum(d => Array.isArray(d?.values) ? 1 : 0)
-               .sort((a,b) => (b.value||0) - (a.value||0));
-
-      const ringThickness = Math.max(32, side * 0.06);
-      const leafBase      = Math.max(10, side * 0.03);
-      const extraLeafMax  = Math.max(80, side * 0.18);
-
+      const ringThickness = Math.max(50, side*0.09);
       computeLeafCond(root, DEF_COND);
-      d3.partition().size([2*Math.PI, (root.height + 1) * ringThickness])(root);
+      d3.partition().size([2*Math.PI, (root.height+1)*ringThickness])(root);
 
       const leaves = root.leaves();
-      const condVals = leaves.map(l => l.data.cond || DEF_COND);
-      let [cmin,cmax] = d3.extent(condVals);
-      if (!(cmax > cmin)) { cmin = Math.max(1e-12, cmin*0.8); cmax = cmin*10; }
-
-      const heightScale = (SCALE_MODE === 'linear'
-        ? d3.scaleLinear().domain([cmin,cmax])
-        : d3.scaleLog().domain([Math.max(cmin,1e-12), Math.max(cmax,1e-12)]))
-        .range([0, extraLeafMax]).clamp(true);
+      const condVals = leaves.map(l=>l.data.cond||DEF_COND);
+      const [cmin,cmax] = d3.extent(condVals);
+      const condScale = d3.scaleLog().domain([Math.max(cmin,1e-12),Math.max(cmax,1e-12)]).range([0,side*0.22]);
 
       const ions = (root.children||[]).map(d=>d.data.name);
-      colorIon = d3.scaleOrdinal(ions, d3.quantize(t => d3.interpolateRainbow(t), Math.max(3, ions.length)));
+      colorIon = d3.scaleOrdinal(ions, d3.quantize(t=>d3.interpolateRainbow(t),Math.max(3,ions.length)));
 
-      const outerR = d => d.children ? d.y1 : d.y1 + leafBase + heightScale(d.data.cond || DEF_COND);
-
+      const outerRadiusFor = d=>d.children?d.y1:d.y1+20+condScale(d.data.cond||DEF_COND);
       const svg = d3.select(chartEl).append('svg')
         .attr('width','100%').attr('height','100%')
-        .attr('viewBox', `${-side/2} ${-side/2} ${side} ${side}`);
+        .attr('viewBox',`${-side/2} ${-side/2} ${side} ${side}`);
       const g = svg.append('g');
       gArcs = g;
 
       const arc = d3.arc()
         .startAngle(d=>d.x0).endAngle(d=>d.x1)
-        .padAngle(d=>Math.min(0.006,(d.x1-d.x0)/6)).padRadius(side*0.45)
-        .innerRadius(d=>d.y0).outerRadius(d=>outerR(d));
+        .innerRadius(d=>d.y0).outerRadius(d=>outerRadiusFor(d))
+        .padAngle(0.003).padRadius(side*0.4);
 
-      const nodes = root.descendants().filter(d=>d.depth>0);
-      const paths = g.selectAll('path').data(nodes).join('path')
-        .attr('d', arc)
-        .attr('fill', d => {
+      const paths = g.selectAll('path').data(root.descendants().filter(d=>d.depth>0))
+        .join('path').attr('d',arc)
+        .attr('fill',d=>{
           let ion=d; while(ion.depth>1) ion=ion.parent;
-          const base=colorIon(ion.data.name);
-          if (!d.children && !d.data.hasCond) { const c=d3.color(base); c.opacity=0.55; return c.formatRgb(); }
-          return base;
+          const c=colorIon(ion.data.name);
+          if(!d.children && !d.data.hasCond){const cc=d3.color(c);cc.opacity=0.5;return cc;}
+          return c;
         })
-        .attr('stroke','#fff').attr('stroke-opacity',0.28)
-        .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.6, side * 0.0012));
+        .attr('stroke','#fff').attr('stroke-opacity',0.3);
 
-      // dataset tags for interactivity
-      paths.each(function(d){
-        let ion=d; while(ion && ion.depth>1) ion=ion.parent;
-        let struct=d; while(struct && struct.depth>2) struct=struct.parent;
-        let strat=d; while(strat && strat.depth>3) strat=strat.parent;
-        this.dataset.ion = ion?.data?.name || '';
-        this.dataset.struct = struct?.data?.name || '';
-        this.dataset.strat = strat?.data?.name || '';
-      });
-
-      // tooltip
-      const showVal = v => (!Number.isFinite(v) ? 'n/a'
-        : (v < 0.01 ? `${(v*1000).toFixed(3)} mS·cm⁻¹` : `${Number(v).toPrecision(3)} S·cm⁻¹`));
       paths.on('mousemove',(evt,d)=>{
-        const trail=d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
-        let html=`<strong>${trail}</strong>`;
-        if (!d.children) {
-          html += d.data.hasCond
-            ? `<br/>σ: ${showVal(d.data.cond)}<br/><small>RT preferred; else first</small>`
-            : `<br/><em>No conductivity — default height</em>`;
-        } else {
-          html += `<br/>Share (by formula count): ${d.value}`;
-        }
-        tooltip.style.display='block'; tooltip.innerHTML=html;
+        tooltip.style.display='block';
+        tooltip.innerHTML=`<strong>${d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ')}</strong><br/>
+        σ: ${d.data.cond.toExponential(2)} S/cm`;
         tooltip.style.left=(evt.clientX+10)+'px'; tooltip.style.top=(evt.clientY+10)+'px';
-      }).on('mouseleave',()=>{ tooltip.style.display='none'; });
+      }).on('mouseleave',()=>tooltip.style.display='none');
 
-      // header stat
-      const totalLeaves = leaves.length;
-      const withCond = leaves.filter(d => d.data.hasCond).length;
-      document.getElementById('rtStats').textContent =
-        `Formulas w/ conductivity: ${withCond}/${totalLeaves} (${(withCond/Math.max(1,totalLeaves)*100).toFixed(1)}%)`;
-
-      // legend
-      buildLegendTree(document.querySelector('.legendGroup'));
-      applyHighlight();
+      buildLegendTree(legendEl);
     }
 
     function buildLegendTree(container){
       container.innerHTML='';
       (root.children||[]).forEach(ionNode=>{
-        const ion = ionNode.data.name;
-        const ionRow = document.createElement('div'); ionRow.className='ionRow';
-        const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(ion);
-        const nm  = document.createElement('div'); nm.textContent = ion;
-        const cv  = document.createElement('div'); cv.className='chev'; cv.textContent = '▸';
-        ionRow.append(sw, nm, cv); container.appendChild(ionRow);
-
-        const subStruct = document.createElement('div'); subStruct.className='sublist';
-        container.appendChild(subStruct);
-
-        // expand/collapse + select
-        ionRow.addEventListener('click', (e)=>{
-          e.stopPropagation();
-          subStruct.classList.toggle('open');
-          cv.textContent = subStruct.classList.contains('open') ? '▾' : '▸';
-          if (selIons.has(ion)) selIons.delete(ion); else selIons.add(ion);
-          applyHighlight();
-        });
-        ionRow.addEventListener('mouseenter', ()=>{ hoverKey=`ION:${ion}`; applyHighlight(); });
-        ionRow.addEventListener('mouseleave', ()=>{ hoverKey=null; applyHighlight(); });
-
-        // structures
+        const ion=ionNode.data.name;
+        const ionRow=document.createElement('div');
+        ionRow.className='ionRow';
+        const sw=document.createElement('div');sw.className='swatch';sw.style.background=colorIon(ion);
+        const nm=document.createElement('div');nm.textContent=ion;
+        const cv=document.createElement('div');cv.className='chev';cv.textContent='▸';
+        ionRow.append(sw,nm,cv);container.appendChild(ionRow);
+        const subStruct=document.createElement('div');subStruct.className='sublist';container.appendChild(subStruct);
+        ionRow.onclick=()=>{subStruct.classList.toggle('open');cv.textContent=subStruct.classList.contains('open')?'▾':'▸';};
         (ionNode.children||[]).forEach(structNode=>{
           const struct=structNode.data.name;
-          const srow=document.createElement('div'); srow.className='structRow';
-          const sm=document.createElement('div'); sm.className='smSwatch';
-          sm.style.background = d3.color(colorIon(ion)).brighter(0.8).formatRgb();
-          const sn=document.createElement('div'); sn.textContent=struct;
-          const cv2=document.createElement('div'); cv2.className='chev'; cv2.textContent='▸';
-          srow.append(sm,sn,cv2); subStruct.appendChild(srow);
-
-          const subStrat=document.createElement('div'); subStrat.className='sublist';
-          subStruct.appendChild(subStrat);
-
-          srow.addEventListener('click',(ev)=>{
-            ev.stopPropagation();
-            const key=`ION:${ion}|STRUCT:${struct}`;
-            if (selStructs.has(key)) selStructs.delete(key); else selStructs.add(key);
-            subStrat.classList.toggle('open');
-            cv2.textContent = subStrat.classList.contains('open') ? '▾' : '▸';
-            applyHighlight();
-          });
-          srow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}|STRUCT:${struct}`; applyHighlight(); });
-          srow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
-
-          // strategies
-          (structNode.children||[]).forEach(stratNode=>{
-            const strat=stratNode.data.name;
-            const trow=document.createElement('div'); trow.className='stratRow';
-            const tm=document.createElement('div'); tm.className='smSwatch';
-            tm.style.background = d3.color(colorIon(ion)).brighter(1.4).formatRgb();
-            const tn=document.createElement('div'); tn.textContent=strat;
-            const filler=document.createElement('div'); filler.style.width='18px';
-            trow.append(tm,tn,filler); subStrat.appendChild(trow);
-
-            trow.addEventListener('click',(ev)=>{
-              ev.stopPropagation();
-              const key=`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`;
-              if (selStrats.has(key)) selStrats.delete(key); else selStrats.add(key);
-              applyHighlight();
-            });
-            trow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`; applyHighlight(); });
-            trow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
-          });
+          const srow=document.createElement('div');
+          srow.className='structRow';
+          const sm=document.createElement('div');sm.className='smSwatch';sm.style.background=d3.color(colorIon(ion)).brighter(0.8);
+          const sn=document.createElement('div');sn.textContent=struct;
+          srow.append(sm,sn);subStruct.appendChild(srow);
         });
-      });
-    }
-
-    function matchBranch(el){
-      const ion = el.dataset.ion || '';
-      const struct = el.dataset.struct || '';
-      const strat = el.dataset.strat || '';
-
-      if (hoverKey){
-        if (hoverKey === `ION:${ion}`) return true;
-        if (hoverKey === `ION:${ion}|STRUCT:${struct}`) return true;
-        if (hoverKey === `ION:${ion}|STRUCT:${struct}|STRAT:${strat}`) return true;
-        return false;
-      }
-      if (selIons.size || selStructs.size || selStrats.size){
-        if (selIons.has(ion)) return true;
-        if (selStructs.has(`ION:${ion}|STRUCT:${struct}`)) return true;
-        if (selStrats.has(`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`)) return true;
-        return false;
-      }
-      return true; // no selection -> all on
-    }
-
-    function applyHighlight(){
-      if (!gArcs) return;
-      gArcs.selectAll('path').each(function(){
-        const on = matchBranch(this);
-        this.classList.toggle('dimmed', !on);
-        this.classList.toggle('highlight', on);
       });
     }
   </script>
