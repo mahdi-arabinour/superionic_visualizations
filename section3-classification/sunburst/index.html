@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Sunburst — Smart Labels + Legend + Conductivity Height</title>
+  <title>Sunburst — Ion + Structure Labels Only</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root { color-scheme: dark; }
@@ -46,12 +46,12 @@
     .chev { width:18px; text-align:center; color:#a9b3c8; }
     .sublist { margin-left:26px; display:none; }
     .sublist.open { display:block; }
-    .structRow, .stratRow {
+    .structRow {
       display:grid; grid-template-columns:14px 1fr 18px;
       gap:8px; align-items:center; padding:4px 6px;
       border-radius:6px; cursor:pointer;
     }
-    .structRow:hover, .stratRow:hover { background:#0c1322; }
+    .structRow:hover { background:#0c1322; }
     .smSwatch { width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,.28); }
     .tooltip {
       position:fixed; pointer-events:none; background:rgba(0,0,0,.9);
@@ -61,8 +61,6 @@
     .label { fill:#eee; text-anchor:middle; pointer-events:none; }
     .hiddenLabel { opacity:0; transition:opacity .2s ease; }
     .visibleLabel { opacity:1; transition:opacity .2s ease; }
-    .dimmed { opacity:.18; transition:opacity .15s ease; }
-    .highlight { opacity:1; transition:opacity .15s ease; }
   </style>
 </head>
 <body>
@@ -93,8 +91,6 @@
     const SCALE_MODE = 'log';
     let root, gArcs, colorIon, maxRGlobal = 0;
     let labelsVisible = true;
-    const selIons = new Set(), selStructs = new Set(), selStrats = new Set();
-    let hoverKey = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
       const dataObj = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
@@ -134,8 +130,7 @@
 
     function draw(dataObj) {
       const chartEl = document.getElementById('chart');
-      const legendEl = document.querySelector('.legendGroup');
-      chartEl.innerHTML = ''; legendEl.innerHTML = '';
+      chartEl.innerHTML = '';
 
       const rect = chartEl.getBoundingClientRect();
       const cw = Math.max(500, rect.width);
@@ -211,10 +206,10 @@
         tooltip.style.left = (e.clientX + 10) + 'px'; tooltip.style.top = (e.clientY + 10) + 'px';
       }).on('mouseleave', () => tooltip.style.display = 'none');
 
-      // Labels
+      // Labels — Ion + Structure only
       const angleToPixels = (d, radius) => (d.x1 - d.x0) * radius;
       const labels = g.selectAll('text')
-        .data(nodes.filter(d => d.children))
+        .data(nodes.filter(d => d.children && (d.depth === 1 || d.depth === 2)))
         .join('text')
         .attr('class', 'label visibleLabel')
         .attr('dy', '0.32em')
@@ -229,33 +224,18 @@
       labels.each(function(d) {
         const rMid = (d.y0 + outerR(d)) / 2;
         const arcPixels = angleToPixels(d, rMid);
-        let fs;
-        if (d.depth === 1) fs = 14;
-        else if (d.depth === 2) fs = 11;
-        else if (d.depth === 3) fs = 7;
-        else fs = 9;
+        let fs = d.depth === 1 ? 14 : 11;
         fs = fs * Math.min(1.2, Math.max(0.7, (rMid / maxRGlobal) * 1.5));
         this.style.fontSize = fs + 'px';
-
-        if (d.depth === 3) {
-          this.style.fill = '#9aa3b8';
-          this.style.fontStyle = 'italic';
-          this.style.fontWeight = '400';
-        } else if (d.depth === 2) {
-          this.style.fill = '#d5d9e0';
-          this.style.fontWeight = '500';
-          this.style.fontStyle = 'normal';
-        } else if (d.depth === 1) {
-          this.style.fill = '#ffffff';
-          this.style.fontWeight = '600';
-          this.style.fontStyle = 'normal';
-        }
-
+        this.style.fill = d.depth === 1 ? '#ffffff' : '#d5d9e0';
+        this.style.fontWeight = d.depth === 1 ? '600' : '500';
         const minNeeded = Math.min(70, fs * 5);
         this.classList.toggle('hiddenLabel', arcPixels < minNeeded);
       });
 
       toggleLabels();
+      document.getElementById('rtStats').textContent =
+        `Formulas w/ conductivity: ${leaves.filter(d => d.data.hasCond).length}/${leaves.length}`;
     }
 
     function toggleLabels() {
