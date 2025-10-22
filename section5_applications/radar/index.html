@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>D3 Radar Chart (with values, labels, legend)</title>
+  <title>D3 Radar Chart (Clean with Values, No Overlaps)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
@@ -23,8 +23,8 @@
     }
     .card {
       display: grid;
-      grid-template-columns: 1fr 200px;
-      gap: 20px;
+      grid-template-columns: 1fr 220px;
+      gap: 24px;
       background: #fff;
       border-radius: 14px;
       padding: 18px;
@@ -63,6 +63,10 @@
       stroke: white;
       stroke-width: 3px;
       stroke-linejoin: round;
+    }
+    .levelLabel {
+      font-size: 10px;
+      fill: #6b7280;
     }
     .tooltip {
       position: absolute;
@@ -111,17 +115,16 @@
       const groupKey = cols[0];
       const categories = cols.slice(1);
 
-      // Convert numbers
       data.forEach(row => categories.forEach(c => row[c] = +row[c]));
 
-      // Compute max
       const allVals = data.flatMap(d => categories.map(c => +d[c]));
       const maxVal = d3.max(allVals);
       const rScale = d3.scaleLinear().domain([0, maxVal]).range([0, radius]);
       const angleSlice = (Math.PI * 2) / categories.length;
       const color = d3.scaleOrdinal(d3.schemeTableau10);
+      const fmt = d3.format(",.2~f");
 
-      // Grid
+      // Grid circles
       const grid = svg.append("g");
       for (let i = 1; i <= levels; i++) {
         grid.append("circle")
@@ -130,19 +133,20 @@
           .attr("cy", cy)
           .attr("r", (radius / levels) * i);
       }
+
+      // Move level labels away from data region
       for (let i = 1; i <= levels; i++) {
         grid.append("text")
-          .attr("x", cx)
-          .attr("y", cy - (radius / levels) * i - 2)
-          .attr("text-anchor", "middle")
-          .attr("font-size", 10)
-          .attr("fill", "#6b7280")
+          .attr("class", "levelLabel")
+          .attr("x", cx - radius - 45)  // move left
+          .attr("y", cy - (radius / levels) * i + 4) // slight vertical shift
+          .attr("text-anchor", "start")
           .text(d3.format(".2~s")((maxVal / levels) * i));
       }
 
       // Axes
       const axis = svg.append("g").attr("class", "axis");
-      const labelOffset = 35; // increased to reduce overlap with values
+      const labelOffset = 45; // far enough from chart
       categories.forEach((cat, i) => {
         const angle = angleSlice * i - Math.PI / 2;
         const x = cx + Math.cos(angle) * radius;
@@ -168,13 +172,11 @@
           .text(cat);
       });
 
-      // Line generator
       const line = d3.lineRadial()
         .radius(d => rScale(d.value))
         .angle((d, i) => i * angleSlice)
         .curve(d3.curveLinearClosed);
 
-      // Tooltip helpers
       function showTooltip(event, html) {
         tooltip.style("left", event.pageX + "px")
                .style("top", (event.pageY - 10) + "px")
@@ -186,8 +188,6 @@
         tooltip.style("opacity", 0).attr("aria-hidden", "true");
       }
 
-      // Draw series
-      const fmt = d3.format(",.2~f");
       data.forEach((row, i) => {
         const series = categories.map((c, j) => ({
           axis: c,
@@ -195,7 +195,6 @@
           angle: j * angleSlice
         }));
 
-        // Area
         svg.append("path")
           .datum(series)
           .attr("transform", `translate(${cx},${cy})`)
@@ -205,7 +204,6 @@
           .attr("stroke-width", 2)
           .attr("d", line);
 
-        // Points + values
         const g = svg.append("g").attr("transform", `translate(${cx},${cy})`);
 
         g.selectAll("circle.point")
@@ -221,7 +219,6 @@
           })
           .on("mouseleave", hideTooltip);
 
-        // Value labels, offset more to avoid overlapping category labels
         g.selectAll("text.value-label")
           .data(series)
           .enter()
@@ -229,8 +226,8 @@
           .attr("class", "value-label")
           .attr("x", d => Math.cos(d.angle - Math.PI/2) * rScale(d.value))
           .attr("y", d => Math.sin(d.angle - Math.PI/2) * rScale(d.value))
-          .attr("dx", d => Math.cos(d.angle - Math.PI/2) * 12)
-          .attr("dy", d => Math.sin(d.angle - Math.PI/2) * 12)
+          .attr("dx", d => Math.cos(d.angle - Math.PI/2) * 14)
+          .attr("dy", d => Math.sin(d.angle - Math.PI/2) * 14)
           .attr("text-anchor", d => {
             const a = Math.cos(d.angle - Math.PI/2);
             if (Math.abs(a) < 0.35) return "middle";
