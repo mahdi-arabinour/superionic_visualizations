@@ -9,8 +9,8 @@
   body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:#0f1115; color:#e8e8ea; height:100vh; display:flex; flex-direction:column; }
   header { padding:10px 14px; background:#171a20; display:flex; gap:16px; flex-wrap:wrap; align-items:center; border-bottom:1px solid #262a32; }
   #wrap { flex:1; min-height:0; display:flex; padding:12px 14px; gap:12px; }
-  #chartCard { flex:1; display:grid; grid-template-columns: 1fr 340px; gap:14px; }
-  .chartBody { background:#101626; border:1px dashed #333a49; border-radius:12px; min-height:640px; position:relative; }
+  #chartCard { flex:1; display:grid; grid-template-columns: 1fr 340px; gap:14px; min-height:640px; }
+  .chartBody { background:#101626; border:1px dashed #333a49; border-radius:12px; position:relative; }
   svg { width:100%; height:100%; display:block; }
   .legend { background:#0f141f; border:1px solid #2a3240; border-radius:12px; padding:10px; overflow:auto; }
   .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
@@ -30,7 +30,6 @@
   .dimmed { opacity: .18; transition: opacity .15s ease; }
   .highlight { opacity: 1; transition: opacity .15s ease; }
 
-  /* Labels (stroke halo for contrast) */
   .labelText { fill:#e8e8ea; stroke:#0a0c12; stroke-width:2; paint-order:stroke fill; font-size:12px; }
   .labelPath { fill:none; stroke:none; }
   .labelsControl { display:flex; gap:8px; align-items:center; }
@@ -42,7 +41,6 @@
 <body>
   <header>
     <strong>Sunburst</strong>
-    <!-- Only control #1: Labels -->
     <div class="labelsControl">
       <span style="font-size:12px;color:#cbd5e1;letter-spacing:.3px;text-transform:uppercase;">Labels</span>
       <div class="group" id="labelsGroup">
@@ -52,7 +50,6 @@
         <label><input type="checkbox" id="cbLeaf"   checked> Formulas</label>
       </div>
     </div>
-    <!-- Control #2 is the Ions legend at right -->
   </header>
 
   <div id="wrap">
@@ -73,45 +70,33 @@
     const legendEl  = document.getElementById('legend');
     const tooltip   = document.getElementById('tooltip');
 
-    // Labels control checkboxes
-    const cbDepth1 = document.getElementById('cbDepth1'); // Ions (depth 1)
-    const cbDepth2 = document.getElementById('cbDepth2'); // Families (depth 2)
-    const cbDepth3 = document.getElementById('cbDepth3'); // Subfamilies (depth 3)
-    const cbLeaf   = document.getElementById('cbLeaf');   // Leaves (no children)
+    const cbDepth1 = document.getElementById('cbDepth1');
+    const cbDepth2 = document.getElementById('cbDepth2');
+    const cbDepth3 = document.getElementById('cbDepth3');
+    const cbLeaf   = document.getElementById('cbLeaf');
 
-    // Defaults
-    const DEF_COND = 1e-6;   // fallback σ (S·cm⁻¹)
+    const DEF_COND = 1e-6;
     const SCALE_MODE = 'log';
 
-    // Globals for label updates without redrawing arcs
     let dataObj = null;
-    let root = null;
-    let svgGlobal = null;
-    let gArcs = null;
-    let gLabels = null;
-    let nodesGlobal = null;
-    let sideGlobal = null;
-    let outerRadiusForGlobal = null;
-
+    let root, svgGlobal, gArcs, gLabels, nodesGlobal, sideGlobal, outerRadiusForGlobal;
     const highlightedIons = new Set();
     const highlightedFams = new Set();
 
-    // ---- Load data.json (no upload) ----
+    // --- Load data.json (for GitHub Pages) ---
     fetch('data.json', { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(raw => {
-        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('data.json must be a hierarchy object');
         dataObj = raw;
         draw();
       })
       .catch(err => {
         console.error('Failed to load data.json:', err);
         alert('Could not load data.json automatically: ' + err.message +
-              '\n\nMake sure data.json is in the SAME folder as this HTML and the page is served over HTTP (e.g., http://localhost:8000), not file://');
+              '\n\nMake sure both index.html and data.json are in the SAME folder of your GitHub Pages repo.');
       });
 
     [cbDepth1, cbDepth2, cbDepth3, cbLeaf].forEach(cb => cb.addEventListener('change', () => addLabelsLayer()));
-
     window.addEventListener('resize', () => requestAnimationFrame(draw));
 
     function obj2children(obj){
@@ -194,7 +179,6 @@
         .attr('fill', d => { let a=d; while(a.depth>1) a=a.parent; return colorIon(a.data.name); })
         .attr('stroke','#fff').attr('stroke-opacity',0.35).attr('stroke-width', Math.max(0.6, side*0.0012));
 
-      // tag with ion & family for legend highlighting
       paths.each(function(d){
         let ion=d; while(ion && ion.depth>1) ion=ion.parent;
         let fam=d; while(fam && fam.depth>2) fam=fam.parent;
@@ -202,7 +186,6 @@
         this.dataset.family = fam?.data?.name || '';
       });
 
-      // tooltips
       paths.on('mousemove', (evt, d) => {
         const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
         let html = `<strong>${trail}</strong>`;
@@ -218,20 +201,15 @@
 
       buildLegend(root, colorIon);
       applyHighlight();
-
-      // labels
       addLabelsLayer();
     }
 
-    // Ions control (= legend). Click ion to toggle; expand ▸ to see/toggle families.
     function buildLegend(root, colorIon){
       const group = legendEl.querySelector('.legendGroup');
       group.innerHTML = '';
 
       (root.children || []).forEach(ionNode => {
         const ion = ionNode.data.name;
-
-        // Ion row: swatch + name + chevron
         const row = document.createElement('div'); row.className='ionRow';
         const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(ion);
         const nm  = document.createElement('div'); nm.className='ionName'; nm.textContent = ion;
@@ -239,7 +217,6 @@
         row.appendChild(sw); row.appendChild(nm); row.appendChild(cv);
         group.appendChild(row);
 
-        // Sublist of families (collapsed by default)
         const sub = document.createElement('div'); sub.className='sublist';
         const fams = (ionNode.children||[]).map(n=>n.data.name);
         fams.forEach((fam, i) => {
@@ -249,8 +226,6 @@
           const sn = document.createElement('div'); sn.textContent = fam;
           li.appendChild(sm); li.appendChild(sn);
           sub.appendChild(li);
-
-          // Toggle family highlight on click
           li.addEventListener('click', (ev) => {
             ev.stopPropagation();
             if (highlightedFams.has(fam)) highlightedFams.delete(fam); else highlightedFams.add(fam);
@@ -259,14 +234,12 @@
         });
         group.appendChild(sub);
 
-        // Expand/collapse on chevron click
         cv.addEventListener('click', (e) => {
           e.stopPropagation();
           const open = sub.classList.toggle('open');
           cv.textContent = open ? '▾' : '▸';
         });
 
-        // Toggle ion highlight when clicking the name/swatch area
         const toggleIon = () => {
           if (highlightedIons.has(ion)) highlightedIons.delete(ion); else highlightedIons.add(ion);
           applyHighlight();
@@ -297,43 +270,21 @@
       });
     }
 
-    // ------- LABELS -------
-    function polarToCartesian(cx, cy, r, a){ return [cx + r*Math.cos(a), cy + r*Math.sin(a)]; }
-
-    // Build an arc path for labeling at radius r between angles a0..a1.
-    // Reverse path for left-half slices so text stays upright.
-    function arcLabelPathD(a0, a1, r){
-      const inset = 0.003; // avoid pad seam
-      a0 += inset; a1 -= inset;
-      const mid = (a0 + a1) / 2;
-      let start = a0, end = a1, flip = false;
-      if (mid >= Math.PI) { start = a1; end = a0; flip = true; }
-      const largeArc = (Math.abs(end - start) % (2*Math.PI)) > Math.PI ? 1 : 0;
-      const [sx, sy] = polarToCartesian(0, 0, r, start);
-      const [ex, ey] = polarToCartesian(0, 0, r, end);
-      // sweep flag depends on direction; 1 for CW, 0 for CCW
-      const sweep = flip ? 0 : 1;
-      return { d: `M ${sx} ${sy} A ${r} ${r} 0 ${largeArc} ${sweep} ${ex} ${ey}` };
-    }
-
     function addLabelsLayer(){
       if (!svgGlobal || !nodesGlobal) return;
-
-      // remove old labels
       if (gLabels) gLabels.remove();
       gLabels = svgGlobal.append('g');
 
-      const showDepth1 = cbDepth1.checked; // ions
-      const showDepth2 = cbDepth2.checked; // families
-      const showDepth3 = cbDepth3.checked; // subfamilies
-      const showLeaf   = cbLeaf.checked;   // formulas
+      const showDepth1 = cbDepth1.checked;
+      const showDepth2 = cbDepth2.checked;
+      const showDepth3 = cbDepth3.checked;
+      const showLeaf   = cbLeaf.checked;
 
-      const minAngle = 0.004;          // radians; very permissive
+      const minAngle = 0.004;
       const minRadius = sideGlobal * 0.06;
 
       const defs = svgGlobal.append('defs');
 
-      // choose candidates
       const labelCandidates = nodesGlobal.filter(d => {
         const isLeaf = !d.children;
         const depthOK =
@@ -343,73 +294,23 @@
           (isLeaf      && showLeaf);
         if (!depthOK) return false;
         if ((d.x1 - d.x0) < minAngle) return false;
-
-        // radius for label arc
-        d._labelR = isLeaf ? Math.max(outerRadiusForGlobal(d) - 5, d.y1 - 2)
-                           : (d.y0 + d.y1) / 2;
+        d._labelR = isLeaf ? Math.max(outerRadiusForGlobal(d) - 5, d.y1 - 2) : (d.y0 + d.y1) / 2;
         if (d._labelR < minRadius) return false;
         return true;
       });
 
-      // create label paths
-      labelCandidates.forEach((d, i) => {
-        const { d: pathD } = arcLabelPathD(d.x0, d.x1, d._labelR);
-        const p = defs.append('path')
-          .attr('id', `lp-${i}`)
-          .attr('class', 'labelPath')
-          .attr('d', pathD);
-        d._labelPathId = `lp-${i}`;
-      });
-
-      // place text on paths (SVG2 uses 'href', not 'xlink:href')
-      const texts = gLabels.selectAll('text')
-        .data(labelCandidates, d => d.data.name + '-' + d.depth)
-        .join('text')
-        .attr('class', 'labelText');
-
-      const tps = texts.append('textPath')
-        .attr('href', d => `#${d._labelPathId}`)
-        .attr('startOffset', '50%')
-        .style('text-anchor', 'middle')
-        .text(d => d.data.name);
-
-      // fit: shrink font 12→7px; if still too long, truncate with ellipsis
-      texts.each(function(d){
-        const textEl = this;
-        const tp = this.querySelector('textPath');
-        const pathEl = document.getElementById(d._labelPathId);
-        const pathLen = pathEl ? pathEl.getTotalLength() : 0;
-        const pad = 8;
-        let size = 12;
-        textEl.style.fontSize = size + 'px';
-
-        // Try shrinking size
-        for (; size >= 7; size--){
-          textEl.style.fontSize = size + 'px';
-          const needed = tp.getComputedTextLength ? tp.getComputedTextLength() : 1e9;
-          if (needed <= pathLen - pad) break;
-        }
-
-        if (size < 7){
-          // Truncate with ellipsis
-          const full = tp.textContent;
-          let lo = 1, hi = full.length, ok = 0;
-          // binary search max chars that fit
-          while (lo <= hi){
-            const mid = (lo + hi) >> 1;
-            tp.textContent = full.slice(0, mid) + '…';
-            const need = tp.getComputedTextLength ? tp.getComputedTextLength() : 1e9;
-            if (need <= pathLen - pad){ ok = mid; lo = mid + 1; }
-            else { hi = mid - 1; }
-          }
-          if (ok === 0){
-            // give up for ultra-thin wedges
-            textEl.style.display = 'none';
-          } else {
-            tp.textContent = full.slice(0, ok) + '…';
-            textEl.style.fontSize = '7px';
-          }
-        }
+      labelCandidates.forEach((d,i) => {
+        const id = `lbl-${i}`;
+        const a0=d.x0, a1=d.x1, r=d._labelR;
+        const inset=0.003;
+        const start=a0+inset, end=a1-inset;
+        const [sx,sy]=[Math.cos(start)*r,Math.sin(start)*r];
+        const [ex,ey]=[Math.cos(end)*r,Math.sin(end)*r];
+        defs.append('path').attr('id', id).attr('d', `M ${sx} ${sy} A ${r} ${r} 0 0 1 ${ex} ${ey}`);
+        gLabels.append('text').attr('class','labelText')
+          .append('textPath').attr('href',`#${id}`)
+          .attr('startOffset','50%').attr('text-anchor','middle')
+          .text(d.data.name);
       });
     }
   </script>
