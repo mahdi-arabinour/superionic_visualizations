@@ -2,34 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>D3 Radar — Polished</title>
+<title>D3 Radar — Marked Level Labels & Fraction Ticks</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  :root{
-    --bg:#f7f7fb; --panel:#fff; --grid:#e7e9ef; --axis:#b4bac8; --text:#101828; --muted:#6b7280;
-  }
-  body{margin:0;background:var(--bg);color:var(--text);font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;}
+  :root{--bg:#f7f7fb;--panel:#fff;--grid:#e7e9ef;--axis:#b4bac8;--text:#101828;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
   .wrap{max-width:1100px;margin:28px auto;padding:0 18px;}
-  h1{margin:0 0 14px;font-size:20px;font-weight:600;letter-spacing:.2px}
-  .card{
-    display:grid;grid-template-columns:1fr 240px;gap:22px;background:var(--panel);
-    border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(12,17,29,0.08);
-  }
-  @media (max-width: 900px){.card{grid-template-columns:1fr}}
+  h1{margin:0 0 14px;font-size:20px;font-weight:600}
+  .card{display:grid;grid-template-columns:1fr 240px;gap:22px;background:var(--panel);border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(12,17,29,.08)}
+  @media (max-width:900px){.card{grid-template-columns:1fr}}
   #legend .item{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;cursor:pointer;user-select:none}
   #legend .item.disabled{opacity:.35}
   .swatch{width:14px;height:14px;border-radius:3px;display:inline-block}
-  .gridCircle{fill:none;stroke:var(--grid)}
-  .axis line{stroke:var(--axis);stroke-width:1}
+  .gridCircle{fill:none;stroke:#e7e9ef}
+  .axis line{stroke:#b4bac8;stroke-width:1}
   .axisLabel{fill:#374151;font-size:12px;font-weight:500}
-  .levelLabel{font-size:10px;fill:#6b7280}
+  .levelLabel{font-size:11px;fill:#475569;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
   .value-pill text{font-size:11px;fill:#0f172a}
-  .value-pill rect{fill:#ffffff;stroke:#e5e7eb;stroke-width:1;rx:5;ry:5;filter:url(#shadow)}
-  .tooltip{
-    position:absolute;pointer-events:none;background:rgba(17,24,39,.96);color:#fff;padding:6px 8px;border-radius:6px;
-    font-size:12px;line-height:1.2;opacity:0;transform:translate(-50%,-120%);white-space:nowrap;
-  }
+  .value-pill rect{fill:#ffffff;stroke:#e5e7eb;stroke-width:1;rx:5;ry:5}
 </style>
 </head>
 <body>
@@ -37,195 +28,135 @@
   <h1>Radar Chart</h1>
   <div class="card">
     <svg id="radar" width="900" height="640" role="img" aria-label="Radar chart"></svg>
-    <div>
-      <div id="legend" aria-label="Legend"></div>
-    </div>
+    <div id="legend"></div>
   </div>
 </div>
-<div id="tooltip" class="tooltip" aria-hidden="true"></div>
 
 <script>
 const CSV_PATH = "data.csv";
 const svg = d3.select("#radar");
-const tooltip = d3.select("#tooltip");
 const legend = d3.select("#legend");
 
 const W = +svg.attr("width"), H = +svg.attr("height");
 const margin = {top:60,right:70,bottom:60,left:70};
 const cx = W/2, cy = H/2;
 const radius = Math.min(W, H)/2 - Math.max(margin.left, margin.top);
-const levels = 5;
-const anglePad = 0; // keep equal spacing
-const formatter = d3.format(",.2~f");
-
-// subtle shadow for value pills
-const defs = svg.append("defs");
-defs.append("filter").attr("id","shadow").append("feDropShadow")
-  .attr("dx",0).attr("dy",1).attr("stdDeviation",0.6).attr("flood-opacity",0.25);
-
-// helpers
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const levels = 5;                         // produces 0.2,0.4,...,1.0
+const levelLabelAngleDeg = -120;          // ❗ adjust this to shift along the ring (e.g., -110/-130)
+const levelLabelOffset = 0;               // additional radial pixels (+ outward, - inward)
 
 d3.csv(CSV_PATH).then(raw => {
   const cols = raw.columns ?? Object.keys(raw[0]);
   const groupKey = cols[0];
   const categories = cols.slice(1);
 
+  // numeric
   raw.forEach(r => categories.forEach(c => r[c] = +r[c]));
   const allVals = raw.flatMap(r => categories.map(c => r[c]));
   const maxVal = d3.max(allVals);
 
   const rScale = d3.scaleLinear().domain([0, maxVal]).range([0, radius]);
-  const angleSlice = (Math.PI*2) / categories.length;
+  const angleSlice = (Math.PI*2)/categories.length;
   const color = d3.scaleOrdinal(d3.schemeTableau10);
 
   // GRID
   const gGrid = svg.append("g");
-  for(let i=1;i<=levels;i++){
-    gGrid.append("circle").attr("class","gridCircle")
+  for (let i=1;i<=levels;i++){
+    gGrid.append("circle")
+      .attr("class","gridCircle")
       .attr("cx",cx).attr("cy",cy).attr("r",(radius/levels)*i);
   }
-  // right-side level labels (moved well outside)
-  for(let i=1;i<=levels;i++){
-    gGrid.append("text").attr("class","levelLabel")
-      .attr("x", cx + radius + 28)
-      .attr("y", cy - (radius/levels)*i + 4)
-      .attr("text-anchor","start")
-      .text(d3.format(".2~s")((maxVal/levels)*i));
+
+  // ▶ Place level labels where you marked: along a fixed radial in top-left quadrant
+  const a = levelLabelAngleDeg * Math.PI / 180; // radians
+  for (let i=1;i<=levels;i++){
+    const r = (radius/levels)*i + levelLabelOffset;
+    const lx = cx + Math.cos(a)*r;
+    const ly = cy + Math.sin(a)*r;
+
+    gGrid.append("text")
+      .attr("class","levelLabel")
+      .attr("x", lx)
+      .attr("y", ly)
+      .attr("text-anchor", Math.cos(a) > 0.35 ? "start" : (Math.cos(a) < -0.35 ? "end" : "middle"))
+      .attr("dominant-baseline","middle")
+      .text(d3.format(".1f")(i/levels)); // 0.2, 0.4, 0.6, ...
   }
 
   // AXES
   const gAxis = svg.append("g").attr("class","axis");
-  const axisLabelOffset = 52; // push axis labels farther out to avoid value overlap
+  const axisLabelOffset = 50;
   categories.forEach((cat, i) => {
-    const a = angleSlice*i - Math.PI/2 + anglePad;
-    const x = cx + Math.cos(a)*radius;
-    const y = cy + Math.sin(a)*radius;
-
+    const ang = angleSlice*i - Math.PI/2;
+    const x = cx + Math.cos(ang)*radius;
+    const y = cy + Math.sin(ang)*radius;
     gAxis.append("line").attr("x1",cx).attr("y1",cy).attr("x2",x).attr("y2",y);
 
-    const lx = cx + Math.cos(a)*(radius + axisLabelOffset);
-    const ly = cy + Math.sin(a)*(radius + axisLabelOffset);
-
+    const lx = cx + Math.cos(ang)*(radius + axisLabelOffset);
+    const ly = cy + Math.sin(ang)*(radius + axisLabelOffset);
     gAxis.append("text")
       .attr("class","axisLabel")
       .attr("x", lx).attr("y", ly)
       .attr("text-anchor",
-        Math.abs(Math.cos(a)) < 0.35 ? "middle" : (Math.cos(a) > 0 ? "start" : "end"))
+        Math.abs(Math.cos(ang)) < 0.35 ? "middle" : (Math.cos(ang) > 0 ? "start" : "end"))
       .attr("dy",
-        Math.abs(Math.sin(a)) < 0.35 ? "0.35em" : (Math.sin(a) > 0 ? "0.9em" : "-0.4em"))
+        Math.abs(Math.sin(ang)) < 0.35 ? "0.35em" : (Math.sin(ang) > 0 ? "0.9em" : "-0.4em"))
       .text(cat);
   });
 
-  // RADAR PATH GENERATOR (smooth)
+  // RADAR (smooth)
   const line = d3.lineRadial()
     .radius(d => rScale(d.value))
     .angle((d,i) => i*angleSlice)
     .curve(d3.curveCardinalClosed.tension(0.65));
 
-  // state for toggling
-  const visible = new Array(raw.length).fill(true);
+  // series
+  raw.forEach((row, si) => {
+    const series = categories.map((c, j) => ({axis:c, value:+row[c], angle:j*angleSlice}));
 
-  // DRAW SERIES
-  raw.forEach((row, si) => drawSeries(row, si));
-
-  function drawSeries(row, seriesIdx){
-    const series = categories.map((c, j) => ({
-      axis: c,
-      value: +row[c],
-      angle: j*angleSlice
-    }));
-
-    // areas
     svg.append("path")
       .datum(series)
       .attr("transform", `translate(${cx},${cy})`)
-      .attr("fill", color(seriesIdx))
-      .attr("fill-opacity", 0.15)
-      .attr("stroke", color(seriesIdx))
-      .attr("stroke-width", 2)
-      .attr("class", `series series-${seriesIdx}`)
+      .attr("fill", color(si)).attr("fill-opacity", 0.15)
+      .attr("stroke", color(si)).attr("stroke-width", 2)
       .attr("d", line);
 
-    // points + value pills
-    const g = svg.append("g")
-      .attr("transform", `translate(${cx},${cy})`)
-      .attr("class", `series series-${seriesIdx}`);
+    const g = svg.append("g").attr("transform", `translate(${cx},${cy})`);
 
     // points
     g.selectAll("circle.point")
-      .data(series)
-      .enter().append("circle")
-      .attr("class","point")
-      .attr("r", 3.2)
+      .data(series).enter().append("circle")
+      .attr("r",3.2)
       .attr("cx", d => Math.cos(d.angle - Math.PI/2)*rScale(d.value))
       .attr("cy", d => Math.sin(d.angle - Math.PI/2)*rScale(d.value))
-      .attr("fill", color(seriesIdx))
-      .on("mousemove", (event, d) => {
-        showTooltip(event, `<strong>${row[groupKey]}</strong><br/>${d.axis}: ${formatter(d.value)}`);
-      })
-      .on("mouseleave", hideTooltip);
+      .attr("fill", color(si));
 
-    // smart value-label placement (pill)
-    const pill = g.selectAll("g.value-pill")
-      .data(series)
-      .enter().append("g")
-      .attr("class","value-pill");
+    // value labels (compact)
+    const pills = g.selectAll("g.value-pill")
+      .data(series).enter().append("g").attr("class","value-pill");
+    pills.each(function(d){
+      const ang = d.angle - Math.PI/2, ux = Math.cos(ang), uy = Math.sin(ang);
+      const rText = Math.min(rScale(d.value) + 12, radius - 22);
+      const tx = ux * rText, ty = uy * rText;
 
-    pill.each(function(d){
-      const a = d.angle - Math.PI/2;
-      const ux = Math.cos(a), uy = Math.sin(a);          // unit vector from center
-      const baseR = rScale(d.value);
-      const pad = 12;                                     // distance from point for text
-      const maxForText = radius - 22;                     // keep inside chart, away from axis labels
-      const rForText = clamp(baseR + pad, 10, maxForText);
-
-      const tx = ux * rForText;
-      const ty = uy * rForText;
-
-      const gLabel = d3.select(this)
-        .attr("transform", `translate(${tx},${ty})`);
-
-      // text first to measure
-      const t = gLabel.append("text").text(formatter(d.value))
+      const gLbl = d3.select(this).attr("transform", `translate(${tx},${ty})`);
+      const t = gLbl.append("text")
+        .text(d3.format(",.2~f")(d.value))
         .attr("text-anchor", Math.abs(ux) < 0.35 ? "middle" : (ux > 0 ? "start" : "end"))
         .attr("dominant-baseline","middle");
-
-      // background rect sized to text
-      const bb = t.node().getBBox();
-      const padX = 6, padY = 3;
-      gLabel.insert("rect", "text")
-        .attr("x", bb.x - padX).attr("y", bb.y - padY)
-        .attr("width", bb.width + padX*2).attr("height", bb.height + padY*2);
-    })
-    .on("mousemove", (event, d) => {
-      showTooltip(event, `<strong>${row[groupKey]}</strong><br/>${d.axis}: ${formatter(d.value)}`);
-    })
-    .on("mouseleave", hideTooltip);
-  }
-
-  // LEGEND (click to toggle)
-  raw.forEach((row, i) => {
-    const item = legend.append("div").attr("class","item").on("click", () => {
-      visible[i] = !visible[i];
-      svg.selectAll(`.series-${i}`).style("display", visible[i] ? null : "none");
-      item.classed("disabled", !visible[i]);
+      const bb = t.node().getBBox(), px=6, py=3;
+      gLbl.insert("rect","text")
+        .attr("x", bb.x - px).attr("y", bb.y - py)
+        .attr("width", bb.width + px*2).attr("height", bb.height + py*2);
     });
-    item.append("span").attr("class","swatch").style("background", color(i));
-    item.append("span").text(row[groupKey]);
   });
 
-  // Tooltip helpers
-  function showTooltip(event, html){
-    tooltip.style("left", event.pageX + "px")
-           .style("top", (event.pageY - 10) + "px")
-           .style("opacity", 1)
-           .attr("aria-hidden", "false")
-           .html(html);
-  }
-  function hideTooltip(){
-    tooltip.style("opacity", 0).attr("aria-hidden", "true");
-  }
+  // legend
+  raw.forEach((row,i)=>{
+    const it = legend.append("div").attr("class","item");
+    it.append("span").attr("class","swatch").style("background", color(i));
+    it.append("span").text(row[groupKey]);
+  });
 });
 </script>
 </body>
