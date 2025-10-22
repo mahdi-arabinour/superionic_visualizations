@@ -18,10 +18,13 @@
   .tickLabel{font-size:10px;fill:#666}
   .legend{font-size:12px}
   .legend .chip{width:12px;height:12px;rx:3;ry:3;stroke:#222}
-  .tooltip{position:fixed;pointer-events:none;background:#000;color:#fff;padding:6px 8px;border-radius:6px;font-size:12px;opacity:0;transform:translate(-50%,-120%)}
-  .checkboxes{display:flex;flex-wrap:wrap;gap:8px;max-width:100%}
-  .checkboxes label{background:#f1f1f1;border:1px solid #ddd;border-radius:999px;padding:4px 8px;cursor:pointer}
-  .checkboxes input{margin-right:6px}
+  /* Value labels get a white halo for readability over polygons */
+  .valueLabel{
+    font-size:10px;
+    paint-order: stroke fill;
+    stroke: #fff;
+    stroke-width: 3px;
+  }
 </style>
 </head>
 <body>
@@ -40,7 +43,6 @@
 </div>
 
 <div id="chart" class="card"></div>
-<div id="tooltip" class="tooltip"></div>
 
 <script>
 /* ----------------- CONFIG ----------------- */
@@ -52,15 +54,13 @@ const axes = [
   { key: "simplicity",     label: "Synthesis Simplicity" }
 ];
 const palette = d3.schemeTableau10.concat(["#a6cee3","#b2df8a","#fb9a99","#fdbf6f","#cab2d6","#ffff99"]);
+const LABEL_PAD = 10; // pixels outward from each vertex for the number label
 
 const chartDiv = d3.select("#chart");
-const tooltip  = d3.select("#tooltip");
 
 /* ----------------- UTIL ----------------- */
-const v = (x) => {
-  const n = +x;
-  return Number.isFinite(n) ? n : NaN;
-};
+const v = (x) => { const n = +x; return Number.isFinite(n) ? n : NaN; };
+const fmtVal = (label, val) => Number.isFinite(val) ? (label.startsWith("Retention") ? d3.format(".2f")(val) : d3.format(".2f")(val)) : "NA";
 
 /* ----------------- UI ----------------- */
 document.getElementById("download").addEventListener("click", () => {
@@ -81,9 +81,7 @@ let selected = new Set();
 init();
 
 async function init(){
-  // Accepts either normalized or legacy names:
-  // Structure_Type, log_cond_norm (or log_sigma), inv_Ea_norm (or inv_Ea),
-  // cycle_norm (or logN), ret_norm (or retention), simplicity
+  // Accept normalized or legacy names:
   data = await d3.csv("radar_ready.csv", d => ({
     Structure_Type: (d.Structure_Type || "").trim(),
     log_cond_norm:  v(d.log_cond_norm ?? d.log_sigma),
@@ -105,9 +103,12 @@ async function init(){
 
 function buildStructureFilters(){
   const container = d3.select("#structureFilters");
-  const names = data.map(d => d.Structure_Type);
-  container.selectAll("label").data(names, d=>d).join(enter=>{
+  container.selectAll("label").data(data.map(d=>d.Structure_Type), d=>d).join(enter=>{
     const lab = enter.append("label")
+      .style("background","#f1f1f1")
+      .style("border","1px solid #ddd")
+      .style("border-radius","999px")
+      .style("padding","4px 8px")
       .html(d => `<input type="checkbox" checked data-name="${d}"><span>${d}</span>`);
     lab.select("input").on("change", (e) => {
       const n = e.target.getAttribute("data-name");
@@ -128,9 +129,9 @@ function redraw(){
 
   const radius = Math.min(W, H) * 0.38;
   const rScale = d3.scaleLinear().domain([0,1]).range([0, radius]);
-  const angle = (i) => (Math.PI * 2 * i / axes.length) - Math.PI/2; // start at top
+  const angle = (i) => (Math.PI * 2 * i / axes.length) - Math.PI/2;
 
-  // dashed grid circles + tick labels
+  // dashed grid + ticks
   const levels = [0.25, 0.5, 0.75, 1];
   g.append("g").selectAll("circle")
     .data(levels).join("circle")
@@ -138,7 +139,6 @@ function redraw(){
     .attr("fill", "none")
     .attr("stroke", "#d3d3d3")
     .attr("stroke-dasharray","3,3");
-
   g.append("g").selectAll("text")
     .data(levels).join("text")
     .attr("class","tickLabel")
@@ -146,14 +146,13 @@ function redraw(){
     .attr("text-anchor","middle")
     .text(d => d);
 
-  // spokes and axis labels
+  // spokes + axis labels
   g.append("g").selectAll("line")
     .data(axes).join("line")
     .attr("x1", 0).attr("y1", 0)
     .attr("x2", (d,i)=> Math.cos(angle(i)) * radius)
     .attr("y2", (d,i)=> Math.sin(angle(i)) * radius)
     .attr("stroke", "#c7c7c7");
-
   g.append("g").selectAll("text.axisLabel")
     .data(axes).join("text")
     .attr("class","axisLabel")
@@ -170,8 +169,8 @@ function redraw(){
     .angle(d => angle(d.index))
     .curve(d3.curveLinearClosed);
 
-  // polygons with hover emphasis
-  const polys = g.append("g").selectAll("path")
+  // polygons
+  g.append("g").selectAll("path")
     .data(visible.map(s => ({
       key: s.Structure_Type,
       values: axes.map((ax,i) => ({ index: i, value: v(s[ax.key]) }))
@@ -181,52 +180,38 @@ function redraw(){
       .attr("fill", d => color(d.key))
       .attr("stroke", d => d3.color(color(d.key)).darker(0.6))
       .attr("stroke-width", 1.5)
-      .attr("fill-opacity", opacity)
-      .on("mousemove", (event, d) => {
-        polys.attr("stroke-width", p => p===d ? 2.5 : 1.5)
-             .attr("fill-opacity", p => p===d ? Math.min(opacity+0.15, 0.95) : opacity);
-        const html = `<strong>${d.key}</strong><br>` + d.values.map((v,i) =>
-          `${axes[i].label}: ${Number.isFinite(v.value) ? v.value.toFixed(2) : "NA"}`
-        ).join("<br>");
-        tooltip.style("opacity",1).html(html)
-               .style("left", (event.clientX+12)+"px")
-               .style("top", (event.clientY-12)+"px");
-      })
-      .on("mouseleave", ()=> {
-        polys.attr("stroke-width", 1.5).attr("fill-opacity", opacity);
-        tooltip.style("opacity",0);
-      });
+      .attr("fill-opacity", opacity);
 
-  // vertex dots
-  g.append("g").selectAll("circle.vertex")
-    .data(visible.flatMap(s => axes.map((ax,i) => {
+  // numeric labels next to each vertex (no tooltip / no dots)
+  // For each visible structure, place a label a bit outside the vertex
+  const labelsG = g.append("g").attr("class","valueLabels");
+  visible.forEach(s => {
+    axes.forEach((ax, i) => {
       const val = v(s[ax.key]);
-      const r = Number.isFinite(val) ? rScale(val) : 0;
-      return {
-        key: s.Structure_Type,
-        x: Math.cos(angle(i)) * r,
-        y: Math.sin(angle(i)) * r,
-        color: color(s.Structure_Type),
-        val, label: ax.label
-      };
-    })))
-    .join("circle")
-    .attr("class","vertex")
-    .attr("cx", d => d.x)
-    .attr("cy", d => d.y)
-    .attr("r", 2.5)
-    .attr("fill", d => d.color)
-    .attr("stroke","#fff")
-    .attr("stroke-width",1);
+      if (!Number.isFinite(val)) return;
+      const r  = rScale(val) + LABEL_PAD;   // push label outward
+      const ang = angle(i);
+      const x = Math.cos(ang) * r;
+      const y = Math.sin(ang) * r;
+
+      // left/right/center alignment depending on where the label sits
+      const cos = Math.cos(ang);
+      const anchor = cos > 0.15 ? "start" : (cos < -0.15 ? "end" : "middle");
+
+      labelsG.append("text")
+        .attr("class","valueLabel")
+        .attr("x", x)
+        .attr("y", y)
+        .attr("text-anchor", anchor)
+        .attr("fill", color(s.Structure_Type))
+        .text(fmtVal(ax.label, val));
+    });
+  });
 
   /* ---------- Legend: Structure Type only, values in brackets ---------- */
   const legend = svg.append("g").attr("class","legend")
     .attr("transform", `translate(${W - 320}, 20)`);
-
-  legend.append("text")
-    .text("Structure Type")
-    .attr("font-weight",700)
-    .attr("y",-6);
+  legend.append("text").text("Structure Type").attr("font-weight",700).attr("y",-6);
 
   const rows = legend.selectAll("g.row")
     .data(visible)
@@ -236,19 +221,15 @@ function redraw(){
 
   rows.append("rect")
     .attr("class","chip")
-    .attr("width",12)
-    .attr("height",12)
-    .attr("rx",3).attr("ry",3)
+    .attr("width",12).attr("height",12).attr("rx",3).attr("ry",3)
     .attr("fill",d=>color(d.Structure_Type));
 
   rows.append("text")
-    .attr("x",18)
-    .attr("y",11)
+    .attr("x",18).attr("y",11)
     .text(d => {
-      // [logσ, 1/Ea, logN, Ret, Simp] — no “Simplicity” word
       const vals = axes.map(ax => {
         const num = v(d[ax.key]);
-        return Number.isFinite(num) ? num.toFixed(2) : "NA";
+        return Number.isFinite(num) ? d3.format(".2f")(num) : "NA";
       }).join(", ");
       return `${d.Structure_Type} — [${vals}]`;
     });
