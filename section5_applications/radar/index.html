@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>D3 Radar Chart (Clean with Values, No Overlaps)</title>
+  <title>D3 Radar Chart (Clean, No Overlaps, Right Level Labels)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
@@ -134,19 +134,19 @@
           .attr("r", (radius / levels) * i);
       }
 
-      // Move level labels away from data region
+      // Level labels positioned to the right side
       for (let i = 1; i <= levels; i++) {
         grid.append("text")
           .attr("class", "levelLabel")
-          .attr("x", cx - radius - 45)  // move left
-          .attr("y", cy - (radius / levels) * i + 4) // slight vertical shift
+          .attr("x", cx + radius + 20) // right side of chart
+          .attr("y", cy - (radius / levels) * i + 4)
           .attr("text-anchor", "start")
           .text(d3.format(".2~s")((maxVal / levels) * i));
       }
 
       // Axes
       const axis = svg.append("g").attr("class", "axis");
-      const labelOffset = 45; // far enough from chart
+      const labelOffset = 45;
       categories.forEach((cat, i) => {
         const angle = angleSlice * i - Math.PI / 2;
         const x = cx + Math.cos(angle) * radius;
