@@ -1,118 +1,380 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Radar Chart with D3.js</title>
+  <meta charset="UTF-8" />
+  <title>D3 Radar Chart (with values, labels, legend)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --muted: #6b7280;
+      --grid: #e5e7eb;
+      --axis: #9ca3af;
+      --text: #111827;
+    }
     body {
-      font-family: sans-serif;
-      background: #fafafa;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--text);
     }
-    .axisLabel {
-      font-size: 12px;
-      fill: #333;
+    .container {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px;
     }
-    .legend {
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .card {
+      display: grid;
+      grid-template-columns: 1fr 240px;
+      gap: 24px;
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+    }
+    #legend .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
       font-size: 13px;
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      display: inline-block;
     }
     .gridCircle {
       fill: none;
-      stroke: #CDCDCD;
-      stroke-opacity: 0.5;
+      stroke: var(--grid);
+    }
+    .axis line {
+      stroke: var(--axis);
+      stroke-width: 1;
+    }
+    .axisLabel {
+      fill: #374151;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .value-label {
+      font-size: 11px;
+      fill: var(--text);
+      paint-order: stroke;
+      stroke: white;
+      stroke-width: 3px;
+      stroke-linejoin: round;
+    }
+    .tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(17,24,39,.96);
+      color: white;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.2;
+      opacity: 0;
+      transform: translate(-50%, -120%);
+      white-space: nowrap;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    button, input[type="file"] {
+      font: inherit;
+    }
+    .btn {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      background: white;
+      cursor: pointer;
+    }
+    .btn:hover { background: #f3f4f6; }
+    .fmt {
+      width: 150px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      background: white;
+    }
+    @media (max-width: 900px) {
+      .card { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <svg id="radarChart" width="800" height="600"></svg>
+  <div class="container">
+    <header>
+      <h1>Radar Chart</h1>
+      <div class="controls">
+        <label class="small">Value format:
+          <select id="fmtSelect" class="fmt">
+            <option value=",.2~f">#,###.## (default)</option>
+            <option value=",.0f">#,### (integer)</option>
+            <option value=".2f">0.00</option>
+            <option value=".0%">0%</option>
+          </select>
+        </label>
+        <input type="file" id="fileInput" accept=".csv" />
+        <button id="reloadBtn" class="btn" title="data.csv from the same folder">Reload CSV from path</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div>
+        <svg id="radarChart" width="860" height="640" role="img" aria-label="Radar chart"></svg>
+        <div class="hint">Tip: If opening this file directly (no server), use “Load CSV” to avoid browser file-permission/CORS limitations.</div>
+      </div>
+      <aside>
+        <div id="legend" aria-label="Legend"></div>
+        <div id="notes" class="small"></div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip" aria-hidden="true"></div>
 
   <script>
-    const width = 800, height = 600;
-    const margin = {top: 80, right: 150, bottom: 60, left: 100};
-    const levels = 5; // number of concentric circles
-    const maxValue = 1.0; // adjust or compute dynamically
-    const svg = d3.select("#radarChart")
-      .attr("width", width)
-      .attr("height", height);
+    const CSV_PATH = "data.csv"; // same-folder default
+    const svg = d3.select("#radarChart");
+    const legendEl = d3.select("#legend");
+    const notesEl = d3.select("#notes");
+    const tooltip = d3.select("#tooltip");
+    const fmtSelect = document.getElementById("fmtSelect");
+    const fileInput = document.getElementById("fileInput");
+    const reloadBtn = document.getElementById("reloadBtn");
 
-    const radius = Math.min(width / 2, height / 2) - 100;
-    const centerX = width / 2;
-    const centerY = height / 2;
+    const width = +svg.attr("width");
+    const height = +svg.attr("height");
+    const margin = { top: 60, right: 60, bottom: 60, left: 60 };
+    const cx = width / 2, cy = height / 2;
+    const radius = Math.min(width, height) / 2 - Math.max(margin.left, margin.top);
+    const levels = 5;
 
-    d3.csv("data.csv").then(data => {
-      const categories = data.columns.slice(1); // assume first col = group name
-      const angleSlice = (Math.PI * 2) / categories.length;
+    let rawData = null;      // holds parsed rows
+    let groupKey = null;     // first column name
+    let categories = null;   // remaining column names
+    let formatter = d3.format(",.2~f");
 
-      const maxVal = d3.max(data, d => d3.max(categories, c => +d[c]));
-      const rScale = d3.scaleLinear().domain([0, maxVal]).range([0, radius]);
+    fmtSelect.addEventListener("change", () => {
+      formatter = d3.format(fmtSelect.value);
+      if (rawData) draw(rawData); // re-render with new format
+    });
 
-      // Draw concentric circles
-      for (let i = 0; i <= levels; i++) {
-        const levelFactor = radius * (i / levels);
-        svg.append("circle")
-          .attr("class", "gridCircle")
-          .attr("cx", centerX)
-          .attr("cy", centerY)
-          .attr("r", levelFactor);
+    reloadBtn.addEventListener("click", () => {
+      d3.csv(CSV_PATH).then(setup).catch(err => {
+        alert("Could not load CSV from path:\n" + CSV_PATH + "\n\n" + err);
+      });
+    });
+
+    fileInput.addEventListener("change", ev => {
+      const file = ev.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const text = e.target.result;
+        const rows = d3.csvParse(text);
+        setup(rows);
+      };
+      reader.readAsText(file);
+    });
+
+    // Initial attempt to load from path (works if served or permitted by browser)
+    d3.csv(CSV_PATH).then(setup).catch(() => {
+      notesEl.text("Could not auto-load CSV from path. Use the 'Load CSV' button to select the file.");
+    });
+
+    function setup(data) {
+      rawData = data;
+      if (!data.length) {
+        alert("CSV appears empty.");
+        return;
+      }
+      const cols = data.columns ?? Object.keys(data[0]);
+      groupKey = cols[0];
+      categories = cols.slice(1);
+
+      // Coerce numeric cells
+      data.forEach(row => {
+        categories.forEach(c => { row[c] = +row[c]; });
+      });
+
+      draw(data);
+    }
+
+    function draw(data) {
+      svg.selectAll("*").remove();
+      legendEl.selectAll("*").remove();
+      notesEl.text("");
+
+      // Flatten values to compute max
+      const values = [];
+      data.forEach(d => categories.forEach(c => values.push(+d[c])));
+      const maxVal = d3.max(values) ?? 0;
+      if (maxVal === 0) {
+        notesEl.text("All values are zero or missing; chart scale may be uninformative.");
       }
 
-      // Axis lines and labels
+      const rScale = d3.scaleLinear().domain([0, maxVal]).range([0, radius]);
+      const angleSlice = (Math.PI * 2) / categories.length;
+      const color = d3.scaleOrdinal(d3.schemeTableau10).domain(d3.range(data.length));
+
+      // Grid circles
+      const grid = svg.append("g");
+      for (let i = 1; i <= levels; i++) {
+        grid.append("circle")
+          .attr("class", "gridCircle")
+          .attr("cx", cx)
+          .attr("cy", cy)
+          .attr("r", (radius / levels) * i);
+      }
+      // Level labels
+      for (let i = 1; i <= levels; i++) {
+        grid.append("text")
+          .attr("x", cx)
+          .attr("y", cy - (radius / levels) * i - 2)
+          .attr("text-anchor", "middle")
+          .attr("font-size", 10)
+          .attr("fill", "#6b7280")
+          .text(d3.format(".2~s")((maxVal / levels) * i));
+      }
+
+      // Axes
+      const axis = svg.append("g").attr("class", "axis");
       categories.forEach((cat, i) => {
         const angle = angleSlice * i - Math.PI / 2;
-        const x = centerX + Math.cos(angle) * radius;
-        const y = centerY + Math.sin(angle) * radius;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
 
-        svg.append("line")
-          .attr("x1", centerX)
-          .attr("y1", centerY)
-          .attr("x2", x)
-          .attr("y2", y)
-          .attr("stroke", "#999");
+        axis.append("line")
+          .attr("x1", cx).attr("y1", cy)
+          .attr("x2", x).attr("y2", y);
 
-        svg.append("text")
+        // Axis label beyond radius
+        const labelOffset = 16;
+        const lx = cx + Math.cos(angle) * (radius + labelOffset);
+        const ly = cy + Math.sin(angle) * (radius + labelOffset);
+
+        axis.append("text")
           .attr("class", "axisLabel")
-          .attr("x", x)
-          .attr("y", y)
-          .attr("dy", "0.35em")
-          .attr("text-anchor", "middle")
+          .attr("x", lx)
+          .attr("y", ly)
+          .attr("text-anchor",
+            Math.abs(Math.cos(angle)) < 0.35 ? "middle" : (Math.cos(angle) > 0 ? "start" : "end"))
+          .attr("dy",
+            Math.abs(Math.sin(angle)) < 0.35 ? "0.35em" : (Math.sin(angle) > 0 ? "0.9em" : "-0.4em"))
           .text(cat);
       });
 
-      const color = d3.scaleOrdinal(d3.schemeTableau10);
-
-      // Draw radar areas
+      // Line generator
       const line = d3.lineRadial()
         .radius(d => rScale(d.value))
         .angle((d, i) => i * angleSlice)
         .curve(d3.curveLinearClosed);
 
-      data.forEach((d, i) => {
-        const values = categories.map(c => ({axis: c, value: +d[c]}));
+      // Tooltip
+      function showTooltip(event, html) {
+        tooltip.style("left", event.pageX + "px")
+               .style("top", (event.pageY - 10) + "px")
+               .style("opacity", 1)
+               .attr("aria-hidden", "false")
+               .html(html);
+      }
+      function hideTooltip() {
+        tooltip.style("opacity", 0).attr("aria-hidden", "true");
+      }
 
+      // Draw each series
+      data.forEach((row, i) => {
+        const series = categories.map((c, j) => ({
+          axis: c,
+          value: +row[c],
+          angle: j * angleSlice
+        }));
+
+        // Area
         svg.append("path")
-          .datum(values)
-          .attr("transform", `translate(${centerX},${centerY})`)
+          .datum(series)
+          .attr("transform", `translate(${cx},${cy})`)
           .attr("fill", color(i))
-          .attr("fill-opacity", 0.2)
+          .attr("fill-opacity", 0.18)
           .attr("stroke", color(i))
           .attr("stroke-width", 2)
           .attr("d", line);
 
-        // Add legend
-        svg.append("rect")
-          .attr("x", width - margin.right + 10)
-          .attr("y", margin.top + i * 25)
-          .attr("width", 15)
-          .attr("height", 15)
-          .attr("fill", color(i));
+        // Points + value labels
+        const g = svg.append("g").attr("transform", `translate(${cx},${cy})`);
 
-        svg.append("text")
-          .attr("class", "legend")
-          .attr("x", width - margin.right + 30)
-          .attr("y", margin.top + 12 + i * 25)
-          .text(d[data.columns[0]]);
+        // Points
+        g.selectAll("circle.point")
+          .data(series)
+          .enter()
+          .append("circle")
+          .attr("class", "point")
+          .attr("r", 3.5)
+          .attr("cx", d => Math.cos(d.angle - Math.PI/2) * rScale(d.value))
+          .attr("cy", d => Math.sin(d.angle - Math.PI/2) * rScale(d.value))
+          .attr("fill", color(i))
+          .on("mousemove", (event, d) => {
+            showTooltip(event, `<strong>${row[groupKey]}</strong><br/>${d.axis}: ${formatter(d.value)}`);
+          })
+          .on("mouseleave", hideTooltip);
+
+        // Value labels (slightly offset from the point to avoid overlap)
+        g.selectAll("text.value-label")
+          .data(series)
+          .enter()
+          .append("text")
+          .attr("class", "value-label")
+          .attr("x", d => Math.cos(d.angle - Math.PI/2) * rScale(d.value))
+          .attr("y", d => Math.sin(d.angle - Math.PI/2) * rScale(d.value))
+          .attr("dx", d => Math.cos(d.angle - Math.PI/2) * 8)
+          .attr("dy", d => Math.sin(d.angle - Math.PI/2) * 8)
+          .attr("text-anchor", d => {
+            const a = Math.cos(d.angle - Math.PI/2);
+            if (Math.abs(a) < 0.35) return "middle";
+            return a > 0 ? "start" : "end";
+          })
+          .text(d => formatter(d.value));
       });
-    });
+
+      // Legend
+      data.forEach((row, i) => {
+        const item = legendEl.append("div").attr("class", "legend-item");
+        item.append("span")
+          .attr("class", "legend-swatch")
+          .style("background", color(i));
+        item.append("span").text(row[groupKey]);
+      });
+    }
   </script>
 </body>
 </html>
