@@ -2,25 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>D3 Radar — Marked Level Labels & Fraction Ticks</title>
+<title>D3 Radar — Sharp edges + level labels at marked angle</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  :root{--bg:#f7f7fb;--panel:#fff;--grid:#e7e9ef;--axis:#b4bac8;--text:#101828;}
+  :root{--bg:#f7f7fb;--panel:#fff;--grid:#e7e9ef;--axis:#b4bac8;--text:#101828;--muted:#6b7280;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
   .wrap{max-width:1100px;margin:28px auto;padding:0 18px;}
   h1{margin:0 0 14px;font-size:20px;font-weight:600}
   .card{display:grid;grid-template-columns:1fr 240px;gap:22px;background:var(--panel);border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(12,17,29,.08)}
   @media (max-width:900px){.card{grid-template-columns:1fr}}
-  #legend .item{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;cursor:pointer;user-select:none}
-  #legend .item.disabled{opacity:.35}
+  #legend .item{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px}
   .swatch{width:14px;height:14px;border-radius:3px;display:inline-block}
-  .gridCircle{fill:none;stroke:#e7e9ef}
-  .axis line{stroke:#b4bac8;stroke-width:1}
+  .gridCircle{fill:none;stroke:var(--grid)}
+  .axis line{stroke:var(--axis);stroke-width:1}
   .axisLabel{fill:#374151;font-size:12px;font-weight:500}
+  .value-label{font-size:11px;fill:#111827;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
   .levelLabel{font-size:11px;fill:#475569;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
-  .value-pill text{font-size:11px;fill:#0f172a}
-  .value-pill rect{fill:#ffffff;stroke:#e5e7eb;stroke-width:1;rx:5;ry:5}
 </style>
 </head>
 <body>
@@ -41,55 +39,61 @@ const W = +svg.attr("width"), H = +svg.attr("height");
 const margin = {top:60,right:70,bottom:60,left:70};
 const cx = W/2, cy = H/2;
 const radius = Math.min(W, H)/2 - Math.max(margin.left, margin.top);
-const levels = 5;                         // produces 0.2,0.4,...,1.0
-const levelLabelAngleDeg = -120;          // ❗ adjust this to shift along the ring (e.g., -110/-130)
-const levelLabelOffset = 0;               // additional radial pixels (+ outward, - inward)
+
+// ====== Customize these two to control the level labels ======
+const levelTicks = [200, 400, 600, 800, 1000];     // values to show as rings + labels
+const levelLabelAngleDeg = -120;                    // where you marked (top-left). Tweak e.g. -115/-125
+// =============================================================
 
 d3.csv(CSV_PATH).then(raw => {
   const cols = raw.columns ?? Object.keys(raw[0]);
   const groupKey = cols[0];
   const categories = cols.slice(1);
 
-  // numeric
+  // coerce to numbers
   raw.forEach(r => categories.forEach(c => r[c] = +r[c]));
-  const allVals = raw.flatMap(r => categories.map(c => r[c]));
-  const maxVal = d3.max(allVals);
 
+  // scale domain based on BOTH data and desired tick labels so rings always fit
+  const dataMax = d3.max(raw, r => d3.max(categories, c => r[c]));
+  const ticksMax = d3.max(levelTicks);
+  const maxVal = Math.max(dataMax || 0, ticksMax || 0);
   const rScale = d3.scaleLinear().domain([0, maxVal]).range([0, radius]);
+
   const angleSlice = (Math.PI*2)/categories.length;
   const color = d3.scaleOrdinal(d3.schemeTableau10);
+  const fmtValue = d3.format(",.2~f");  // values on vertices
 
-  // GRID
+  // --- Grid rings (use explicit tick values) ---
   const gGrid = svg.append("g");
-  for (let i=1;i<=levels;i++){
+  levelTicks.forEach(t => {
     gGrid.append("circle")
       .attr("class","gridCircle")
-      .attr("cx",cx).attr("cy",cy).attr("r",(radius/levels)*i);
-  }
+      .attr("cx",cx).attr("cy",cy).attr("r", rScale(t));
+  });
 
-  // ▶ Place level labels where you marked: along a fixed radial in top-left quadrant
-  const a = levelLabelAngleDeg * Math.PI / 180; // radians
-  for (let i=1;i<=levels;i++){
-    const r = (radius/levels)*i + levelLabelOffset;
-    const lx = cx + Math.cos(a)*r;
-    const ly = cy + Math.sin(a)*r;
-
+  // --- Level labels placed along the marked direction ---
+  const a = levelLabelAngleDeg * Math.PI / 180;
+  levelTicks.forEach(t => {
+    const r = rScale(t);
+    const lx = cx + Math.cos(a) * r;
+    const ly = cy + Math.sin(a) * r;
     gGrid.append("text")
       .attr("class","levelLabel")
       .attr("x", lx)
       .attr("y", ly)
       .attr("text-anchor", Math.cos(a) > 0.35 ? "start" : (Math.cos(a) < -0.35 ? "end" : "middle"))
       .attr("dominant-baseline","middle")
-      .text(d3.format(".1f")(i/levels)); // 0.2, 0.4, 0.6, ...
-  }
+      .text(d3.format(",")(t)); // "200", "400", ...
+  });
 
-  // AXES
+  // --- Axes + axis labels (pushed out to avoid value overlap) ---
   const gAxis = svg.append("g").attr("class","axis");
   const axisLabelOffset = 50;
   categories.forEach((cat, i) => {
     const ang = angleSlice*i - Math.PI/2;
     const x = cx + Math.cos(ang)*radius;
     const y = cy + Math.sin(ang)*radius;
+
     gAxis.append("line").attr("x1",cx).attr("y1",cy).attr("x2",x).attr("y2",y);
 
     const lx = cx + Math.cos(ang)*(radius + axisLabelOffset);
@@ -104,21 +108,24 @@ d3.csv(CSV_PATH).then(raw => {
       .text(cat);
   });
 
-  // RADAR (smooth)
+  // --- SHARP radar polygons (no smoothing) ---
   const line = d3.lineRadial()
     .radius(d => rScale(d.value))
     .angle((d,i) => i*angleSlice)
-    .curve(d3.curveCardinalClosed.tension(0.65));
+    .curve(d3.curveLinearClosed); // sharp edges
 
-  // series
+  // --- Draw each series with point value labels ---
   raw.forEach((row, si) => {
-    const series = categories.map((c, j) => ({axis:c, value:+row[c], angle:j*angleSlice}));
+    const series = categories.map((c, j) => ({ axis:c, value:+row[c], angle:j*angleSlice }));
 
+    // area + stroke
     svg.append("path")
       .datum(series)
       .attr("transform", `translate(${cx},${cy})`)
-      .attr("fill", color(si)).attr("fill-opacity", 0.15)
-      .attr("stroke", color(si)).attr("stroke-width", 2)
+      .attr("fill", color(si))
+      .attr("fill-opacity", 0.15)
+      .attr("stroke", color(si))
+      .attr("stroke-width", 2)
       .attr("d", line);
 
     const g = svg.append("g").attr("transform", `translate(${cx},${cy})`);
@@ -126,29 +133,25 @@ d3.csv(CSV_PATH).then(raw => {
     // points
     g.selectAll("circle.point")
       .data(series).enter().append("circle")
-      .attr("r",3.2)
+      .attr("r", 3.2)
       .attr("cx", d => Math.cos(d.angle - Math.PI/2)*rScale(d.value))
       .attr("cy", d => Math.sin(d.angle - Math.PI/2)*rScale(d.value))
       .attr("fill", color(si));
 
-    // value labels (compact)
-    const pills = g.selectAll("g.value-pill")
-      .data(series).enter().append("g").attr("class","value-pill");
-    pills.each(function(d){
-      const ang = d.angle - Math.PI/2, ux = Math.cos(ang), uy = Math.sin(ang);
-      const rText = Math.min(rScale(d.value) + 12, radius - 22);
-      const tx = ux * rText, ty = uy * rText;
-
-      const gLbl = d3.select(this).attr("transform", `translate(${tx},${ty})`);
-      const t = gLbl.append("text")
-        .text(d3.format(",.2~f")(d.value))
-        .attr("text-anchor", Math.abs(ux) < 0.35 ? "middle" : (ux > 0 ? "start" : "end"))
-        .attr("dominant-baseline","middle");
-      const bb = t.node().getBBox(), px=6, py=3;
-      gLbl.insert("rect","text")
-        .attr("x", bb.x - px).attr("y", bb.y - py)
-        .attr("width", bb.width + px*2).attr("height", bb.height + py*2);
-    });
+    // numeric labels near points (offset so they don't clash with axis labels)
+    g.selectAll("text.value-label")
+      .data(series).enter().append("text")
+      .attr("class","value-label")
+      .attr("x", d => Math.cos(d.angle - Math.PI/2)*rScale(d.value))
+      .attr("y", d => Math.sin(d.angle - Math.PI/2)*rScale(d.value))
+      .attr("dx", d => Math.cos(d.angle - Math.PI/2) * 12)
+      .attr("dy", d => Math.sin(d.angle - Math.PI/2) * 12)
+      .attr("text-anchor", d => {
+        const ux = Math.cos(d.angle - Math.PI/2);
+        if (Math.abs(ux) < 0.35) return "middle";
+        return ux > 0 ? "start" : "end";
+      })
+      .text(d => fmtValue(d.value));
   });
 
   // legend
