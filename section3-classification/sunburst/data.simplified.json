@@ -86,9 +86,7 @@
         "Li₆PS₅Cl (thin film, 500 °C)": []
       },
       "Variation in P₂S₅ content (0–45% excess); BM vs liquid-phase": {
-        "Li₆PS₅Cl (hc-LPSCl_00, _15, _30, _45; hc-LPSCl_BM)": [
-          1.2
-        ]
+        "Li₆PS₅Cl (hc-LPSCl_00, _15, _30, _45; hc-LPSCl_BM)": []
       },
       "Multi-cation substitution (Ge, Si, Sb)": {
         "Li₇₋ₓ(GeSi)(₁₋ₓ)/₂SbₓS₅I (x≈1/3)": []
@@ -336,25 +334,19 @@
         "Li5.4PS4.4Cl0.6Br1.0 (LiPSClBr, pristine)": [],
         "Li2MgCl4 (LMC2, pristine)": [],
         "Li3AlCl6": [],
-        "Li3ScCl6": [
-          1.06
-        ],
+        "Li3ScCl6": [],
         "Li3SmCl6": [],
         "Li3YCl6": [
           0.001
         ],
         "Li2Sm2/3Cl4": [],
-        "Li2Sc2/3Cl4": [
-          1.0
-        ],
+        "Li2Sc2/3Cl4": [],
         "Li2Y2/3Cl4": [],
         "Li2Al2/3Cl4": [],
         "LiScCl4": [],
         "LiAlCl4": [],
         "LiYCl4": [],
-        "LiSmCl4": [
-          0.69
-        ],
+        "LiSmCl4": [],
         "1.6Li2O–TaCl5 (Sample 7)": [],
         "1.6Li2O–TaCl5 (Sample 8)": [],
         "1.6Li2O–TaCl5 (Sample 5)": [],
@@ -375,8 +367,7 @@
         "Li3ZrCl6 (reference)": [],
         "Li3HoBr6 (x=0)": [],
         "Li₂ZrCl₆ (LZC)": [
-          0.00413,
-          0.0004
+          0.00413
         ],
         "Li₃InCl₆ (anhydrous)": [
           1.1
@@ -387,27 +378,13 @@
         ],
         "Li₃YCl₆ (x=0)": [],
         "Li₃InBr₆": [],
-        "Li₂ZrCl₆ (x=0)": [
-          0.72
-        ],
-        "Li₃ScCl₆ (x=0)": [
-          0.91
-        ],
-        "Li₃YCl₆ (ampule)": [
-          0.72
-        ],
-        "Li₃YCl₆ (mechanochemical)": [
-          0.95
-        ],
-        "Li₃YBr₆ (ampule)": [
-          0.84
-        ],
-        "Li₃YBr₆ (mechanochemical)": [
-          1.05
-        ],
-        "Li₂ZrCl₆ (baseline)": [
-          0.48
-        ],
+        "Li₂ZrCl₆ (x=0)": [],
+        "Li₃ScCl₆ (x=0)": [],
+        "Li₃YCl₆ (ampule)": [],
+        "Li₃YCl₆ (mechanochemical)": [],
+        "Li₃YBr₆ (ampule)": [],
+        "Li₃YBr₆ (mechanochemical)": [],
+        "Li₂ZrCl₆ (baseline)": [],
         "Li₂VCl₅": [],
         "LiGaI₄": [],
         "Li₂ZnBr₄": [],
@@ -429,59 +406,37 @@
         "Li₂.₁Zr₀.₉₅Cu₀.₀₅Cl₄.₄O₀.₈": []
       },
       "Al³⁺ substitution for Zr⁴⁺": {
-        "Li₂.₃₇₅Al₀.₃₇₅Zr₀.₆₂₅Cl₆": [
-          0.87
-        ]
+        "Li₂.₃₇₅Al₀.₃₇₅Zr₀.₆₂₅Cl₆": []
       },
       "Al³⁺ substitution, Li-deficient": {
-        "Li₁.₆₂₅Al₀.₃₇₅Zr₀.₆₂₅Cl₅.₂₅": [
-          1.1
-        ]
+        "Li₁.₆₂₅Al₀.₃₇₅Zr₀.₆₂₅Cl₅.₂₅": []
       },
       "Fe³⁺ substitution for Zr⁴⁺": {
-        "Li₂.₂₅Fe₀.₂₅Zr₀.₇₅Cl₆": [
-          0.98
-        ]
+        "Li₂.₂₅Fe₀.₂₅Zr₀.₇₅Cl₆": []
       },
       "Fe³⁺ substitution, Li-deficient": {
-        "Li₁.₇₅Fe₀.₂₅Zr₀.₇₅Cl₅.₇₅": [
-          1.2
-        ]
+        "Li₁.₇₅Fe₀.₂₅Zr₀.₇₅Cl₅.₇₅": []
       },
       "Y³⁺ substitution for Zr⁴⁺": {
-        "Li₁.₆₂₅Y₀.₃₇₅Zr₀.₆₂₅Cl₅.₂₅": [
-          1.35
-        ]
+        "Li₁.₆₂₅Y₀.₃₇₅Zr₀.₆₂₅Cl₅.₂₅": []
       },
       "Al³⁺ + Y³⁺ co-doping, Li-deficient": {
-        "Li₂.₁Zr₀.₆Al₀.₂Y₀.₂Cl₅.₇": [
-          1.81
-        ]
+        "Li₂.₁Zr₀.₆Al₀.₂Y₀.₂Cl₅.₇": []
       },
       "Al³⁺ + Y³⁺ co-doping, Li-sufficient": {
-        "Li₂.₄Zr₀.₆Al₀.₂Y₀.₂Cl₆": [
-          0.76
-        ]
+        "Li₂.₄Zr₀.₆Al₀.₂Y₀.₂Cl₆": []
       },
       "Fe³⁺ + Y³⁺ co-doping, Li-deficient": {
-        "Li₂.₁Zr₀.₆Fe₀.₂Y₀.₂Cl₅.₇": [
-          1.36
-        ]
+        "Li₂.₁Zr₀.₆Fe₀.₂Y₀.₂Cl₅.₇": []
       },
       "Fe³⁺ + Y³⁺ co-doping, Li-sufficient": {
-        "Li₂.₄Zr₀.₆Fe₀.₂Y₀.₂Cl₆": [
-          0.95
-        ]
+        "Li₂.₄Zr₀.₆Fe₀.₂Y₀.₂Cl₆": []
       },
       "Fe³⁺ + Al³⁺ co-doping, Li-deficient": {
-        "Li₁.₈Zr₀.₈Fe₀.₁Al₀.₁Cl₅.₆": [
-          1.04
-        ]
+        "Li₁.₈Zr₀.₈Fe₀.₁Al₀.₁Cl₅.₆": []
       },
       "Fe³⁺ + Al³⁺ co-doping, Li-sufficient": {
-        "Li₂.₂Zr₀.₈Fe₀.₁Al₀.₁Cl₆": [
-          0.96
-        ]
+        "Li₂.₂Zr₀.₈Fe₀.₁Al₀.₁Cl₆": []
       },
       "Li-stuffed variant": {
         "LiHfFCl₄": []
@@ -604,14 +559,10 @@
       "Zr⁴⁺ substitution": {
         "Li₂.9Er₀.9Zr₀.1Cl₆ (x=0.1)": [],
         "Li₂.8Er₀.8Zr₀.2Cl₆ (x=0.2)": [],
-        "Li₂.5Y₀.5Zr₀.5Cl₆ (x=0.5)": [
-          1.4
-        ]
+        "Li₂.5Y₀.5Zr₀.5Cl₆ (x=0.5)": []
       },
       "Zr⁴⁺ substitution (max conductivity)": {
-        "Li₂.633Er₀.633Zr₀.367Cl₆ (x=0.367)": [
-          1.1
-        ]
+        "Li₂.633Er₀.633Zr₀.367Cl₆ (x=0.367)": []
       },
       "0.1 S²⁻ substitution for Cl⁻": {
         "Li₂.₁ZrCl₅.₉S₀.₁": []
@@ -626,14 +577,10 @@
         "Li₂.₉Y₀.₉₅Hf₀.₀₅Cl₆ (x=0.05)": []
       },
       "10% Hf⁴⁺ substitution for Y³⁺": {
-        "Li₂.₇Y₀.₉Hf₀.₁Cl₆ (x=0.1)": [
-          1.49
-        ]
+        "Li₂.₇Y₀.₉Hf₀.₁Cl₆ (x=0.1)": []
       },
       "20% Hf⁴⁺ substitution for Y³⁺": {
-        "Li₂.₅Y₀.₈Hf₀.₂Cl₆ (x=0.2)": [
-          1.1
-        ]
+        "Li₂.₅Y₀.₈Hf₀.₂Cl₆ (x=0.2)": []
       },
       "10% Y³⁺ for In³⁺": {
         "Li₃In₀.₉Y₀.₁Br₆": []
@@ -649,35 +596,23 @@
         "Li₃LuBr₆": []
       },
       "30% Ta⁵⁺ substitution for Zr⁴⁺": {
-        "Li1.7Zr0.7Ta0.3Cl6 (x=0.3)": [
-          1.42
-        ]
+        "Li1.7Zr0.7Ta0.3Cl6 (x=0.3)": []
       },
       "27% Ta⁵⁺ substitution for Zr⁴⁺": {
-        "Li₂.₁Zr₀.₈₃Ta₀.₂₇Cl₆": [
-          1.68
-        ]
+        "Li₂.₁Zr₀.₈₃Ta₀.₂₇Cl₆": []
       },
       "Excess LiCl (site-occupation tuning)": {
-        "Li₃.₂ScCl₆.₂ (x=0.2)": [
-          1.64
-        ],
+        "Li₃.₂ScCl₆.₂ (x=0.2)": [],
         "Li₃.₄ScCl₆.₄ (x=0.4)": []
       },
       "Rare earth Dy³⁺ doping + Ta⁵⁺ substitution": {
-        "Li₂.₁Zr₀.₈Dy₀.₁₅Ta₀.₀₅Cl₆ (LZDTC)": [
-          1.67
-        ]
+        "Li₂.₁Zr₀.₈Dy₀.₁₅Ta₀.₀₅Cl₆ (LZDTC)": []
       },
       "Rare earth Ce³⁺ doping + Ta⁵⁺ substitution": {
-        "Li₂.₁Zr₀.₈Ce₀.₁₅Ta₀.₀₅Cl₆": [
-          1.54
-        ]
+        "Li₂.₁Zr₀.₈Ce₀.₁₅Ta₀.₀₅Cl₆": []
       },
       "Multiple-cation (Ta, Zr, Al, Ca) doped LaCl₃-based system": {
-        "HELa0.5: 0.5LiCl–xLaCl₃(TaCl₅·ZrCl₄·AlCl₃·CaCl₂)₁/₄(1–x)": [
-          0.82
-        ]
+        "HELa0.5: 0.5LiCl–xLaCl₃(TaCl₅·ZrCl₄·AlCl₃·CaCl₂)₁/₄(1–x)": []
       },
       "F⁻ substitution (dual-halogen)": {
         "Li₃InCl₄.₈F₁.₂": []
@@ -744,9 +679,7 @@
     },
     "Antiperovskite": {
       "–": {
-        "LixLa₂/₃–x/3TiO₃ (0 ≤ x ≤ 0.5)": [
-          0.34
-        ],
+        "LixLa₂/₃–x/3TiO₃ (0 ≤ x ≤ 0.5)": [],
         "Li7O2Br3 (defect-free)": [],
         "Li3OCl": [],
         "Li3OBr": [],
@@ -906,9 +839,7 @@
         "75Li₂S–25P₂S₅ + 40 mol% LiI (Si-doped, P:Si=6)": []
       },
       "LiI doping (no Si)": {
-        "75Li₂S–25P₂S₅ + 40 mol% LiI (without Si, “blank”)": [
-          1.0
-        ]
+        "75Li₂S–25P₂S₅ + 40 mol% LiI (without Si, “blank”)": []
       },
       "– (no halogen, no Si doping)": {
         "75Li₂S–25P₂S₅ (blank glassy electrolyte)": []
@@ -967,9 +898,7 @@
         "LaF₃ (tysonite)": []
       },
       "K substitution": {
-        "(PbF₂)₁₋ₓ(KF)ₓ (0.333 ≤ x ≤ 0.68)": [
-          0.4
-        ]
+        "(PbF₂)₁₋ₓ(KF)ₓ (0.333 ≤ x ≤ 0.68)": []
       }
     },
     "Antiperovskite": {
@@ -984,9 +913,7 @@
   "Ag+": {
     "Halide": {
       "–": {
-        "(AgI)ₓ–C(1–ₓ), x=1.00 (pure AgI)": [
-          1.0
-        ],
+        "(AgI)ₓ–C(1–ₓ), x=1.00 (pure AgI)": [],
         "Ag-UCl3 (AgCl–LaCl3–0.5TaCl5)": [],
         "Ag₂ZrCl₆": [
           4.0
@@ -1028,14 +955,10 @@
         "AgI–AgBr–AgCl/MPA (Br10Cl10)": []
       },
       "– (stoichiometric, perfect crystal)": {
-        "AgFeO₂ (delafossite)": [
-          0.333
-        ]
+        "AgFeO₂ (delafossite)": []
       },
       "Ag-vacancy defects introduced": {
-        "AgFeO₂ (delafossite, Ag-deficient)": [
-          0.049
-        ]
+        "AgFeO₂ (delafossite, Ag-deficient)": []
       }
     },
     "Rock-salt": {
@@ -1121,9 +1044,7 @@
         "Na2ZrCl6": [],
         "Na3PS4 (amorphous)": [],
         "Na3PS4 (cubic, annealed 240 °C)": [],
-        "Na₃SbS₄ (baseline)": [
-          0.4
-        ],
+        "Na₃SbS₄ (baseline)": [],
         "Na₃PS₄ (tetragonal)": [],
         "Na₃PS₄ (cubic, undoped)": [],
         "Na₃SbS₄ (tetragonal)": [],
@@ -1136,19 +1057,13 @@
         "Fe–NiSe₂/CoSe₂": []
       },
       "Iso-valent V⁵⁺ for Sb⁵⁺": {
-        "Na₃Sb₁₋ₓVₓS₄ (x≤0.2)": [
-          0.6
-        ]
+        "Na₃Sb₁₋ₓVₓS₄ (x≤0.2)": []
       },
       "Iso-valent Nb⁵⁺ for Sb⁵⁺": {
-        "Na₃Sb₁₋ₓNbₓS₄ (x≤0.2)": [
-          0.5
-        ]
+        "Na₃Sb₁₋ₓNbₓS₄ (x≤0.2)": []
       },
       "Iso-valent Ta⁵⁺ for Sb⁵⁺": {
-        "Na₃Sb₁₋ₓTaₓS₄ (x≤0.2)": [
-          0.48
-        ]
+        "Na₃Sb₁₋ₓTaₓS₄ (x≤0.2)": []
       },
       "Na2SO3 additive (5 mol%)": {
         "95(0.75Na2S·0.25P2S5)·5Na2SO3": []
@@ -1286,9 +1201,7 @@
     "Halide": {
       "–": {
         "Na3InCl6": [],
-        "Na2In0.666Cl4": [
-          0.22
-        ],
+        "Na2In0.666Cl4": [],
         "NaTaCl6 (amorphous)": [],
         "Na2ZrCl6 (NZC)": [],
         "Na-UCl3 (NaCl–LaCl3–0.5TaCl5)": [],
@@ -1301,9 +1214,7 @@
         "Na3In0.667Sc0.333Cl6": []
       },
       "In3+/Sc3+ mixed": {
-        "Na3In0.5Sc0.5Cl6": [
-          0.68
-        ],
+        "Na3In0.5Sc0.5Cl6": [],
         "Na3In0.333Sc0.667Cl6": [],
         "Na2In0.4Sc0.2Cl4": [],
         "Na2In0.2Sc0.4Cl4": []
@@ -1420,9 +1331,7 @@
         "PVA–Iron Alum + Glyoxal": []
       },
       "Deep eutectic solvent (DES) based on glycosyl-zwitterion with POM nanoclusters": {
-        "SPPC (Supramolecular Polymer Proton Conductor, DES-GZ/POM)": [
-          1.07
-        ]
+        "SPPC (Supramolecular Polymer Proton Conductor, DES-GZ/POM)": []
       }
     }
   },
@@ -1439,9 +1348,7 @@
         "(Rb₂O)₁₀(B₂O₃)₉₀": [],
         "(Rb₂O)₁₅(B₂O₃)₈₅": [],
         "(Rb₂O)₂₀(B₂O₃)₈₀": [],
-        "(Rb₂O)₃₀(B₂O₃)₇₀": [
-          0.97
-        ],
+        "(Rb₂O)₃₀(B₂O₃)₇₀": [],
         "(Rb2O)10(B2O3)90": [],
         "(Rb2O)15(B2O3)85": [],
         "(Rb2O)20(B2O3)80": [],
@@ -1502,9 +1409,7 @@
   "O2-": {
     "Polymer composite": {
       "Sm3+ doping in CeO2 + amorphous Na2CO3 shell": {
-        "Ce0.8Sm0.2O1.9/Na2CO3 (20 wt% Na2CO3, core–shell)": [
-          0.1
-        ]
+        "Ce0.8Sm0.2O1.9/Na2CO3 (20 wt% Na2CO3, core–shell)": []
       }
     }
   },
