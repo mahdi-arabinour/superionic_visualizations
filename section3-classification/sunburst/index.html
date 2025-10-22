@@ -1,150 +1,374 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<title>Sunburst — Labels Toggle</title>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<style>
-:root { color-scheme: dark; }
-html,body{height:100%;margin:0}
-body{
-  font-family:system-ui,Segoe UI,Roboto,sans-serif;
-  background:#0f1115;color:#e8e8ea;
-  display:flex;flex-direction:column
-}
-header{
-  padding:10px 14px;background:#171a20;
-  display:flex;gap:16px;align-items:center;flex-wrap:wrap;
-  border-bottom:1px solid #262a32
-}
-#wrap{flex:1;display:flex;padding:10px 12px;gap:12px;min-height:0}
-#chartCard{
-  flex:1;display:grid;
-  grid-template-columns:minmax(640px,1.6fr) 300px;
-  gap:12px;align-items:start;min-height:0
-}
-.chartBody{
-  background:#101626;border:1px dashed #333a49;border-radius:12px;
-  position:relative;height:min(88vh,900px);min-height:520px
-}
-svg{width:100%;height:100%;display:block}
-.legend{
-  background:#0f141f;border:1px solid #2a3240;border-radius:12px;
-  padding:10px;overflow:auto;max-height:calc(100vh - 150px)
-}
-.legend h4{margin:0 0 8px 0;font-size:12px;color:#cbd5e1;text-transform:uppercase}
-.legendGroup{display:flex;flex-direction:column;gap:6px}
-.tooltip{
-  position:fixed;pointer-events:none;background:rgba(0,0,0,.9);
-  color:#fff;padding:8px 10px;border-radius:8px;font-size:12px;
-  display:none;z-index:10;box-shadow:0 6px 18px rgba(0,0,0,.45)
-}
-.label{font-size:8px;fill:#eee;text-anchor:middle;pointer-events:none}
-.hiddenLabel{opacity:0;transition:opacity .3s}
-.visibleLabel{opacity:1;transition:opacity .3s}
-</style>
+  <meta charset="utf-8"/>
+  <title>Sunburst — Fit Screen + Legend + Label Toggle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { height:100%; margin:0; }
+    body {
+      font-family:system-ui, Segoe UI, Roboto, sans-serif;
+      background:#0f1115; color:#e8e8ea;
+      display:flex; flex-direction:column;
+    }
+    header {
+      padding:10px 14px; background:#171a20;
+      display:flex; gap:16px; align-items:center; flex-wrap:wrap;
+      border-bottom:1px solid #262a32;
+    }
+    #wrap { flex:1; display:flex; padding:10px 12px; gap:12px; min-height:0; }
+
+    /* Chart + legend layout */
+    #chartCard {
+      flex:1; display:grid;
+      grid-template-columns: minmax(640px, 1.6fr) 300px;
+      gap:12px; align-items:start; min-height:0;
+    }
+    .chartBody {
+      background:#101626; border:1px dashed #333a49; border-radius:12px;
+      position:relative;
+      height:min(88vh, 900px);     /* fill most of screen */
+      min-height:520px;            /* never collapse */
+    }
+    svg { width:100%; height:100%; display:block; }
+
+    /* Legend */
+    .legend {
+      background:#0f141f; border:1px solid #2a3240; border-radius:12px;
+      padding:10px; overflow:auto; max-height:calc(100vh - 150px);
+    }
+    .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
+    .legendGroup { display:flex; flex-direction:column; gap:6px; }
+
+    .ionRow {
+      display:grid; grid-template-columns:18px 1fr 18px;
+      gap:10px; align-items:center; padding:6px 8px;
+      border-radius:8px; user-select:none; cursor:pointer;
+    }
+    .ionRow:hover { background:#0f1726; }
+    .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(255,255,255,.35); }
+    .chev { width:18px; text-align:center; color:#a9b3c8; }
+    .sublist { margin-left:26px; display:none; }
+    .sublist.open { display:block; }
+
+    .structRow, .stratRow {
+      display:grid; grid-template-columns:14px 1fr 18px;
+      gap:8px; align-items:center; padding:4px 6px;
+      border-radius:6px; cursor:pointer;
+    }
+    .structRow:hover, .stratRow:hover { background:#0c1322; }
+    .smSwatch { width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,.28); }
+
+    /* Tooltip + labels */
+    .tooltip {
+      position:fixed; pointer-events:none; background:rgba(0,0,0,.9);
+      color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3;
+      display:none; z-index:10; box-shadow:0 6px 18px rgba(0,0,0,.45);
+    }
+    .label { font-size:9px; fill:#eee; text-anchor:middle; pointer-events:none; }
+    .hiddenLabel { opacity:0; transition:opacity .2s ease; }
+    .visibleLabel { opacity:1; transition:opacity .2s ease; }
+
+    .dimmed { opacity:.18; transition:opacity .15s ease; }
+    .highlight { opacity:1; transition:opacity .15s ease; }
+  </style>
 </head>
 <body>
-<header>
-  <strong>Sunburst (Toggle Labels)</strong>
-  <label style="font-size:13px;">
-    <input type="checkbox" id="labelToggle" checked>
-    Show Labels
-  </label>
-</header>
-<div id="wrap">
-  <div id="chartCard">
-    <div id="chart" class="chartBody"></div>
-    <div id="legend" class="legend"><h4>Legend</h4><div class="legendGroup"></div></div>
+  <header>
+    <strong>Sunburst</strong>
+    <label style="font-size:13px;">
+      <input type="checkbox" id="labelToggle" checked>
+      Show labels
+    </label>
+    <span id="rtStats" style="font-size:12px;color:#9fb3cc;"></span>
+  </header>
+
+  <div id="wrap">
+    <div id="chartCard">
+      <div id="chart" class="chartBody"></div>
+      <div id="legend" class="legend">
+        <h4>Legend</h4>
+        <div class="legendGroup"></div>
+      </div>
+    </div>
   </div>
-</div>
-<div id="tooltip" class="tooltip"></div>
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-<script>
-const DEF_COND=1e-6;
-let root,gArcs,colorIon,labelsVisible=true;
 
-document.addEventListener('DOMContentLoaded',async()=>{
-  const dataObj=await (await fetch('data.simplified.json',{cache:'no-store'})).json();
-  draw(dataObj);
-  document.getElementById('labelToggle').addEventListener('change',e=>{
-    labelsVisible=e.target.checked;
-    toggleLabels();
-  });
-});
+  <div id="tooltip" class="tooltip"></div>
 
-function obj2children(obj){
-  return Object.entries(obj).map(([ion,structures])=>({
-    name:ion,children:Object.entries(structures||{}).map(([structure,strategies])=>({
-      name:structure,children:Object.entries(strategies||{}).map(([strategy,formulas])=>({
-        name:strategy,children:Object.entries(formulas||{}).map(([formula,vals])=>{
-          const nums=Array.isArray(vals)?vals.map(Number).filter(x=>Number.isFinite(x)&&x>0):[];
-          return{name:formula,values:nums};
-        })
-      }))
-    }))
-  }));
-}
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script>
+    // -------- Config --------
+    const DEF_COND = 1e-6;      // default height for missing conductivity
+    const SCALE_MODE = 'log';   // 'log' or 'linear' for height
+    // ------------------------
 
-function computeLeafCond(h,def){
-  h.each(n=>{
-    if(n.data&&Array.isArray(n.data.values)){
-      const vals=n.data.values.filter(Number.isFinite);
-      n.data.cond=vals.length?vals[0]:def;
-      n.data.hasCond=vals.length>0;
+    let root, gArcs, colorIon;
+    let labelsVisible = true;
+
+    // Selection/highlight state (legend)
+    const selIons = new Set(), selStructs = new Set(), selStrats = new Set();
+    let hoverKey = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const dataObj = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
+      draw(dataObj);
+      window.addEventListener('resize', () => requestAnimationFrame(() => draw(dataObj)));
+      document.getElementById('labelToggle').addEventListener('change', e => {
+        labelsVisible = e.target.checked;
+        toggleLabels();
+      });
+    });
+
+    function obj2children(obj){
+      return Object.entries(obj).map(([ion, structures]) => ({
+        name: ion,
+        children: Object.entries(structures || {}).map(([structure, strategies]) => ({
+          name: structure,
+          children: Object.entries(strategies || {}).map(([strategy, formulas]) => ({
+            name: strategy,
+            children: Object.entries(formulas || {}).map(([formula, vals]) => {
+              const nums = Array.isArray(vals) ? vals.map(Number).filter(x => Number.isFinite(x) && x>0) : [];
+              return { name: formula, values: nums };
+            })
+          }))
+        }))
+      }));
     }
-  });
-}
 
-function draw(dataObj){
-  const chartEl=document.getElementById('chart');
-  chartEl.innerHTML='';
-  const rect=chartEl.getBoundingClientRect();
-  const size=Math.min(rect.width,rect.height);
-  const data={name:'root',children:obj2children(dataObj)};
-  root=d3.hierarchy(data,d=>d.children).sum(d=>Array.isArray(d?.values)?1:0);
-  computeLeafCond(root,DEF_COND);
-  d3.partition().size([2*Math.PI,size/2])(root);
+    function computeLeafCond(h, def){
+      h.each(n=>{
+        if (n.data && Array.isArray(n.data.values)) {
+          const vals = n.data.values.filter(Number.isFinite);
+          if (vals.length) { n.data.cond = vals[0]; n.data.hasCond = true; }
+          else { n.data.cond = def; n.data.hasCond = false; }
+        }
+      });
+    }
 
-  const ions=(root.children||[]).map(d=>d.data.name);
-  colorIon=d3.scaleOrdinal(ions,d3.quantize(t=>d3.interpolateRainbow(t),ions.length));
+    function draw(dataObj){
+      const chartEl = document.getElementById('chart');
+      const legendEl = document.querySelector('.legendGroup');
+      const tooltip  = document.getElementById('tooltip');
+      chartEl.innerHTML = ''; legendEl.innerHTML = '';
 
-  const arc=d3.arc().startAngle(d=>d.x0).endAngle(d=>d.x1)
-    .innerRadius(d=>d.y0).outerRadius(d=>d.y1);
-  const svg=d3.select(chartEl).append('svg')
-    .attr('width','100%').attr('height','100%')
-    .attr('viewBox',`${-size/2} ${-size/2} ${size} ${size}`);
-  const g=svg.append('g');
-  gArcs=g;
+      // Robust sizing
+      const rect = chartEl.getBoundingClientRect();
+      const cw = Math.max(500, Math.floor(rect.width  || chartEl.clientWidth  || 700));
+      const ch = Math.max(500, Math.floor(rect.height || chartEl.clientHeight || 600));
+      const side = Math.min(cw, ch);
 
-  g.selectAll('path')
-    .data(root.descendants().filter(d=>d.depth))
-    .join('path')
-    .attr('d',arc)
-    .attr('fill',d=>{
-      let ion=d;while(ion.depth>1)ion=ion.parent;
-      const c=colorIon(ion.data.name);
-      return c;
-    })
-    .attr('stroke','#fff').attr('stroke-opacity',0.2);
+      // Data -> hierarchy
+      const data = { name:'root', children: obj2children(dataObj) };
+      root = d3.hierarchy(data, d=>d.children)
+               .sum(d => Array.isArray(d?.values) ? 1 : 0)
+               .sort((a,b) => (b.value||0) - (a.value||0));
 
-  // labels
-  g.selectAll('text')
-    .data(root.descendants().filter(d=>d.depth>0))
-    .join('text')
-    .attr('class','label visibleLabel')
-    .attr('transform',d=>{
-      const x=(d.x0+d.x1)/2*180/Math.PI;
-      const y=(d.y0+d.y1)/2;
-      return`rotate(${x-90}) translate(${y},0) rotate(${x<180?0:180})`;
-    })
-    .text(d=>d.data.name.length>18?d.data.name.slice(0,18)+'…':d.data.name);
-}
+      // Ring metrics
+      const ringThickness = Math.max(40, side * 0.08);
+      const leafBase      = Math.max(12, side * 0.03);
+      const extraLeafMax  = Math.max(90, side * 0.22);
 
-function toggleLabels(){
-  d3.selectAll('.label')
-    .attr('class',labelsVisible?'label visibleLabel':'label hiddenLabel');
-}
-</script>
+      computeLeafCond(root, DEF_COND);
+      d3.partition().size([2*Math.PI, (root.height + 1) * ringThickness])(root);
+
+      const leaves   = root.leaves();
+      const condVals = leaves.map(l => l.data.cond || DEF_COND);
+      let [cmin,cmax] = d3.extent(condVals);
+      if (!(cmax > cmin)) { cmin = Math.max(1e-12, cmin*0.8); cmax = cmin*10; }
+
+      const baseScale = (SCALE_MODE === 'linear'
+        ? d3.scaleLinear().domain([cmin,cmax])
+        : d3.scaleLog().domain([Math.max(cmin,1e-12), Math.max(cmax,1e-12)]));
+      const condScale = baseScale.range([0, extraLeafMax]).clamp(true);
+
+      const ions = (root.children||[]).map(d=>d.data.name);
+      colorIon = d3.scaleOrdinal(ions, d3.quantize(t=>d3.interpolateRainbow(t), Math.max(3, ions.length)));
+
+      // True outer radius including conductivity bump
+      const outerR = d => d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || DEF_COND);
+      const maxR   = d3.max(root.descendants(), d => outerR(d)) + 6; // padding for stroke
+
+      // SVG with viewBox that fits all blades
+      const svg = d3.select(chartEl).append('svg')
+        .attr('width','100%').attr('height','100%')
+        .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
+      const g = svg.append('g');
+      gArcs = g;
+
+      const arc = d3.arc()
+        .startAngle(d=>d.x0)
+        .endAngle(d=>d.x1)
+        .padAngle(d=>Math.min(0.006,(d.x1-d.x0)/6))
+        .padRadius(maxR * 0.9)
+        .innerRadius(d=>d.y0)
+        .outerRadius(d=>outerR(d));
+
+      const nodes = root.descendants().filter(d=>d.depth>0);
+
+      const paths = g.selectAll('path').data(nodes).join('path')
+        .attr('d', arc)
+        .attr('fill', d => {
+          let ion=d; while(ion.depth>1) ion=ion.parent;
+          const base=colorIon(ion.data.name);
+          if (!d.children && !d.data.hasCond) { const c=d3.color(base); c.opacity=0.55; return c.formatRgb(); }
+          return base;
+        })
+        .attr('stroke','#fff').attr('stroke-opacity',0.28)
+        .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.6, side * 0.0012));
+
+      // dataset tags for legend mapping
+      paths.each(function(d){
+        let ion=d; while(ion && ion.depth>1) ion=ion.parent;
+        let struct=d; while(struct && struct.depth>2) struct=struct.parent;
+        let strat=d; while(strat && strat.depth>3) strat=strat.parent;
+        this.dataset.ion = ion?.data?.name || '';
+        this.dataset.struct = struct?.data?.name || '';
+        this.dataset.strat = strat?.data?.name || '';
+      });
+
+      // Tooltip
+      const tooltipVal = v => (!Number.isFinite(v) ? 'n/a'
+        : (v < 0.01 ? `${(v*1000).toFixed(3)} mS·cm⁻¹` : `${Number(v).toPrecision(3)} S·cm⁻¹`));
+      paths.on('mousemove',(evt,d)=>{
+        const trail=d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
+        let html=`<strong>${trail}</strong>`;
+        if (!d.children) {
+          html += d.data.hasCond
+            ? `<br/>σ: ${tooltipVal(d.data.cond)}<br/><small>RT preferred; else first</small>`
+            : `<br/><em>No conductivity — default height</em>`;
+        } else {
+          html += `<br/>Share (by formula count): ${d.value}`;
+        }
+        const tt=document.getElementById('tooltip');
+        tt.style.display='block'; tt.innerHTML=html;
+        tt.style.left=(evt.clientX+10)+'px'; tt.style.top=(evt.clientY+10)+'px';
+      }).on('mouseleave',()=>{ document.getElementById('tooltip').style.display='none'; });
+
+      // Labels
+      const labels = g.selectAll('text')
+        .data(nodes)
+        .join('text')
+        .attr('class', 'label visibleLabel')
+        .attr('transform', d => {
+          const a = (d.x0 + d.x1) / 2 * 180 / Math.PI;
+          const r = (d.y0 + outerR(d)) / 2;
+          return `rotate(${a-90}) translate(${r},0) rotate(${a<180?0:180})`;
+        })
+        .text(d => d.data.name.length>28 ? d.data.name.slice(0,28) + '…' : d.data.name);
+
+      toggleLabels(); // apply initial checkbox state
+
+      // Header stat
+      document.getElementById('rtStats').textContent =
+        `Formulas w/ conductivity: ${leaves.filter(d=>d.data.hasCond).length}/${leaves.length}`;
+
+      // Build legend and enable highlight
+      buildLegendTree(legendEl);
+      applyHighlight();
+    }
+
+    function buildLegendTree(container){
+      container.innerHTML='';
+      (root.children||[]).forEach(ionNode=>{
+        const ion = ionNode.data.name;
+        const ionRow = document.createElement('div'); ionRow.className='ionRow';
+        const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(ion);
+        const nm  = document.createElement('div'); nm.textContent = ion;
+        const cv  = document.createElement('div'); cv.className='chev'; cv.textContent = '▸';
+        ionRow.append(sw, nm, cv); container.appendChild(ionRow);
+
+        const subStruct = document.createElement('div'); subStruct.className='sublist';
+        container.appendChild(subStruct);
+
+        ionRow.addEventListener('click',(e)=>{
+          e.stopPropagation();
+          subStruct.classList.toggle('open');
+          cv.textContent = subStruct.classList.contains('open') ? '▾' : '▸';
+          if (selIons.has(ion)) selIons.delete(ion); else selIons.add(ion);
+          applyHighlight();
+        });
+        ionRow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}`; applyHighlight(); });
+        ionRow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
+
+        (ionNode.children||[]).forEach(structNode=>{
+          const struct=structNode.data.name;
+          const srow=document.createElement('div'); srow.className='structRow';
+          const sm=document.createElement('div'); sm.className='smSwatch';
+          sm.style.background = d3.color(colorIon(ion)).brighter(0.8).formatRgb();
+          const sn=document.createElement('div'); sn.textContent=struct;
+          const cv2=document.createElement('div'); cv2.className='chev'; cv2.textContent='▸';
+          srow.append(sm,sn,cv2); subStruct.appendChild(srow);
+
+          const subStrat=document.createElement('div'); subStrat.className='sublist';
+          subStruct.appendChild(subStrat);
+
+          srow.addEventListener('click',(ev)=>{
+            ev.stopPropagation();
+            const key=`ION:${ion}|STRUCT:${struct}`;
+            if (selStructs.has(key)) selStructs.delete(key); else selStructs.add(key);
+            subStrat.classList.toggle('open');
+            cv2.textContent=subStrat.classList.contains('open') ? '▾' : '▸';
+            applyHighlight();
+          });
+          srow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}|STRUCT:${struct}`; applyHighlight(); });
+          srow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
+
+          (structNode.children||[]).forEach(stratNode=>{
+            const strat=stratNode.data.name;
+            const trow=document.createElement('div'); trow.className='stratRow';
+            const tm=document.createElement('div'); tm.className='smSwatch';
+            tm.style.background = d3.color(colorIon(ion)).brighter(1.4).formatRgb();
+            const tn=document.createElement('div'); tn.textContent=strat;
+            const filler=document.createElement('div'); filler.style.width='18px';
+            trow.append(tm,tn,filler); subStrat.appendChild(trow);
+
+            trow.addEventListener('click',(ev)=>{
+              ev.stopPropagation();
+              const key=`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`;
+              if (selStrats.has(key)) selStrats.delete(key); else selStrats.add(key);
+              applyHighlight();
+            });
+            trow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`; applyHighlight(); });
+            trow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
+          });
+        });
+      });
+    }
+
+    function matchBranch(el){
+      const ion = el.dataset.ion || '';
+      const struct = el.dataset.struct || '';
+      const strat = el.dataset.strat || '';
+
+      if (hoverKey){
+        if (hoverKey === `ION:${ion}`) return true;
+        if (hoverKey === `ION:${ion}|STRUCT:${struct}`) return true;
+        if (hoverKey === `ION:${ion}|STRUCT:${struct}|STRAT:${strat}`) return true;
+        return false;
+      }
+      if (selIons.size || selStructs.size || selStrats.size){
+        if (selIons.has(ion)) return true;
+        if (selStructs.has(`ION:${ion}|STRUCT:${struct}`)) return true;
+        if (selStrats.has(`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`)) return true;
+        return false;
+      }
+      return true; // no selection -> all on
+    }
+
+    function applyHighlight(){
+      if (!gArcs) return;
+      gArcs.selectAll('path').each(function(){
+        const on = matchBranch(this);
+        this.classList.toggle('dimmed', !on);
+        this.classList.toggle('highlight', on);
+      });
+    }
+
+    function toggleLabels(){
+      d3.selectAll('.label')
+        .attr('class', labelsVisible ? 'label visibleLabel' : 'label hiddenLabel');
+    }
+  </script>
 </body>
 </html>
