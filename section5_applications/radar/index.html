@@ -81,7 +81,7 @@ let selected = new Set();
 init();
 
 async function init(){
-  // Expected columns:
+  // Accepts either normalized or legacy names:
   // Structure_Type, log_cond_norm (or log_sigma), inv_Ea_norm (or inv_Ea),
   // cycle_norm (or logN), ret_norm (or retention), simplicity
   data = await d3.csv("radar_ready.csv", d => ({
@@ -98,10 +98,8 @@ async function init(){
     return;
   }
 
-  // Build toggles
   selected = new Set(data.map(d => d.Structure_Type));
   buildStructureFilters();
-
   redraw();
 }
 
@@ -199,7 +197,7 @@ function redraw(){
         tooltip.style("opacity",0);
       });
 
-  // vertex dots (easier to read)
+  // vertex dots
   g.append("g").selectAll("circle.vertex")
     .data(visible.flatMap(s => axes.map((ax,i) => {
       const val = v(s[ax.key]);
@@ -221,9 +219,9 @@ function redraw(){
     .attr("stroke","#fff")
     .attr("stroke-width",1);
 
-  /* ---------- Legend: Structure Type only, with values list ---------- */
+  /* ---------- Legend: Structure Type only, values in brackets ---------- */
   const legend = svg.append("g").attr("class","legend")
-    .attr("transform", `translate(${W - 300}, 20)`);
+    .attr("transform", `translate(${W - 320}, 20)`);
 
   legend.append("text")
     .text("Structure Type")
@@ -247,7 +245,7 @@ function redraw(){
     .attr("x",18)
     .attr("y",11)
     .text(d => {
-      // build compact string [logσ, 1/Ea, logN, Ret, Simp]
+      // [logσ, 1/Ea, logN, Ret, Simp] — no “Simplicity” word
       const vals = axes.map(ax => {
         const num = v(d[ax.key]);
         return Number.isFinite(num) ? num.toFixed(2) : "NA";
