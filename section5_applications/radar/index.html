@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radar Chart — Spoke-Aligned + Focus Toggle</title>
+<title>Radar Chart — Horizontal Axis Titles</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   body{margin:0;background:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
@@ -12,7 +12,7 @@
   .gridCircle{fill:none;stroke:#cfcfcf;stroke-dasharray:3 3}
   .spoke{stroke:#d6d6d6}
   .gridLabel{font-size:10px;fill:#7a7a7a;text-anchor:start;}
-  .axisTitle{font-size:12px;font-weight:700;text-anchor:middle}
+  .axisTitle{font-size:13px;font-weight:700;text-anchor:middle;}
   .valueLabel{
     font-size:11px;font-weight:700;
     paint-order:stroke fill; stroke:#fff; stroke-width:3px;
@@ -26,7 +26,6 @@
   .legend .row.inactive{opacity:0.35}
   .legend .title{font-weight:700;fill:#333}
 
-  /* Dimming for non-focused series */
   .dimPoly{opacity:0.18}
   .dimLabels{opacity:0.25}
 </style>
@@ -34,7 +33,6 @@
 <body>
 <div id="chart"></div>
 <script>
-/* ----- Axes (order matters) ----- */
 const axes = [
   { key: "log_cond_norm",  label: "log₁₀(σ)",             color: "#1f77b4" },
   { key: "inv_Ea_norm",    label: "1/Ea",                  color: "#ff7f0e" },
@@ -54,7 +52,6 @@ d3.csv("radar_ready.csv").then(raw => {
     ret_norm:       +d.ret_norm,
     simplicity:     +d.simplicity
   })).filter(d => d.Structure_Type);
-
   draw(data);
 });
 
@@ -71,145 +68,104 @@ function draw(data){
   const angle = i => (Math.PI*2*i/axes.length) - Math.PI/2;
   const color = d3.scaleOrdinal().domain(data.map(d=>d.Structure_Type)).range(palette);
 
-  /* ----- Grid rings, spokes, % labels ----- */
   const levels = [0.25,0.5,0.75,1];
+  g.append("g").selectAll("circle").data(levels).join("circle")
+    .attr("class","gridCircle").attr("r",d=>rScale(d));
+  g.append("g").selectAll("line").data(axes).join("line")
+    .attr("class","spoke").attr("x1",0).attr("y1",0)
+    .attr("x2",(d,i)=>Math.cos(angle(i))*radius)
+    .attr("y2",(d,i)=>Math.sin(angle(i))*radius);
+  g.append("g").selectAll("text").data(levels).join("text")
+    .attr("class","gridLabel")
+    .attr("x",rScale(1)+8).attr("y",d=>-rScale(d))
+    .text(d=>d3.format(".0%")(d));
 
-  g.append("g")
-    .selectAll("circle")
-    .data(levels)
-    .join("circle")
-      .attr("class","gridCircle")
-      .attr("r",d=>rScale(d));
-
-  g.append("g")
-    .selectAll("line")
+  /* ----- Axis titles (HORIZONTAL + aligned with edges) ----- */
+  const AXIS_PAD = 22;
+  g.append("g").selectAll("text")
     .data(axes)
-    .join("line")
-      .attr("class","spoke")
-      .attr("x1",0).attr("y1",0)
-      .attr("x2",(d,i)=>Math.cos(angle(i))*radius)
-      .attr("y2",(d,i)=>Math.sin(angle(i))*radius);
-
-  g.append("g")
-    .selectAll("text")
-    .data(levels)
     .join("text")
-      .attr("class","gridLabel")
-      .attr("x",rScale(1)+8)
-      .attr("y",d=>-rScale(d))
-      .text(d=>d3.format(".0%")(d));
-
-  /* ----- Axis titles aligned with spoke (rotated) ----- */
-  g.append("g").selectAll("g.axisLab")
-    .data(axes)
-    .join("g")
-      .attr("class","axisLab")
-      .attr("transform",(d,i)=>{
-        const a = angle(i), x = Math.cos(a)*(radius+22), y = Math.sin(a)*(radius+22);
-        const deg = a*180/Math.PI, flip = (deg>90 || deg<-90) ? 180 : 0;
-        return `translate(${x},${y}) rotate(${deg+flip})`;
-      })
-    .append("text")
       .attr("class","axisTitle")
-      .attr("fill",(d)=>d.color)
+      .attr("x",(d,i)=>Math.cos(angle(i))*(rScale(1)+AXIS_PAD))
+      .attr("y",(d,i)=>Math.sin(angle(i))*(rScale(1)+AXIS_PAD))
+      .attr("fill",d=>d.color)
+      .attr("text-anchor",(d,i)=>{
+        const c = Math.cos(angle(i));
+        return c>0.35?"start":(c<-0.35?"end":"middle");
+      })
+      .attr("dy",(d,i)=>{
+        const s = Math.sin(angle(i));
+        return s>0.35?"0.75em":(s<-0.35?"-0.35em":"0.35em");
+      })
       .text(d=>d.label);
 
   /* ----- Polygons ----- */
-  const line = d3.lineRadial()
-      .radius(d=>rScale(d.value))
-      .angle(d=>angle(d.index))
-      .curve(d3.curveLinearClosed);
-
-  const series = data.map(s => ({
-    key: s.Structure_Type,
-    color: color(s.Structure_Type),
-    values: axes.map((ax,i)=>({ index:i, value:+s[ax.key] }))
+  const line = d3.lineRadial().radius(d=>rScale(d.value)).angle(d=>angle(d.index)).curve(d3.curveLinearClosed);
+  const series = data.map(s=>({
+    key:s.Structure_Type,
+    color:color(s.Structure_Type),
+    values:axes.map((ax,i)=>({index:i,value:+s[ax.key]}))
   }));
 
-  const polyG = g.append("g").attr("class","polys");
+  const polyG = g.append("g");
   const polys = polyG.selectAll("path")
     .data(series)
     .join("path")
-      .attr("d", d => line(d.values))
-      .attr("fill", d => d.color)
-      .attr("stroke", d => d3.color(d.color).darker(0.6))
-      .attr("stroke-width", 1.5)
-      .attr("fill-opacity", 0.40);
+      .attr("d",d=>line(d.values))
+      .attr("fill",d=>d.color)
+      .attr("stroke",d=>d3.color(d.color).darker(0.6))
+      .attr("stroke-width",1.5)
+      .attr("fill-opacity",0.4);
 
   /* ----- Value labels (on vertex, aligned with spoke) ----- */
-  const labelsG = g.append("g").attr("class","labels");
-  series.forEach(s => {
-    s.labels = axes.map((ax,i)=>{
-      const val = s.values[i].value;
-      if (!Number.isFinite(val)) return null;
-      const r = rScale(val);
-      const a = angle(i);
-      const x = Math.cos(a)*r, y = Math.sin(a)*r;
-      const deg = a*180/Math.PI, flip = (deg>90 || deg<-90) ? 180 : 0;
-      return labelsG.append("text")
+  const labelsG = g.append("g");
+  series.forEach(s=>{
+    const c=s.color;
+    axes.forEach((ax,i)=>{
+      const val=+s.values[i].value; if(!Number.isFinite(val))return;
+      const r=rScale(val); const a=angle(i);
+      const x=Math.cos(a)*r, y=Math.sin(a)*r;
+      labelsG.append("text")
         .attr("class","valueLabel")
-        .attr("fill", s.color)
-        .attr("transform", `translate(${x},${y}) rotate(${deg+flip})`)
-        .text(d3.format(".2f")(val)).node();
-    }).filter(Boolean);
+        .attr("fill",c)
+        .attr("x",x).attr("y",y)
+        .text(d3.format(".2f")(val));
+    });
   });
 
   /* ----- Legend with focus toggle ----- */
-  const legend = svg.append("g").attr("class","legend")
-    .attr("transform", `translate(${W - 250}, 16)`);
-
-  legend.append("text").attr("class","title").text("Focus")
-        .attr("y",-6);
-
-  const rows = legend.selectAll("g.row")
+  const legend=svg.append("g").attr("class","legend").attr("transform",`translate(${W-230},20)`);
+  legend.append("text").attr("class","title").text("Focus").attr("y",-6);
+  const rows=legend.selectAll("g.row")
     .data(series)
-    .join("g")
-      .attr("class","row")
-      .attr("transform",(d,i)=>`translate(0,${i*18})`);
-
+    .join("g").attr("class","row")
+    .attr("transform",(d,i)=>`translate(0,${i*18})`);
   rows.append("rect").attr("class","chip")
-      .attr("width",12).attr("height",12).attr("rx",3).attr("ry",3)
-      .attr("fill",d=>d.color);
-
+    .attr("width",12).attr("height",12).attr("rx",3).attr("ry",3)
+    .attr("fill",d=>d.color);
   rows.append("text").attr("x",18).attr("y",11).text(d=>d.key);
-
-  // "Show all" button
-  const showAll = legend.append("g").attr("class","row")
-      .attr("transform",`translate(0,${series.length*18 + 8})`)
-      .style("cursor","pointer");
+  const showAll=legend.append("g").attr("class","row").attr("transform",`translate(0,${series.length*18+8})`)
+    .style("cursor","pointer");
   showAll.append("rect").attr("width",72).attr("height",16).attr("rx",4).attr("ry",4)
-      .attr("fill","#f1f1f1").attr("stroke","#ccc");
-  showAll.append("text").attr("x",36).attr("y",11)
-      .attr("text-anchor","middle").text("Show all");
-
-  let focusedKey = null;
-
+    .attr("fill","#f1f1f1").attr("stroke","#ccc");
+  showAll.append("text").attr("x",36).attr("y",11).attr("text-anchor","middle").text("Show all");
+  let focusedKey=null;
   function applyFocus(){
-    if (!focusedKey){
-      polys.classed("dimPoly", false);
-      labelsG.selectAll("text").classed("dimLabels", false);
-      rows.classed("inactive", false);
-      return;
+    if(!focusedKey){
+      polys.classed("dimPoly",false);
+      labelsG.selectAll("text").classed("dimLabels",false);
+      rows.classed("inactive",false);return;
     }
-    polys.classed("dimPoly", d => d.key !== focusedKey);
-    labelsG.selectAll("text").classed("dimLabels", function(){
-      // label node belongs to a series; check via parent color/sequence
-      // simplest: check if its fill matches focused series color
-      const fill = this.getAttribute("fill");
-      const s = series.find(s => s.color === fill);
-      return !s || s.key !== focusedKey;
+    polys.classed("dimPoly",d=>d.key!==focusedKey);
+    labelsG.selectAll("text").classed("dimLabels",function(){
+      const fill=this.getAttribute("fill");
+      const s=series.find(s=>s.color===fill);
+      return !s||s.key!==focusedKey;
     });
-    rows.classed("inactive", d => d.key !== focusedKey);
+    rows.classed("inactive",d=>d.key!==focusedKey);
   }
-
-  rows.on("click", (event, d)=>{
-    focusedKey = (focusedKey === d.key) ? null : d.key; // toggle
-    applyFocus();
-  });
-
-  showAll.on("click", ()=>{
-    focusedKey = null; applyFocus();
-  });
+  rows.on("click",(e,d)=>{focusedKey=(focusedKey===d.key)?null:d.key;applyFocus();});
+  showAll.on("click",()=>{focusedKey=null;applyFocus();});
 }
 </script>
 </body>
