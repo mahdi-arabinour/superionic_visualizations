@@ -1,1518 +1,412 @@
-{
-  "Li+": {
-    "Other": {
-      "Ta doping → La vacancies": {
-        "Li₀.₃₈₈Ta₀.₂₃₈La₀.₄₇₅Cl₃": []
-      },
-      "Vacancy engineering (Li + N vacancies)": {
-        "β-Li₃N (vacancy-rich, 400 rpm – 16 h)": []
-      },
-      "–": {
-        "β-Li3PS4 (crystalline)": [],
-        "Li₅B₇S₁₃": [],
-        "Li₂B₂S₅": [],
-        "Li₂HIO": [],
-        "LiSO₃F": [],
-        "LiMgB₃(H₉N)₂": [],
-        "LiErSe₂": [],
-        "Li₆Ho(BO₃)₃": [],
-        "LiSbO₃": [],
-        "LiCa₉Mg(PO₄)₇": [],
-        "Li₂Pr(NO₃)₅": [],
-        "LiPF₆": [],
-        "LiAsF₆": [],
-        "LiSbF₆": [],
-        "LiK₂AlF₆": [],
-        "Li₆PS₅Cl": [],
-        "Li₆PS₅Br": [],
-        "Li₆PS₅I": [],
-        "Li₆PS₅Cl₀.₅Br₀.₅": [],
-        "Li₆PS₅Cl₁/₃Br₁/₃I₁/₃": [],
-        "Li6AsS5I (pristine)": [],
-        "Li6PS5Cl": [],
-        "Li6PS5Cl (This work-1)": [],
-        "Li6PS5Cl (This work-2, scale-up)": [],
-        "Li6PS5Br": [],
-        "Li6PS5I": [],
-        "Li₂Mo₃S₄": [],
-        "Li₇PSe₆": [],
-        "Li₁₀Ge(PSe₆)₂": [],
-        "Li₁₀Sn(PSe₆)₂": [],
-        "Li₁₀Si(PSe₆)₂": [],
-        "LiAlS₂": [],
-        "Li₂GePbS₄": [],
-        "LiBiS₂": [],
-        "Li₃.₆In₇S₁₁.₈Cl": [],
-        "EG–TiO₂ + LiTFSI (surface conductor)": [],
-        "NiSe₂/CoSe₂": [],
-        "Li3PS4·2.5LiBH4 (x=0)": [],
-        "Li3PS4·2.5LiCl (x=2.5)": [],
-        "Li6PS5Cl (LPSC-P, pristine)": [],
-        "Li6AsS5Br": [],
-        "β-Li3PS4": [],
-        "Li3SbS4 (glass-ceramic)": [],
-        "Li4SiS4 (glass)": [],
-        "LiInBr4": [],
-        "LiTi2S4": [],
-        "LiTb2S4": [],
-        "Li2ZrCl6": [],
-        "r-PS4 (amorphous)": [],
-        "1P2S7 (amorphous)": [],
-        "1P2S6 (amorphous)": [],
-        "2P2S7 (amorphous)": [],
-        "1P2S7–1S": [],
-        "1P2S6–2S": [],
-        "2P2S7–2S": [],
-        "2P2S6–4S": [],
-        "α-Li3PS4 (crystalline)": [],
-        "LMTO ceramic (filler alone)": [],
-        "Li₆PS₅Cl (x=0)": [
-          0.0025
-        ],
-        "RbLi₆B₂O₆F": [],
-        "BaLi(BS₂)₃": [],
-        "Li₄.₅TiO₃.₂₅": [],
-        "Li₆V₃Fe(PO₄)₆": [],
-        "0.7Li(CB₉H₁₀)–0.3Li(CB₁₁H₁₂)": []
-      },
-      "Cs substitution": {
-        "CsLi₂BS₃": []
-      },
-      "Cl-doping": {
-        "Li₆PS₅Cl (annealed 200 °C)": [],
-        "Li₆PS₅Cl (annealed 300 °C)": [],
-        "Li₆PS₅Cl (annealed 400 °C)": [],
-        "Li₆PS₅Cl (annealed 500 °C, pellet)": [],
-        "Li₆PS₅Cl (thin film, 500 °C)": []
-      },
-      "Variation in P₂S₅ content (0–45% excess); BM vs liquid-phase": {
-        "Li₆PS₅Cl (hc-LPSCl_00, _15, _30, _45; hc-LPSCl_BM)": [
-          1.2
-        ]
-      },
-      "Multi-cation substitution (Ge, Si, Sb)": {
-        "Li₇₋ₓ(GeSi)(₁₋ₓ)/₂SbₓS₅I (x≈1/3)": []
-      },
-      "Cl substitution tuning (0–0.7)": {
-        "Li6-aPS5-aCl1+a (0 ≤ a ≤ 0.7) series": []
-      },
-      "Co-substitution": {
-        "Li3PS4·1.9LiBH4·0.6LiCl (x=0.6)": [],
-        "Li3PS4·1.8LiBH4·0.7LiCl (x=0.7)": [],
-        "Li3PS4·1.5LiBH4·1LiCl (x=1)": [],
-        "Li3PS4·1LiBH4·1.5LiCl (x=1.5)": [],
-        "Li3PS4·0.5LiBH4·2LiCl (x=2)": []
-      },
-      "Ga3+ doping (5% P replaced)": {
-        "Li6.1P0.95Ga0.05S5Cl (LPSC-0.05)": []
-      },
-      "Ga3+ doping (7% P replaced)": {
-        "Li6.14P0.93Ga0.07S5Cl (LPSC-0.07)": []
-      },
-      "Ge substitution (x=0.25)": {
-        "Li6.25Ge0.25As0.75S5I": []
-      },
-      "Ge substitution (x=0.333)": {
-        "Li6.333Ge0.333As0.667S5I": []
-      },
-      "Sn substitution (x=0.333)": {
-        "Li6.333Sn0.333As0.667S5I": []
-      },
-      "Mg + Cl codoping": {
-        "Li5.375Mg0.125PS4.625Cl1.375": [],
-        "Li5.375Mg0.0625PS4.5Cl1.5": [],
-        "Li5.8Mg0.1PS5Cl": []
-      },
-      "Halide-rich": {
-        "Li₅.₆₂₅PS₄.₆₂₅Cl₁.₃₇₅ (x=0.375)": [
-          0.0056
-        ],
-        "Li₅.₄₅PS₄.₄₅Cl₁.₅₅": [
-          0.005900000000000001
-        ],
-        "Li₅.₄PS₄.₄Cl₁.₆": [
-          0.0033
-        ]
-      },
-      "Cl-rich solid solution": {
-        "Li₆.₂₅PS₅.₂₅Cl₀.₇₅ (x=0.75)": [],
-        "Li₆.₅PS₅.₅Cl₀.₅ (x=0.5)": []
-      },
-      "Low Cl": {
-        "Li₆.₈PS₅.₈Cl₀.₂ (x=0.2)": []
-      },
-      "Partial Li → H substitution": {
-        "Li₅₃O₁₀₈H (H–Li mixed superoxide)": []
-      },
-      "Mn/Ta/Sn substitution": {
-        "Li₂Mn₀.₇₅Ta₀.₅Sn₀.₅S₄": []
-      },
-      "Zn/Ta substitution": {
-        "Li₂Zn₀.₅TaS₄": []
-      },
-      "V substitution": {
-        "Li₅SiP₃ (doped V)": []
-      },
-      "Hf substitution": {
-        "Li₁₄MgSi₄ (doped Hf)": [],
-        "Li₂MgSi (doped Hf)": []
-      },
-      "Vacancy introduction via aliovalent substitution in Li₂−ₓGe₁−ₓPₓS₃ (x=0.25)": {
-        "Li₂₁Ge₈P₃S₃₄": []
-      },
-      "Fe substitution, Se vacancies, rGO encapsulation": {
-        "Fe–NiSe₂/CoSe₂@rGO": []
-      },
-      "Fe substitution": {
-        "Fe–NiSe₂/CoSe₂": []
-      },
-      "Cl-rich substitution (anion disorder)": {
-        "Li5.5PS4.5Cl1.5 (LPSCl1.5)": []
-      },
-      "Co-substitution (0.5Cl)": {
-        "Li3PS4·2LiBH4·0.5LiCl (x=0.5)": []
-      },
-      "O substitution (0.5)": {
-        "Li9.9SnP2S11.4Br0.1O0.5": []
-      },
-      "O substitution (1.0)": {
-        "Li9.9SnP2S10.9Br0.1O1.0": []
-      },
-      "O substitution (1.5)": {
-        "Li9.9SnP2S10.4Br0.1O1.5": []
-      },
-      "O substitution (2.0)": {
-        "Li9.9SnP2S9.9Br0.1O2.0": []
-      },
-      "Surface oxidation via KMnO4 (200 °C, 1 h)": {
-        "O-LiPSClBr (surface-oxidized)": []
-      },
-      "Surface oxidation": {
-        "O-LiPSClBr_s (oxidized, small particle)": []
-      },
-      "Br substitution (x=0.3)": {
-        "Li5.7AsS4.7Br1.3": []
-      },
-      "Br substitution (x=0.5)": {
-        "Li5.5AsS4.5Br1.5": []
-      },
-      "Fe doping at Mn site": {
-        "LiMn1.5Fe0.5S4": []
-      },
-      "Mo doping at Mn site": {
-        "LiMn1.5Mo0.5O4": []
-      },
-      "V doping at Mn site": {
-        "LiMn1.5V0.5S4": []
-      },
-      "Tb doping at Mn site": {
-        "LiMn1.5Tb0.5S4": []
-      },
-      "Ru doping at Mn site": {
-        "LiMn1.5Ru0.5S4": []
-      },
-      "Ta doping at Mn site": {
-        "LiMn1.5Ta0.5O4": []
-      },
-      "Excess Br doping": {
-        "Li3PS2.5Br1.5 (x=1.5)": []
-      },
-      "Halide-rich solid solution": {
-        "Li₅.₇₅PS₄.₇₅Cl₁.₂₅ (x=0.25)": [
-          0.004200000000000001
-        ]
-      },
-      "End-member halide-rich": {
-        "Li₅.₅PS₄.₅Cl₁.₅ (x=0.5)": [
-          0.0094
-        ]
-      },
-      "Halide incorporation": {
-        "Li₆PS₅Cl (x=1)": []
-      },
-      "Bi + F dual-doping (BiF₃ replacing part of LiCl and P₂S₅)": {
-        "Li₅.₅₄P₀.₉₈Bi₀.₀₂S₄.₅Cl₁.₄₄F₀.₀₆ (LPBiSClF₀.₀₆)": [
-          0.00537
-        ]
-      },
-      "Cl⁻ as intrinsic halide; no extra doping (reference state-of-the-art)": {
-        "Li₆PS₅Cl (argyrodite)": []
-      },
-      "Intrinsic high Cl⁻ content": {
-        "Li₅.₄PS₄.₄Cl₁.₆ (high-Cl argyrodite)": []
-      },
-      "– (baseline)": {
-        "LiTa₂PO₈ (LTPO)": []
-      },
-      "LiF sintering additive (removed on final sintering)": {
-        "LiTa₂PO₈–0.15LiF (LTPO–LiF)": []
-      },
-      "Hf⁴⁺ doping (0.05 mol) at Ta sites": {
-        "Li₁.₀₅Hf₀.₀₅Ta₁.₉₅PO₈ (LHTPO)": []
-      },
-      "Hf⁴⁺ doping + LiF sintering additive": {
-        "Li₁.₀₅Hf₀.₀₅Ta₁.₉₅PO₈–0.15LiF (LHTPO–LiF)": []
-      },
-      "Cl⁻ content x=1.5 (size-controlled particles)": {
-        "Li₅.₅PS₄.₅Cl₁.₅": []
-      },
-      "Mixed halide (Cl/Br)": {
-        "Li₆PS₅Cl₀.₅Br₀.₅": []
-      },
-      "Mixed halide (Br/I)": {
-        "Li₆PS₅Br₀.₅I₀.₅": []
-      },
-      "Anion disorder studied computationally": {
-        "Li₆PS₅Cl": [],
-        "Li₆PS₅Br": [],
-        "Li₆PS₅I": []
-      },
-      "Li,F codoping in hydroxyapatite lattice": {
-        "Li-HA-F nanofiber (Li,F-doped hydroxyapatite)": []
-      }
-    },
-    "Garnet": {
-      "–": {
-        "Li₇La₃Zr₂O₁₂ (LLZO)": [],
-        "Li₇La₃Zr₂O₁₂–PEO (LiClO₄) composite": [],
-        "Li₇La₃Zr₂O₁₂ (LLZ)": [],
-        "Li₇La₃Zr₂O₁₂ (cubic LLZO)": [],
-        "LixA₃B₂O₁₂ (0 ≤ x ≤ 9; e.g., Li₇La₃Zr₂O₁₂)": []
-      },
-      "Ta-doping (x=0.25)": {
-        "Li₆.₇₅La₃Zr₁.₇₅Ta₀.₂₅O₁₂": []
-      },
-      "Ta-doping (x=0.5)": {
-        "Li₆.₅La₃Zr₁.₅Ta₀.₅O₁₂": []
-      },
-      "Ta-doping (x=1.0)": {
-        "Li₆La₃ZrTaO₁₂": []
-      }
-    },
-    "LGPS": {
-      "Si + Cl aliovalent doping": {
-        "Li₉.₅₄Si₁.₇₄P₁.₄₄S₁₁.₇Cl₀.₃": []
-      },
-      "–": {
-        "Li₉.₆P₃S₁₂": [],
-        "Li₁₀GeP₂S₁₂ (LGPS)": [],
-        "Li₁₀GeP₂S₁₂ (x=0)": []
-      },
-      "Br- substitution": {
-        "Li9.9SnP2S11.9Br0.1 (pristine)": []
-      },
-      "Partial Ge→Sn substitution": {
-        "Li₁₀Ge₀.₆₇Sn₀.₃₃P₂S₁₂": []
-      },
-      "Higher Sn substitution": {
-        "Li₁₀Ge₀.₃₃Sn₀.₆₇P₂S₁₂": []
-      },
-      "Full Ge→Sn substitution": {
-        "Li₁₀SnP₂S₁₂ (x=1)": []
-      }
-    },
-    "Halide": {
-      "–": {
-        "Li₃ErCl₆": [],
-        "Li₃InCl₆": [],
-        "Li₃ErCl₆ (ball-milled)": [],
-        "Li₃ErCl₆ (annealed)": [],
-        "Li₁₀Mg₇Cl₂₄": [],
-        "LiCs₂LuCl₆": [],
-        "LiCs₂YCl₆": [],
-        "Li₃CsCl₄": [],
-        "LiYb₂Cl₅": [],
-        "Li₂CsCl₃": [],
-        "LiCsCl₂": [],
-        "LiRbBr₂": [],
-        "Li₃ErBr₆": [],
-        "Li₃YCl₆": [],
-        "LiNbOCl₄": [],
-        "LiTaOCl₄": [],
-        "LiSbOCl₄": [],
-        "LiTiFCl₄": [],
-        "LiZrFCl₄": [],
-        "LiSnFCl₄": [],
-        "Li5.4PS4.4Cl0.6Br1.0 (LiPSClBr, pristine)": [],
-        "Li2MgCl4 (LMC2, pristine)": [],
-        "Li3AlCl6": [],
-        "Li3ScCl6": [
-          1.06
-        ],
-        "Li3SmCl6": [],
-        "Li3YCl6": [
-          0.001
-        ],
-        "Li2Sm2/3Cl4": [],
-        "Li2Sc2/3Cl4": [
-          1.0
-        ],
-        "Li2Y2/3Cl4": [],
-        "Li2Al2/3Cl4": [],
-        "LiScCl4": [],
-        "LiAlCl4": [],
-        "LiYCl4": [],
-        "LiSmCl4": [
-          0.69
-        ],
-        "1.6Li2O–TaCl5 (Sample 7)": [],
-        "1.6Li2O–TaCl5 (Sample 8)": [],
-        "1.6Li2O–TaCl5 (Sample 5)": [],
-        "1.6Li2O–TaCl5 (Sample 6)": [],
-        "1.6Li2O–TaCl5 (Sample 4)": [],
-        "1.6Li2O–TaCl5 (Sample 9)": [],
-        "1.6Li2O–TaCl5 (Sample 1)": [],
-        "Li3InCl6 (water-mediated synthesis)": [],
-        "Li3HoCl6": [],
-        "Li3YBr6": [],
-        "Li-UCl3 (LiCl–LaCl3–0.5TaCl5)": [],
-        "LiGaCl3 (predicted)": [],
-        "Li3ErCl6": [],
-        "Li3YCl6 (mechanochemical)": [],
-        "Li3YCl6 (solid-state synthesis)": [],
-        "Li3InCl6": [],
-        "Li3YbCl6": [],
-        "Li3ZrCl6 (reference)": [],
-        "Li3HoBr6 (x=0)": [],
-        "Li₂ZrCl₆ (LZC)": [
-          0.00413,
-          0.0004
-        ],
-        "Li₃InCl₆ (anhydrous)": [
-          1.1
-        ],
-        "Li₃ErCl₆ (x=0)": [],
-        "Li₂ZrCl₆": [
-          5.0
-        ],
-        "Li₃YCl₆ (x=0)": [],
-        "Li₃InBr₆": [],
-        "Li₂ZrCl₆ (x=0)": [
-          0.72
-        ],
-        "Li₃ScCl₆ (x=0)": [
-          0.91
-        ],
-        "Li₃YCl₆ (ampule)": [
-          0.72
-        ],
-        "Li₃YCl₆ (mechanochemical)": [
-          0.95
-        ],
-        "Li₃YBr₆ (ampule)": [
-          0.84
-        ],
-        "Li₃YBr₆ (mechanochemical)": [
-          1.05
-        ],
-        "Li₂ZrCl₆ (baseline)": [
-          0.48
-        ],
-        "Li₂VCl₅": [],
-        "LiGaI₄": [],
-        "Li₂ZnBr₄": [],
-        "LiGaBr₄": [],
-        "Na₂.₅Li₂.₂₅Sc₂F₁₂": [],
-        "LiSbCl₆ (LSC)": [],
-        "3LiCl–GaF₃ (glass)": [],
-        "3LiBr–GaF₃ (glass)": []
-      },
-      "Br substitution": {
-        "Li₃YCl₅.₅Br₀.₅": [],
-        "Li₃YCl₅Br": [],
-        "Li₃YCl₄.₅Br₁.₅": []
-      },
-      "Gd substitution, Br rich": {
-        "Li₃GdCl₃Br₃": []
-      },
-      "Cu²⁺ substitution + O²⁻ incorporation (CASE strategy)": {
-        "Li₂.₁Zr₀.₉₅Cu₀.₀₅Cl₄.₄O₀.₈": []
-      },
-      "Al³⁺ substitution for Zr⁴⁺": {
-        "Li₂.₃₇₅Al₀.₃₇₅Zr₀.₆₂₅Cl₆": [
-          0.87
-        ]
-      },
-      "Al³⁺ substitution, Li-deficient": {
-        "Li₁.₆₂₅Al₀.₃₇₅Zr₀.₆₂₅Cl₅.₂₅": [
-          1.1
-        ]
-      },
-      "Fe³⁺ substitution for Zr⁴⁺": {
-        "Li₂.₂₅Fe₀.₂₅Zr₀.₇₅Cl₆": [
-          0.98
-        ]
-      },
-      "Fe³⁺ substitution, Li-deficient": {
-        "Li₁.₇₅Fe₀.₂₅Zr₀.₇₅Cl₅.₇₅": [
-          1.2
-        ]
-      },
-      "Y³⁺ substitution for Zr⁴⁺": {
-        "Li₁.₆₂₅Y₀.₃₇₅Zr₀.₆₂₅Cl₅.₂₅": [
-          1.35
-        ]
-      },
-      "Al³⁺ + Y³⁺ co-doping, Li-deficient": {
-        "Li₂.₁Zr₀.₆Al₀.₂Y₀.₂Cl₅.₇": [
-          1.81
-        ]
-      },
-      "Al³⁺ + Y³⁺ co-doping, Li-sufficient": {
-        "Li₂.₄Zr₀.₆Al₀.₂Y₀.₂Cl₆": [
-          0.76
-        ]
-      },
-      "Fe³⁺ + Y³⁺ co-doping, Li-deficient": {
-        "Li₂.₁Zr₀.₆Fe₀.₂Y₀.₂Cl₅.₇": [
-          1.36
-        ]
-      },
-      "Fe³⁺ + Y³⁺ co-doping, Li-sufficient": {
-        "Li₂.₄Zr₀.₆Fe₀.₂Y₀.₂Cl₆": [
-          0.95
-        ]
-      },
-      "Fe³⁺ + Al³⁺ co-doping, Li-deficient": {
-        "Li₁.₈Zr₀.₈Fe₀.₁Al₀.₁Cl₅.₆": [
-          1.04
-        ]
-      },
-      "Fe³⁺ + Al³⁺ co-doping, Li-sufficient": {
-        "Li₂.₂Zr₀.₈Fe₀.₁Al₀.₁Cl₆": [
-          0.96
-        ]
-      },
-      "Li-stuffed variant": {
-        "LiHfFCl₄": []
-      },
-      "Reduced particle size": {
-        "LiPSClBr_s (small particle, D50=3.6 µm)": []
-      },
-      "Zr4+ doping → cation disorder at 16c": {
-        "Li1.25Zr0.375Mg0.625Cl4 (LZMC1.25)": []
-      },
-      "Zn2+ doping → Li vacancies": {
-        "Li1.6Zn0.2MgCl4": []
-      },
-      "Al3+ doping": {
-        "Li1.2Mg0.95Al0.3Cl4": []
-      },
-      "Zr4+ doping": {
-        "Li2Mg1/3Zr1/3Cl4": []
-      },
-      "Partial Cl → O substitution (33.3%)": {
-        "Li2ZrCl4O": []
-      },
-      "Partial Cl → O substitution (42.9%)": {
-        "Li3ZrCl4O1.5": []
-      },
-      "Higher O substitution": {
-        "Li4ZrCl4O2": []
-      },
-      "In3+ partial substitution": {
-        "Li3Ho0.6In0.4Cl6": []
-      },
-      "Br- partial substitution": {
-        "Li3YCl6-xBrx (x=1.5)": []
-      },
-      "Partial substitution of Y3+ with Zr4+": {
-        "Li3Y0.2Zr0.6Cl6": []
-      },
-      "Partial substitution Y3+→Zr4+": {
-        "Li3Y0.2Zr0.6Cl6": []
-      },
-      "Partial substitution Yb3+→Zr4+": {
-        "Li2.8Yb0.8Zr0.2Cl6": []
-      },
-      "High-level Zr4+ substitution": {
-        "Li2.5Yb0.5Zr0.5Cl6": []
-      },
-      "Partial substitution Yb3+→Hf4+": {
-        "Li2.8Yb0.8Hf0.2Cl6": []
-      },
-      "High-level Hf4+ substitution": {
-        "Li2.5Yb0.5Hf0.5Cl6": []
-      },
-      "Anion engineering: F- + O2- co-substitution in Li3ZrCl6": {
-        "Li2.5ZrCl5F0.5O0.5 (LZCFO)": []
-      },
-      "Fully ordered cation framework": {
-        "Li2ZrCl6 (ordered)": []
-      },
-      "Partially disordered Zr sublattice": {
-        "Li2ZrCl6 (disordered Zr)": []
-      },
-      "Partial substitution Br-→I-": {
-        "Li3HoBr5I (x=1)": [],
-        "Li3HoBr4I2 (x=2)": [],
-        "Li3HoBr3I3 (x=3)": []
-      },
-      "High concentration of stacking faults and Li defect layers (mechanochemical synthesis)": {
-        "Li₃YCl₆ (BM-LYC)": [
-          0.00049
-        ]
-      },
-      "Lower stacking fault concentration; multiphasic sample": {
-        "Li₃YCl₆ (SS-LYC)": [
-          6.7e-05
-        ]
-      },
-      "I⁻ substitution for Cl⁻ expands lattice and enhances disorder": {
-        "Li₂ZrCl₅I (LZCI, x=1)": [
-          0.0136
-        ]
-      },
-      "– (fully hydrated)": {
-        "Li₃InCl₆ hydrate (Li₃InCl₆·2H₂O)": [
-          3.5
-        ]
-      },
-      "Partial dehydration phase, grain boundary formation": {
-        "Li₃InCl₆ sub-hydrate (Li₃InCl₆·0.5H₂O)": []
-      },
-      "Interfacial superionic conduction via O-substituted interphase": {
-        "ZrO₂–2Li₂ZrCl₆ (HNSE)": [
-          0.0011
-        ]
-      },
-      "External ZrO₂ nanoparticles (~20 nm) mixed with Li₂ZrCl₆": {
-        "nZrO₂–2Li₂ZrCl₆ (control)": [
-          0.0006
-        ]
-      },
-      "F-substitution plus interfacial conduction": {
-        "ZrO₂–2Li₂ZrCl₅F (HNSE-F)": [
-          0.00049
-        ]
-      },
-      "SnO₂ nanograins": {
-        "SnO₂–2Li₂ZrCl₆ (HNSE)": [
-          0.0016
-        ]
-      },
-      "Al₂O₃ nanograins": {
-        "Al₂O₃–3Li₂ZrCl₆ (HNSE)": [
-          0.00088
-        ]
-      },
-      "Fe³⁺ substitution in Li₂ZrCl₆ plus ZrO₂ interfacial conduction": {
-        "0.75ZrO₂–Li₂.₂₅Zr₀.₇₅Fe₀.₂₅Cl₆ (HNSE-Fe)": [
-          0.0014
-        ]
-      },
-      "Zr⁴⁺ substitution": {
-        "Li₂.9Er₀.9Zr₀.1Cl₆ (x=0.1)": [],
-        "Li₂.8Er₀.8Zr₀.2Cl₆ (x=0.2)": [],
-        "Li₂.5Y₀.5Zr₀.5Cl₆ (x=0.5)": [
-          1.4
-        ]
-      },
-      "Zr⁴⁺ substitution (max conductivity)": {
-        "Li₂.633Er₀.633Zr₀.367Cl₆ (x=0.367)": [
-          1.1
-        ]
-      },
-      "0.1 S²⁻ substitution for Cl⁻": {
-        "Li₂.₁ZrCl₅.₉S₀.₁": []
-      },
-      "0.2 S²⁻ substitution for Cl⁻": {
-        "Li₂.₂ZrCl₅.₈S₀.₂": []
-      },
-      "0.3 S²⁻ substitution for Cl⁻": {
-        "Li₂.₃ZrCl₅.₇S₀.₃": []
-      },
-      "5% Hf⁴⁺ substitution for Y³⁺": {
-        "Li₂.₉Y₀.₉₅Hf₀.₀₅Cl₆ (x=0.05)": []
-      },
-      "10% Hf⁴⁺ substitution for Y³⁺": {
-        "Li₂.₇Y₀.₉Hf₀.₁Cl₆ (x=0.1)": [
-          1.49
-        ]
-      },
-      "20% Hf⁴⁺ substitution for Y³⁺": {
-        "Li₂.₅Y₀.₈Hf₀.₂Cl₆ (x=0.2)": [
-          1.1
-        ]
-      },
-      "10% Y³⁺ for In³⁺": {
-        "Li₃In₀.₉Y₀.₁Br₆": []
-      },
-      "10% Ga³⁺ for In³⁺": {
-        "Li₃In₀.₉Ga₀.₁Br₆": []
-      },
-      "Lanthanide replacement": {
-        "Li₃GdBr₆": [],
-        "Li₃TbBr₆": [],
-        "Li₃HoBr₆": [],
-        "Li₃TmBr₆": [],
-        "Li₃LuBr₆": []
-      },
-      "30% Ta⁵⁺ substitution for Zr⁴⁺": {
-        "Li1.7Zr0.7Ta0.3Cl6 (x=0.3)": [
-          1.42
-        ]
-      },
-      "27% Ta⁵⁺ substitution for Zr⁴⁺": {
-        "Li₂.₁Zr₀.₈₃Ta₀.₂₇Cl₆": [
-          1.68
-        ]
-      },
-      "Excess LiCl (site-occupation tuning)": {
-        "Li₃.₂ScCl₆.₂ (x=0.2)": [
-          1.64
-        ],
-        "Li₃.₄ScCl₆.₄ (x=0.4)": []
-      },
-      "Rare earth Dy³⁺ doping + Ta⁵⁺ substitution": {
-        "Li₂.₁Zr₀.₈Dy₀.₁₅Ta₀.₀₅Cl₆ (LZDTC)": [
-          1.67
-        ]
-      },
-      "Rare earth Ce³⁺ doping + Ta⁵⁺ substitution": {
-        "Li₂.₁Zr₀.₈Ce₀.₁₅Ta₀.₀₅Cl₆": [
-          1.54
-        ]
-      },
-      "Multiple-cation (Ta, Zr, Al, Ca) doped LaCl₃-based system": {
-        "HELa0.5: 0.5LiCl–xLaCl₃(TaCl₅·ZrCl₄·AlCl₃·CaCl₂)₁/₄(1–x)": [
-          0.82
-        ]
-      },
-      "F⁻ substitution (dual-halogen)": {
-        "Li₃InCl₄.₈F₁.₂": []
-      },
-      "– (screened structure)": {
-        "Li₄ZrF₈": [],
-        "Li₃ErBr₆": [],
-        "Li₂ZnI₄": []
-      },
-      "Incorporation of LiI into Li₃PS₄ lattice": {
-        "Li₇P₂S₈I": []
-      },
-      "Partial substitution of In³⁺ for Y³⁺": {
-        "Li₃Y₀.₅In₀.₅Cl₆": []
-      },
-      "Full substitution of In³⁺ for Y³⁺": {
-        "Li₃InCl₆": []
-      },
-      "Li₂CO₃-B coating on cathode": {
-        "3LiCl–GaF₃ + Li₂CO₃-B coating (as catholyte)": []
-      }
-    },
-    "Nitride": {
-      "–": {
-        "Sr₂LiCBr₃N₂": [],
-        "LiSr₄(BN₂)₃": [],
-        "Li₇Cu₂N₃": []
-      },
-      "Ta/W substitution": {
-        "Li₆.₅Ta₀.₅W₀.₅N₄": []
-      },
-      "Nb/W substitution": {
-        "Li₆.₅Nb₀.₅W₀.₅N₄": []
-      }
-    },
-    "LISICON": {
-      "–": {
-        "Li₁₀GeP₂S₁₂ (LGPS)": [],
-        "Li₁₀P₃S₁₂Cl (LPSCl)": [],
-        "Li₁₀P₃S₁₂Br (LPSBr)": [],
-        "Li₁₀P₃S₁₂I (LPSI)": []
-      },
-      "Ge → Si substitution": {
-        "Li₁₀SiP₂S₁₂": []
-      },
-      "Ge → Sn substitution": {
-        "Li₁₀SnP₂S₁₂": []
-      },
-      "Aliovalent P⁵⁺ substitution": {
-        "Li₉P₃S₁₂": []
-      },
-      "Aliovalent Al³⁺ substitution": {
-        "Li₁₁AlP₂S₁₂": []
-      },
-      "Mixed-halide solid solution (Br/I)": {
-        "Li₁₀P₃S₁₂Br₀.₆I₀.₄": []
-      },
-      "O substitution": {
-        "Li₁₀GeP₂O₁₂": []
-      },
-      "Se substitution": {
-        "Li₁₀GeP₂Se₁₂": []
-      }
-    },
-    "Antiperovskite": {
-      "–": {
-        "LixLa₂/₃–x/3TiO₃ (0 ≤ x ≤ 0.5)": [
-          0.34
-        ],
-        "Li7O2Br3 (defect-free)": [],
-        "Li3OCl": [],
-        "Li3OBr": [],
-        "Li2OHCl (pellet)": []
-      },
-      "Li–Br Schottky defect, vacancy at site I": {
-        "Li7O2Br3 + Li–Br Schottky defect (Type I, Br vacancy at site I)": []
-      },
-      "Li–Br Schottky defect, vacancy at site II": {
-        "Li7O2Br3 + Li–Br Schottky defect (Type II, Br vacancy at site II)": []
-      },
-      "Br/Cl mixing at halide sites (six configs)": {
-        "Li3OBr0.5Cl0.5 (s1–s6 configs)": []
-      },
-      "Br/Cl ordered, high-symmetry config.": {
-        "Li3OBr0.5Cl0.5 (s6, high symmetry)": []
-      },
-      "Partial Br doping (25%)": {
-        "Li3OCl0.75Br0.25": []
-      },
-      "Br/Cl ratio 1:1": {
-        "Li3OCl0.5Br0.5": []
-      },
-      "Br-rich (75%)": {
-        "Li3OCl0.25Br0.75": []
-      },
-      "Li interstitials, vacancies, Li–Cl / Li–Br Schottky, Frenkel": {
-        "Li3OClxBr1-x + Defects (e.g., 1Liᵢ•, 2Liᵢ••, VLi′, Schottky, Frenkel)": []
-      },
-      "BF4 cluster substitution + Br doping": {
-        "Li3O(BF4)0.875Br0.125": []
-      },
-      "CN cluster doping + Cl substitution": {
-        "Li3S(CN)0.875Cl0.125": []
-      },
-      "CN cluster doping + Br substitution": {
-        "Li3S(CN)0.75Br0.25": []
-      },
-      "Br doping into Li2OHCl lattice": {
-        "Li2OHCl0.875Br0.125": []
-      },
-      "Polysulfone binder (SO groups)": {
-        "Li2OHCl-g-PSU (composite)": []
-      },
-      "Polyamide-imide binder (NR groups)": {
-        "Li2OHCl-g-PAI (composite)": []
-      },
-      "Cl/Br mixing": {
-        "Li3OCl0.5Br0.5": []
-      },
-      "Li/Cl depletion (δ = 0.05–0.20); unintended Al3+ doping": {
-        "Li3-δOCl1-δ / Li3-δO(Cl0.5Br0.5)1-δ (depleted)": []
-      }
-    },
-    "Rock-salt": {
-      "–": {
-        "Li₁₇In₉SnO₂₄ (o-LISO)": [],
-        "Li3InBr6": []
-      },
-      "Li over-stoichiometry": {
-        "Li17In9SnO24 (o-LISO)": []
-      },
-      "Li deficiency": {
-        "ns-LISO (near-stoichiometric DRX)": []
-      }
-    },
-    "NASICON": {
-      "–": {
-        "Li1.3Al0.3Ti1.7(PO4)3 (LATP)": [],
-        "Li1.5Al0.5Ge1.5(PO4)3 (LAGP)": [],
-        "Li1.3Al0.3Ti1.7(PO4)3 (baseline)": [],
-        "Li₁.₃Al₀.₃Ti₁.₇(PO₄)₃ (NASICON baseline)": []
-      },
-      "1 mol % Sb³⁺ substitution for Ge⁴⁺": {
-        "Li1.5+0.01Al0.5Sb0.01Ge1.49(PO4)3 (Sb1)": []
-      },
-      "3 mol % Sb³⁺ substitution": {
-        "Li1.5+0.03Al0.5Sb0.03Ge1.47(PO4)3 (Sb3)": []
-      },
-      "5 mol % Sb³⁺ substitution": {
-        "Li1.5+0.05Al0.5Sb0.05Ge1.45(PO4)3 (Sb5)": []
-      },
-      "7 mol % Sb³⁺ substitution": {
-        "Li1.5+0.07Al0.5Sb0.07Ge1.43(PO4)3 (Sb7)": []
-      },
-      "0.05 Zr⁴⁺ substitution for Ti⁴⁺": {
-        "Li1.3Al0.3Ti1.65Zr0.05(PO4)3": []
-      },
-      "0.05 V⁵⁺ substitution for Ti⁴⁺": {
-        "Li1.3Al0.3Ti1.65V0.05(PO4)3": []
-      },
-      "0.05 Co²⁺ substitution": {
-        "Li1.3Al0.3Ti1.65Co0.05(PO4)3": []
-      },
-      "0.05 Cu²⁺ substitution": {
-        "Li1.3Al0.3Ti1.65Cu0.05(PO4)3": []
-      },
-      "0.05 Sn⁴⁺ substitution": {
-        "Li1.3Al0.3Ti1.65Sn0.05(PO4)3": []
-      },
-      "0.2 As⁵⁺ substitution for Ti⁴⁺": {
-        "Li₁.₃Al₀.₃As₀.₂Ti₁.₅(PO₄)₃ (As-doped NASICON)": []
-      },
-      "As-doped + 3 wt% lithium phosphate glass additive": {
-        "LAAs₀.₂TP-G (NASICON–glass composite, 3 wt% glass)": []
-      }
-    },
-    "Glassy sulfide": {
-      "–": {
-        "Li7P3S11 (crystalline)": [],
-        "Li3PS4 (x=0)": [],
-        "Li₇P₃S₁₁ (pristine)": [
-          0.00043
-        ]
-      },
-      "Br doping": {
-        "Li3PS3.5Br0.5 (x=0.5)": [],
-        "Li3PS3Br (x=1.0)": []
-      },
-      "0.5 M AgI doping/mixing": {
-        "Li₇Ag₀.₂₅P₃S₁₁I₀.₂₅ (270 °C)": [
-          0.00047999999999999996
-        ]
-      },
-      "0.2 M AgI doping/mixing (optimum)": {
-        "Li₇Ag₀.₁P₃S₁₁I₀.₁ (270 °C)": [
-          0.00135
-        ]
-      },
-      "0.1 M AgI doping/mixing": {
-        "Li₇Ag₀.₀₅P₃S₁₁I₀.₀₅ (270 °C)": [
-          0.00083
-        ]
-      },
-      "AgCl-doped": {
-        "Li₇Ag₀.₁P₃S₁₁Cl₀.₁ (270 °C)": []
-      },
-      "AgBr-doped": {
-        "Li₇Ag₀.₁P₃S₁₁Br₀.₁ (270 °C)": []
-      },
-      "MnCl₂-doped": {
-        "Li₇Mn₀.₁P₃S₁₁Cl₀.₂": [
-          4.2
-        ]
-      },
-      "CuCl₂-doped": {
-        "Li₇Cu₀.₁P₃S₁₁Cl₀.₂": [
-          1.3
-        ]
-      },
-      "SnCl₂-doped": {
-        "Li₇Sn₀.₁P₃S₁₁Cl₀.₂": [
-          1.5
-        ]
-      },
-      "LiI doping + SiS₂ substitution (P:Si=6)": {
-        "75Li₂S–25P₂S₅ + 40 mol% LiI (Si-doped, P:Si=6)": []
-      },
-      "LiI doping (no Si)": {
-        "75Li₂S–25P₂S₅ + 40 mol% LiI (without Si, “blank”)": [
-          1.0
-        ]
-      },
-      "– (no halogen, no Si doping)": {
-        "75Li₂S–25P₂S₅ (blank glassy electrolyte)": []
-      },
-      "Halogen doping with LiI (40 mol%) + partial substitution of P₂S₅ by SiS₂ to suppress Li₂Sₓ formation": {
-        "0.6((75+0.5x)Li₂S-(25-0.5x)P₂S₅-xSiS₂)-40LiI (optimal P:Si=6 composition)": []
-      }
-    },
-    "Polymer composite": {
-      "–": {
-        "PVDF-g-PAN + 34 wt% LiTFSI": [],
-        "PVDF (control)": [],
-        "Polymer electrolyte (control, no filler)": []
-      },
-      "Sulfonation of PVDF-HFP, ether polymer network infiltration": {
-        "SICP-EPN (sulfonated PVDF-HFP + in situ polymerized PEGMEA + LiFSI/LiTFSI/LiNO3)": []
-      },
-      "Molecular doping with PVDC (low) + SN + LiTFSI": {
-        "md-PVDF-LD (10 wt% PVDC:90 wt% PVDF)": []
-      },
-      "Molecular doping with PVDC (moderate) + SN + LiTFSI": {
-        "md-PVDF (2:8 PVDC:PVDF)": []
-      },
-      "Molecular doping with PVDC (high) + SN + LiTFSI": {
-        "md-PVDF-HD (3:7 PVDC:PVDF)": []
-      },
-      "LMTO nanorods (passive filler)": {
-        "Polymer + LMTO nanorods (composite)": []
-      },
-      "Excess LiCl doping": {
-        "Li6PS5Cl·LiCl": []
-      },
-      "Glass filler (P:Si=6)": {
-        "Li₅.₄PS₄.₄Cl₁.₆ (argyrodite, composite)": []
-      },
-      "LiClO₄-doped PTU1": {
-        "PTU1 + LiClO₄ (PSE1)": []
-      },
-      "LiClO₄-doped PTU2": {
-        "PTU2 + LiClO₄ (PSE2)": []
-      },
-      "LiClO₄-doped PTU3": {
-        "PTU3 + LiClO₄ (PSE3)": []
-      },
-      "PEO-LiTFSI matrix reinforced with Li-HA-F nanofiber": {
-        "Composite solid electrolyte (CSE: PEO-LiTFSI + Li-HA-F nanofiber)": []
-      },
-      "PVDF-LiTFSI matrix reinforced with Li-NC soft filler": {
-        "Li-NC soft filler in PVDF + LiTFSI (TDCT)": []
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Sunburst — Solid Electrolyte Conductivity</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:#0f1115; color:#e8e8ea; height:100vh; display:flex; flex-direction:column; }
+    header { padding:10px 14px; background:#171a20; display:flex; gap:16px; flex-wrap:wrap; align-items:center; border-bottom:1px solid #262a32; }
+    #wrap { flex:1; min-height:0; display:flex; padding:12px 14px; gap:12px; }
+    #chartCard { flex:1; display:grid; grid-template-columns: 1fr 340px; gap:14px; min-height:640px; }
+    .chartBody { background:#101626; border:1px dashed #333a49; border-radius:12px; position:relative; }
+    svg { width:100%; height:100%; display:block; }
+
+    .legend { background:#0f141f; border:1px solid #2a3240; border-radius:12px; padding:10px; overflow:auto; }
+    .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
+    .legendGroup { display:flex; flex-direction:column; gap:6px; }
+    .ionRow { display:grid; grid-template-columns: 18px 1fr 18px; gap:10px; align-items:center; padding:6px 8px; border-radius:8px; user-select:none; }
+    .ionRow:hover { background:#0f1726; }
+    .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(255,255,255,.35); }
+    .ionName { cursor:pointer; }
+    .chev { width:18px; text-align:center; cursor:pointer; color:#a9b3c8; }
+    .sublist { margin-left: 26px; display:none; }
+    .sublist.open { display:block; }
+    .famRow { display:grid; grid-template-columns: 14px 1fr; gap:8px; align-items:center; padding:4px 6px; border-radius:6px; cursor:pointer; }
+    .famRow:hover { background:#0c1322; }
+    .smSwatch { width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,.28); }
+
+    .tooltip { position:fixed; pointer-events:none; background:rgba(0,0,0,.9); color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3; display:none; z-index:10; box-shadow:0 6px 18px rgba(0,0,0,.45); }
+    .dimmed { opacity: .18; transition: opacity .15s ease; }
+    .highlight { opacity: 1; transition: opacity .15s ease; }
+
+    .labelText { fill:#e8e8ea; stroke:#0a0c12; stroke-width:2; paint-order:stroke fill; font-size:12px; }
+    .labelPath { fill:none; stroke:none; }
+    .labelsControl { display:flex; gap:8px; align-items:center; }
+    .labelsControl .group { display:flex; gap:12px; align-items:center; background:#11141a; border:1px solid #30343c; padding:6px 10px; border-radius:10px; }
+    .labelsControl label { display:flex; gap:6px; align-items:center; font-size:12px; color:#cbd5e1; }
+    .labelsControl input { accent-color:#60a5fa; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Sunburst</strong>
+    <div class="labelsControl">
+      <span style="font-size:12px;color:#cbd5e1;letter-spacing:.3px;text-transform:uppercase;">Labels</span>
+      <div class="group" id="labelsGroup">
+        <label><input type="checkbox" id="cbDepth1" checked> Ions</label>
+        <label><input type="checkbox" id="cbDepth2" checked> Families</label>
+        <label><input type="checkbox" id="cbDepth3" checked> Subfamilies</label>
+        <label><input type="checkbox" id="cbLeaf"   checked> Formulas</label>
+      </div>
+    </div>
+  </header>
+
+  <div id="wrap">
+    <div id="chartCard">
+      <div id="chart" class="chartBody"></div>
+      <div id="legend" class="legend">
+        <h4>Legend</h4>
+        <div class="legendGroup"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script>
+    // ---------- DOM ready ----------
+    document.addEventListener('DOMContentLoaded', init);
+
+    // ---------- Globals ----------
+    let chartEl, legendEl, tooltip;
+    let cbDepth1, cbDepth2, cbDepth3, cbLeaf;
+
+    const DEF_COND = 1e-6;         // default tiny conductivity if missing
+    const SCALE_MODE = 'log';      // radial scale for bar height
+
+    // Angle weighting — compress extremes so a few big values don't dominate
+    const ANGLE_WEIGHT = 'logmax'; // 'logmax' | 'max' | 'sum' | 'mean'
+    const W_LOG_K = 1e3;           // w = log10(1 + v * W_LOG_K) with v in S·cm^-1
+
+    let dataObj = null;
+    let root = null, svgGlobal = null, gArcs = null, gLabels = null, nodesGlobal = null, sideGlobal = null, outerRadiusForGlobal = null;
+    const highlightedIons = new Set();
+    const highlightedFams = new Set();
+
+    async function init(){
+      chartEl  = document.getElementById('chart');
+      legendEl = document.getElementById('legend');
+      tooltip  = document.getElementById('tooltip');
+
+      cbDepth1 = document.getElementById('cbDepth1');
+      cbDepth2 = document.getElementById('cbDepth2');
+      cbDepth3 = document.getElementById('cbDepth3');
+      cbLeaf   = document.getElementById('cbLeaf');
+
+      try {
+        dataObj = await loadData();
+        draw();
+        [cbDepth1, cbDepth2, cbDepth3, cbLeaf].forEach(cb => cb.addEventListener('change', addLabelsLayer));
+        window.addEventListener('resize', () => requestAnimationFrame(draw));
+      } catch (err) {
+        console.error('Data load failed:', err);
+        alert('Could not load data.simplified.json / data.json.\n' + (err && err.message ? err.message : err));
       }
     }
-  },
-  "F⁻": {
-    "Other": {
-      "–": {
-        "LaF₃ (tysonite)": []
-      },
-      "K substitution": {
-        "(PbF₂)₁₋ₓ(KF)ₓ (0.333 ≤ x ≤ 0.68)": [
-          0.4
-        ]
+
+    // ---------- Data ----------
+    async function loadData() {
+      const candidates = ['data.simplified.json', 'data.json'];
+      let lastErr = null;
+      for (const path of candidates) {
+        try {
+          const r = await fetch(path, { cache: 'no-store' });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const json = await r.json();
+          if (!json || typeof json !== 'object' || Array.isArray(json)) {
+            throw new Error(`${path} is not an object hierarchy`);
+          }
+          console.log(`[sunburst] loaded ${path}`);
+          return json;
+        } catch (e) {
+          console.warn(`[sunburst] failed ${path}:`, e);
+          lastErr = e;
+        }
       }
-    },
-    "Antiperovskite": {
-      "Rb substitution": {
-        "(PbF₂)₁₋ₓ(RbF)ₓ (0.333 ≤ x ≤ 0.500)": []
-      },
-      "Cs substitution": {
-        "(PbF₂)₀.₅(CsF)₀.₅ (CsPbF₃)": []
+      throw lastErr || new Error('No data file found');
+    }
+
+    function obj2children(obj){
+      return Object.entries(obj).map(([k,v])=>{
+        if (Array.isArray(v)) {
+          const nums = v.map(Number).filter(x => Number.isFinite(x) && x > 0);
+          return { name:k, values: nums };
+        }
+        if (v && typeof v === 'object') return { name:k, children: obj2children(v) };
+        return { name:k, values: [] };
+      });
+    }
+
+    function leafWeightFrom(vals) {
+      const v = vals && vals.length ? d3.max(vals) : 0;
+      if (!Number.isFinite(v) || v <= 0) return 0;
+      switch (ANGLE_WEIGHT) {
+        case 'max':  return v;
+        case 'sum':  return d3.sum(vals);
+        case 'mean': return d3.mean(vals);
+        case 'logmax':
+        default:     return Math.log10(1 + v * W_LOG_K);
       }
     }
-  },
-  "Ag+": {
-    "Halide": {
-      "–": {
-        "(AgI)ₓ–C(1–ₓ), x=1.00 (pure AgI)": [
-          1.0
-        ],
-        "Ag-UCl3 (AgCl–LaCl3–0.5TaCl5)": [],
-        "Ag₂ZrCl₆": [
-          4.0
-        ]
-      },
-      "Polymer coating (PVP) + nanosizing": {
-        "AgI (PVP-coated nanoparticles, 10–41 nm)": []
-      }
-    },
-    "Other": {
-      "–": {
-        "KAg₃Se₂ (α-phase)": [],
-        "Ag₈SnSe₆": [],
-        "Ag₁₇(CO₃)₃I₁₁": [],
-        "AgI (α-AgI, model cluster)": [],
-        "Ag₇P₃O₁₁": [],
-        "Ag₇P₃S₁₁": [],
-        "Ag₇P₃Se₁₁": [],
-        "50AgI–37.5Ag2O–12.5B2O3 (SISOBO)": [],
-        "50AgI–25Ag2O–25CrO3 (SISOCO)": [],
-        "50AgI–33.5Ag2O–16.5V2O5 (SISOVO)": [],
-        "50AgI–25Ag2O–25CrO3 (50SISOCO)": [],
-        "60AgI–20Ag2O–20CrO3 (60SISOCO)": [],
-        "70AgI–15Ag2O–15CrO3 (70SISOCO)": []
-      },
-      "Na substitution": {
-        "NaₓK₁₋ₓAg₃Se₂ (0 ≤ x ≤ 0.1)": []
-      },
-      "Rb substitution": {
-        "RbₓK₁₋ₓAg₃Se₂ (0 ≤ x ≤ 0.75)": []
-      },
-      "Cs substitution": {
-        "CsAg₃Se₂": []
-      },
-      "5 mol% AgBr + 5 mol% AgCl doping": {
-        "AgI–AgBr–AgCl/MPA (Br5Cl5)": []
-      },
-      "10 mol% AgBr + 10 mol% AgCl doping": {
-        "AgI–AgBr–AgCl/MPA (Br10Cl10)": []
-      },
-      "– (stoichiometric, perfect crystal)": {
-        "AgFeO₂ (delafossite)": [
-          0.333
-        ]
-      },
-      "Ag-vacancy defects introduced": {
-        "AgFeO₂ (delafossite, Ag-deficient)": [
-          0.049
-        ]
-      }
-    },
-    "Rock-salt": {
-      "–": {
-        "Ag₄Sn₃S₈": []
-      }
+
+    function computeLeafCond(h, def){
+      h.each(n=>{
+        if (n.data && Array.isArray(n.data.values)) {
+          const vals = n.data.values.filter(Number.isFinite);
+          n.data.cond = vals.length ? d3.max(vals) : def;
+        }
+      });
     }
-  },
-  "Ag++e⁻": {
-    "Polymer composite": {
-      "Carbon addition (1%)": {
-        "(AgI)ₓ–C(1–ₓ), x=0.99": []
-      },
-      "Carbon addition (2%)": {
-        "(AgI)ₓ–C(1–ₓ), x=0.98": []
-      },
-      "Carbon addition (3%)": {
-        "(AgI)ₓ–C(1–ₓ), x=0.97": []
-      },
-      "Carbon addition (6%)": {
-        "(AgI)ₓ–C(1–ₓ), x=0.94": []
+
+    // ---------- Draw ----------
+    function draw(){
+      if(!dataObj) return;
+      chartEl.innerHTML = '';
+
+      const rect = chartEl.getBoundingClientRect();
+      let w = rect.width  || chartEl.clientWidth  || 800;
+      let h = rect.height || chartEl.clientHeight || 640;
+      if (!w || !h) { w = 800; h = 640; }
+      const side = Math.floor(Math.min(w, h));
+      sideGlobal = Math.max(side, 400);
+
+      const data = { name:'root', children: obj2children(dataObj) };
+
+      root = d3.hierarchy(data, d => d.children)
+        .sum(d => (Array.isArray(d?.values) ? leafWeightFrom(d.values) : 0))
+        .sort((a,b) => (b.value||0) - (a.value||0));
+
+      if (!root.children || !root.children.length) {
+        alert('No depth-1 categories found. JSON must be an object of objects ending with arrays of numbers.');
+        return;
       }
+
+      // Radial thickness settings
+      const ringThickness = Math.max(36, sideGlobal * 0.06);
+      const leafBase      = Math.max(10, sideGlobal * 0.02);
+      const extraLeafMax  = Math.max(80, sideGlobal * 0.14); // gentler spikes
+
+      computeLeafCond(root, DEF_COND);
+      d3.partition().size([2*Math.PI, (root.height + 1) * ringThickness])(root);
+
+      // Radial scaling by conductivity (height of leaf bars)
+      const leaves = root.leaves();
+      let condVals = leaves.map(l => l.data.cond || DEF_COND).filter(Number.isFinite);
+      if (!condVals.length) condVals = [DEF_COND];
+      let [cmin, cmax] = d3.extent(condVals);
+      if (!(cmax > cmin)) { cmin = cmin*0.8; cmax = cmax*1.2; }
+
+      const baseScale = (SCALE_MODE==='linear'
+        ? d3.scaleLinear().domain([cmin, cmax])
+        : d3.scaleLog().domain([Math.max(cmin, 1e-12), Math.max(cmax, 1e-12)]));
+      const condScale = baseScale.range([0, extraLeafMax]).clamp(true);
+
+      const ions = (root.children || []).map(d=>d.data.name);
+      const colorIon = d3.scaleOrdinal(ions, d3.quantize(t => d3.interpolateRainbow(t), Math.max(3, ions.length)));
+
+      const outerRadiusFor = d => d.children
+        ? d.y1
+        : d.y1 + leafBase + condScale(d.data.cond || DEF_COND);
+      outerRadiusForGlobal = outerRadiusFor;
+
+      const svg = d3.select(chartEl).append('svg')
+        .attr('width','100%').attr('height','100%')
+        .attr('viewBox', `${-sideGlobal/2} ${-sideGlobal/2} ${sideGlobal} ${sideGlobal}`);
+      svgGlobal = svg;
+
+      const arc = d3.arc()
+        .startAngle(d=>d.x0)
+        .endAngle(d=>d.x1)
+        .padAngle(d=>Math.min(0.006, (d.x1-d.x0)/6))
+        .padRadius(sideGlobal * 0.45)
+        .innerRadius(d=>d.y0)
+        .outerRadius(d=> outerRadiusFor(d));
+
+      const g = svg.append('g');
+      gArcs = g;
+
+      const nodes = root.descendants().filter(d=>d.depth>0);
+      nodesGlobal = nodes;
+
+      const paths = g.selectAll('path')
+        .data(nodes)
+        .join('path')
+        .attr('d', arc)
+        .attr('fill', d => { let a=d; while(a.depth>1) a=a.parent; return colorIon(a.data.name); })
+        .attr('stroke', '#fff')
+        .attr('stroke-opacity', 0.28)
+        .attr('stroke-width', d => {
+          const span = d.x1 - d.x0;
+          return span < 0.002 ? 0 : Math.max(0.6, sideGlobal * 0.0012);
+        });
+
+      // tag for legend filtering
+      paths.each(function(d){
+        let ion=d; while(ion && ion.depth>1) ion=ion.parent;
+        let fam=d; while(fam && fam.depth>2) fam=fam.parent;
+        this.dataset.ion = ion?.data?.name || '';
+        this.dataset.family = fam?.data?.name || '';
+      });
+
+      // tooltips
+      const showVal = (v) => (!Number.isFinite(v) ? 'n/a' : (v < 0.01 ? `${(v*1000).toFixed(3)} mS·cm⁻¹` : `${Number(v).toPrecision(3)} S·cm⁻¹`));
+      paths.on('mousemove', (evt, d) => {
+        const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
+        let html = `<strong>${trail}</strong>`;
+        if (!d.children) {
+          html += `<br/>σ (max): ${showVal(d.data.cond)}`;
+          const all = (d.data.values || []).filter(Number.isFinite);
+          if (all.length > 1) {
+            const min = d3.min(all), max = d3.max(all);
+            html += `<br/>range: ${showVal(min)} – ${showVal(max)} (${all.length} values)`;
+          }
+        } else {
+          html += `<br/>Σσ (children, angle weight): ${Number(d.value).toPrecision(4)} (arb.)`;
+        }
+        tooltip.style.display = 'block';
+        tooltip.innerHTML = html;
+        tooltip.style.left = (evt.clientX + 10) + 'px';
+        tooltip.style.top  = (evt.clientY + 10) + 'px';
+      }).on('mouseleave', () => { tooltip.style.display = 'none'; });
+
+      buildLegend(root, colorIon);
+      applyHighlight();
+      addLabelsLayer();
     }
-  },
-  "K+": {
-    "Other": {
-      "COO⁻ termination (3–6 groups)": {
-        "CNTPs (Carbon Nanotube Porins, 0.8 nm, 10 nm length)": []
-      },
-      "–": {
-        "β-K₃SbS₄": []
-      },
-      "W-doping (8%)": {
-        "K₂.92Sb₀.92W₀.08S₄": []
-      },
-      "Cl⁻ doping at S sites inducing ~4.17% K-vacancies": {
-        "K₂.875SbS₃.875Cl₀.125 (2v-2Cl)": [
-          0.0148
-        ]
-      },
-      "Cl⁻ doping at S sites inducing ~2.08% K-vacancies": {
-        "K₂.9375SbS₃.9375Cl₀.0625 (1v-1Cl)": [
-          10.0
-        ]
-      }
-    },
-    "Antiperovskite": {
-      "AlF4 cluster + Br doping": {
-        "K2OH(AlF4)0.875Br0.125": []
-      },
-      "AlF4 cluster + higher Br ratio": {
-        "K2OH(AlF4)0.75Br0.25": []
-      }
-    },
-    "Halide": {
-      "–": {
-        "K-UCl3 (KCl–LaCl3–0.5TaCl5)": []
-      }
+
+    // ---------- Legend & filters ----------
+    function buildLegend(root, colorIon){
+      const group = legendEl.querySelector('.legendGroup');
+      group.innerHTML = '';
+      (root.children || []).forEach(ionNode => {
+        const ion = ionNode.data.name;
+        const row = document.createElement('div'); row.className='ionRow';
+        const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(ion);
+        const nm  = document.createElement('div'); nm.className='ionName'; nm.textContent = ion;
+        const cv  = document.createElement('div'); cv.className='chev'; cv.textContent = '▸';
+        row.appendChild(sw); row.appendChild(nm); row.appendChild(cv);
+        group.appendChild(row);
+
+        const sub = document.createElement('div'); sub.className='sublist';
+        const fams = (ionNode.children||[]).map(n=>n.data.name);
+        fams.forEach((fam, i) => {
+          const li = document.createElement('div'); li.className='famRow';
+          const sm = document.createElement('div'); sm.className='smSwatch';
+          sm.style.background = d3.color(colorIon(ion)).brighter(0.5 + (i/(Math.max(2,fams.length)-1||1))*0.9).formatRgb();
+          const sn = document.createElement('div'); sn.textContent = fam;
+          li.appendChild(sm); li.appendChild(sn);
+          sub.appendChild(li);
+          li.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (highlightedFams.has(fam)) highlightedFams.delete(fam); else highlightedFams.add(fam);
+            applyHighlight();
+          });
+        });
+        group.appendChild(sub);
+
+        cv.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const open = sub.classList.toggle('open');
+          cv.textContent = open ? '▾' : '▸';
+        });
+
+        const toggleIon = () => {
+          if (highlightedIons.has(ion)) highlightedIons.delete(ion); else highlightedIons.add(ion);
+          applyHighlight();
+        };
+        nm.addEventListener('click', toggleIon);
+        sw.addEventListener('click', toggleIon);
+      });
     }
-  },
-  "Na+": {
-    "Other": {
-      "–": {
-        "Na₁₁Sn₂PS₁₂": [],
-        "Na₁₁Sn₂PSe₁₂": [],
-        "Na₁₁Sn₂SbS₁₂": [],
-        "Na₆PS₅Cl (NPSC1, P2₁3)": [],
-        "Na₅PS₄Cl₂ (NPSC2, Amm2)": [],
-        "Na₄TiP₂O₉ (NTP)": [],
-        "Na₄SnP₂O₉ (NSP)": [],
-        "Na₃P (in CSA)": [],
-        "Cu₃.₂₁Bi₄.₇₉S₉": [],
-        "NiSe₂/CoSe₂": [],
-        "γ–Na3PS4": [],
-        "c–Na3PS4": [],
-        "t–Na3PS4": [],
-        "Na3PS4 (tetragonal, annealed 480 °C)": [],
-        "Na3PS4 (S1 amorphous)": [],
-        "Na3PS4 (S2 amorphous)": [],
-        "Na3PS4 (S3 amorphous)": [],
-        "Na3PS4 (S4 amorphous)": [],
-        "Na3PS4": [],
-        "Na2ZrCl6": [],
-        "Na3PS4 (amorphous)": [],
-        "Na3PS4 (cubic, annealed 240 °C)": [],
-        "Na₃SbS₄ (baseline)": [
-          0.4
-        ],
-        "Na₃PS₄ (tetragonal)": [],
-        "Na₃PS₄ (cubic, undoped)": [],
-        "Na₃SbS₄ (tetragonal)": [],
-        "Na₃SbS₄": []
-      },
-      "Fe substitution, Se vacancies, rGO encapsulation": {
-        "Fe–NiSe₂/CoSe₂@rGO": []
-      },
-      "Fe substitution": {
-        "Fe–NiSe₂/CoSe₂": []
-      },
-      "Iso-valent V⁵⁺ for Sb⁵⁺": {
-        "Na₃Sb₁₋ₓVₓS₄ (x≤0.2)": [
-          0.6
-        ]
-      },
-      "Iso-valent Nb⁵⁺ for Sb⁵⁺": {
-        "Na₃Sb₁₋ₓNbₓS₄ (x≤0.2)": [
-          0.5
-        ]
-      },
-      "Iso-valent Ta⁵⁺ for Sb⁵⁺": {
-        "Na₃Sb₁₋ₓTaₓS₄ (x≤0.2)": [
-          0.48
-        ]
-      },
-      "Na2SO3 additive (5 mol%)": {
-        "95(0.75Na2S·0.25P2S5)·5Na2SO3": []
-      },
-      "Na2SO4 additive (5 mol%)": {
-        "95(0.75Na2S·0.25P2S5)·5Na2SO4": []
-      },
-      "Na3PO4 additive (5 mol%)": {
-        "95(0.75Na2S·0.25P2S5)·5Na3PO4": []
-      },
-      "Na/Cl-deficient (vacancy engineering)": {
-        "Na0.5ZrCl4.5": []
-      },
-      "Na/Cl-deficient": {
-        "Na0.6Er0.4Zr0.6Cl4.2": [],
-        "Na0.4Yb0.25Zr0.75Cl4.15": []
-      },
-      "W⁶⁺ supervalent substitution for Sb⁵⁺ creating Na vacancies": {
-        "Na₂.₉Sb₀.₉W₀.₁S₄": [
-          0.096
-        ]
-      },
-      "Ca²⁺ substitution on Na-site (vacancy creation)": {
-        "Na₂.₇₃₀Ca₀.₁₃₅PS₄ (Ca-doped)": []
-      },
-      "Partial S→Se substitution": {
-        "Na₃SbS₃Se (cubic)": []
-      },
-      "Higher Se substitution": {
-        "Na₃SbS₂Se₂ (cubic)": []
+
+    function applyHighlight(){
+      if (!gArcs) return;
+      const paths = gArcs.selectAll('path');
+      const hasIon = highlightedIons.size > 0;
+      const hasFam = highlightedFams.size > 0;
+      if (!hasIon && !hasFam){
+        paths.classed('dimmed', false).classed('highlight', false);
+        return;
       }
-    },
-    "NASICON": {
-      "–": {
-        "Na₂.₅Zr₂Si₁.₅P₁.₅O₁₂": [],
-        "Na₃Zr₂Si₂P₁O₁₂": [],
-        "Na₃.₄Zr₂Si₂.₄P₀.₆O₁₂": [],
-        "Na₃Zr₂Si₂PO₁₂ (NZSP)": [],
-        "Na₃.₄Zr₂Si₂.₄P₀.₆O₁₂ (NaZr)": [],
-        "Na₃Sc₂(PO₄)₃": [],
-        "Na₃In₂(PO₄)₃": [],
-        "NaZr₂(PO₄)₃": [],
-        "Na₃V₂(PO₄)₃ (NVP)": [],
-        "Na3Zr2Si2.3P0.7O11.85 (NaSICON)": [],
-        "Na3.4Zr2Si2.4P0.6O12 (NaSICON)": [],
-        "Na₂TiV(PO₄)₃/C (NTVP)": [],
-        "Na₄VMn(PO₄)₃/C (baseline)": []
-      },
-      "Zn²⁺ doping": {
-        "Na₃.₁₀Zr₁.₉₅Zn₀.₀₅Si₂PO₁₂": [],
-        "Na₃.₂₀Zr₁.₉₀Zn₀.₁₀Si₂PO₁₂": [],
-        "Na₃.₃₀Zr₁.₈₅Zn₀.₁₅Si₂PO₁₂": []
-      },
-      "Al³⁺ doping": {
-        "Na₃.₁₀Zr₁.₉₀Al₀.₁₀Si₂PO₁₂": [],
-        "Na₃.₂₀Zr₁.₈₀Al₀.₂₀Si₂PO₁₂": [],
-        "Na₃.₃₀Zr₁.₇₀Al₀.₃₀Si₂PO₁₂": []
-      },
-      "Sc³⁺ doping (Zr⁴⁺ site)": {
-        "Na₃.₄Sc₀.₄Zr₁.₆Si₂PO₁₂ (NaSc)": []
-      },
-      "Al³⁺ + Y³⁺ co-doping (Zr⁴⁺ site)": {
-        "Na₃.₄Al₀.₂Y₀.₂Zr₁.₆Si₂PO₁₂ (NaAlY)": []
-      },
-      "Cation mixing (Nb⁵⁺, In³⁺)": {
-        "NaNbIn(PO₄)₃": []
-      },
-      "Oxygen vacancies (via PVP-assisted sol-gel)": {
-        "NaTi₂(PO₄)₃ (NTP-0,1,2,3)": []
-      },
-      "Tri-site co-doping: 3% K⁺ for Na⁺, 0.05 Al³⁺ for Ti⁴⁺, 0.05 (SiO₄) for (PO₄) + conductive carbon coating": {
-        "Na₀.₉₇K₀.₀₃Ti₁.₉₅Al₀.₀₅(PO₄)₂.₉₅(SiO₄)₀.₀₅/C (NTP-KAS)": []
-      },
-      "Co²⁺ substitution for Ti⁴⁺+V³⁺ plus rGO conductive additive": {
-        "Na₃Co₂/₃Ti₂/₃V₂/₃(PO₄)₃/C/rGO (NCTVP)": []
-      },
-      "0.1 W⁶⁺ substitution for Mn²⁺": {
-        "Na₃.₆VMn₀.₉W₀.₁(PO₄)₃/C (VMW-0.1)": []
-      },
-      "0.2 W⁶⁺ substitution for Mn²⁺": {
-        "Na₃.₂VMn₀.₈W₀.₂(PO₄)₃/C (VMW-0.2)": []
-      }
-    },
-    "Closo-carbaborate": {
-      "Mixed anion": {
-        "Na1.24[(CB8H9)0.26(CB9H10)0.50(B12H12)0.24] (s1)": [],
-        "Na1.11[(CB8H9)0.13(CB9H10)0.76(B12H12)0.11] (s2)": [],
-        "Na[(CB8H9)0.16(CB9H10)0.84] (s3)": [],
-        "Na[(CB8H9)0.22(CB9H10)0.78] (s4)": [],
-        "Na[(CB8H9)0.38(CB9H10)0.62] (s5)": [],
-        "Na[(CB8H9)0.04(CB9H10)0.96] (s6)": []
-      },
-      "–": {
-        "NaCB9H10 (reference)": []
-      }
-    },
-    "Antiperovskite": {
-      "BF4 cluster substitution + Br doping": {
-        "Na3O(BF4)0.875Br0.125": []
-      },
-      "AlF4 cluster substitution + I doping": {
-        "Na3S(AlF4)0.875I0.125": []
-      },
-      "Defect engineering: Na interstitial (Nai), Na vacancy (VNa), VO, Oi": {
-        "Na4OI2": []
-      },
-      "–": {
-        "c-Na3HS (pristine)": []
-      },
-      "Single Na vacancy": {
-        "Na2.96HS (Na-vacancy)": []
-      },
-      "Cl substitution + Na vacancy": {
-        "Na2.92HS0.92Cl0.07": []
-      },
-      "Br substitution + Na vacancy": {
-        "Na2.92HS0.92Br0.07": []
-      },
-      "F substitution + Na vacancy": {
-        "Na2.92HS0.92F0.07": []
-      },
-      "I substitution + Na vacancy": {
-        "Na2.92HS0.92I0.07": []
-      },
-      "Vacancy-mediated Na+ diffusion": {
-        "Na3OCl (bulk, pristine, cubic)": []
-      },
-      "Symmetric tilt GB Σ3(111)": {
-        "Na3OCl with Σ3(111) GB": []
-      },
-      "Symmetric tilt GB Σ5(021)": {
-        "Na3OCl with Σ5(021) GB": []
-      }
-    },
-    "Halide": {
-      "–": {
-        "Na3InCl6": [],
-        "Na2In0.666Cl4": [
-          0.22
-        ],
-        "NaTaCl6 (amorphous)": [],
-        "Na2ZrCl6 (NZC)": [],
-        "Na-UCl3 (NaCl–LaCl3–0.5TaCl5)": [],
-        "Na₂ZrCl₆": [
-          9.0
-        ],
-        "Na₂.₅Li₂.₂₅Sc₂F₁₂": []
-      },
-      "Partial In3+/Sc3+ substitution": {
-        "Na3In0.667Sc0.333Cl6": []
-      },
-      "In3+/Sc3+ mixed": {
-        "Na3In0.5Sc0.5Cl6": [
-          0.68
-        ],
-        "Na3In0.333Sc0.667Cl6": [],
-        "Na2In0.4Sc0.2Cl4": [],
-        "Na2In0.2Sc0.4Cl4": []
-      },
-      "Pure Sc3+": {
-        "Na3ScCl6": []
-      },
-      "F substitution": {
-        "Na0.5ZrCl4F0.5": [],
-        "0.5-NFZC (NaF–ZrCl4, x=0.5)": [],
-        "1.0-NFZC (x=1.0)": [],
-        "2.0-NFZC (x=2.0)": [],
-        "3.0-NFZC (x=3.0)": []
-      },
-      "Na2O incorporation": {
-        "AlCl3–0.50Na2O": [],
-        "AlCl3–0.60Na2O": [],
-        "AlCl3–0.75Na2O": [],
-        "AlCl3–0.80Na2O": [],
-        "AlCl3–0.85Na2O": []
-      },
-      "NaCl deficiency tuning (vacancy mediated)": {
-        "Na2.25-xY0.25Zr0.75Cl6-x (x=1.375–2.000)": []
-      },
-      "Interface engineering / dual-phase composite": {
-        "HSE-Na (Halide Heterogeneous Structure Electrolyte – Na+)": []
-      },
-      "Interfacial conduction": {
-        "0.13ZrO₂–0.61NaCl–0.26Na₂ZrCl₆": [
-          0.00011
-        ]
-      },
-      "Sm and Ta substitution in Na₃Cl₆ framework": {
-        "Na₀.₈₆SmTa₀.₄₃Cl₆": []
-      },
-      "La and Ta substitution": {
-        "NaLa₀.₉₅Ta₀.₄₃Cl₆": []
-      },
-      "Ce and Ta substitution": {
-        "NaCe₀.₈₃Ta₀.₅Cl₆": []
-      },
-      "Nd and Ta substitution": {
-        "NaNd₀.₈₃Ta₀.₅Cl₆": []
-      }
-    },
-    "Glassy sulfide": {
-      "–": {
-        "Na3PS4 (x=0, glass–ceramic)": [],
-        "Na₃PS₄ glass": [],
-        "Na₃PS₄ glass-ceramic (cubic)": [],
-        "Na₃PS₄ glass-ceramic (tetragonal)": []
-      },
-      "Ca3N2 doping (5 mol%)": {
-        "95Na3PS4–5Ca3N2 (x=5, glass–ceramic)": []
-      },
-      "Ca3N2 doping (8 mol%)": {
-        "92Na3PS4–8Ca3N2 (x=8, glass–ceramic)": []
-      },
-      "Ca3N2 doping (10 mol%)": {
-        "90Na3PS4–10Ca3N2 (x=10, glass–ceramic)": []
-      },
-      "I⁻ incorporation (NaI)": {
-        "0.1NaI·0.9Na₃SbS₄": []
-      },
-      "Br⁻ incorporation": {
-        "0.1NaBr·0.9Na₃SbS₄": []
-      }
-    },
-    "(unknown)": {
-      "Yb substitution": {
-        "Na2.25Yb0.25Zr0.75Cl6": []
-      }
-    },
-    "Polymer composite": {
-      "–": {
-        "LG-SPE (lignin-based polymer + Na salt)": [],
-        "PEO (SPE)": [],
-        "PEO (50 wt%) / Na3Zr2Si2.3P0.7O11.85 (50 wt%)": [],
-        "PEO (50 wt%) / Na3.4Zr2Si2.4P0.6O12 (50 wt%)": []
-      },
-      "SN plasticizer + EMIMBF4 + NaBF4 salt": {
-        "P(VdF-HFP) + SN + EMIMBF4 + NaBF4": []
-      }
+      paths.each(function(){
+        const ion = this.dataset.ion;
+        const fam = this.dataset.family;
+        const on = (!hasIon || highlightedIons.has(ion)) && (!hasFam || highlightedFams.has(fam));
+        this.classList.toggle('highlight', on);
+        this.classList.toggle('dimmed', !on);
+      });
     }
-  },
-  "I⁻": {
-    "Antiperovskite": {
-      "Surface functionalization with long-chain ammonium cations": {
-        "FAPbI₃ (stabilized with BA, PEA, FPEA ligands)": []
+
+    // ---------- Labels ----------
+    function addLabelsLayer(){
+      if (!svgGlobal || !nodesGlobal) return;
+      if (gLabels) gLabels.remove();
+      gLabels = svgGlobal.append('g');
+
+      const showDepth1 = cbDepth1.checked;
+      const showDepth2 = cbDepth2.checked;
+      const showDepth3 = cbDepth3.checked;
+      const showLeaf   = cbLeaf.checked;
+
+      // Minimum angular spans (radians) to show a label per depth
+      const MIN_ANGLE = {1: 0.10, 2: 0.06, 3: 0.035, 4: 0.045};
+      const MAX_LABELS = {1: 30, 2: 60, 3: 120, 4: 160};
+
+      const defs = svgGlobal.append('defs');
+
+      let candidates = nodesGlobal.filter(d => {
+        const isLeaf = !d.children;
+        const depthOK =
+          (d.depth === 1 && showDepth1) ||
+          (d.depth === 2 && showDepth2) ||
+          (d.depth === 3 && showDepth3) ||
+          (isLeaf      && showLeaf);
+        if (!depthOK) return false;
+        const minA = MIN_ANGLE[Math.min(d.depth, 4)] || 0.04;
+        if ((d.x1 - d.x0) < minA) return false;
+
+        d._labelR = isLeaf
+          ? Math.max(outerRadiusForGlobal(d) - 6, d.y1 - 3)
+          : (d.y0 + d.y1) / 2;
+        return d._labelR >= sideGlobal * 0.06;
+      });
+
+      const grouped = d3.group(candidates, d => Math.min(d.depth, 4));
+      const final = [];
+      for (const [depth, arr] of grouped) {
+        const limit = MAX_LABELS[depth] || 1000;
+        arr.sort((a, b) => (b.x1 - b.x0) - (a.x1 - a.x0));
+        final.push(...arr.slice(0, limit));
       }
+
+      final.forEach((d,i) => {
+        const id = `lbl-${i}`;
+        const inset = 0.003;
+        let a0 = d.x0 + inset, a1 = d.x1 - inset, r = d._labelR;
+        const mid = (a0 + a1) / 2;
+        let start = a0, end = a1, flip = false;
+        if (mid >= Math.PI) { start = a1; end = a0; flip = true; }
+        const largeArc = ((Math.abs(end - start) % (2*Math.PI)) > Math.PI) ? 1 : 0;
+        const sx = Math.cos(start)*r, sy = Math.sin(start)*r;
+        const ex = Math.cos(end)*r,   ey = Math.sin(end)*r;
+        const sweep = flip ? 0 : 1;
+
+        svgGlobal.append('defs').append('path').attr('id', id)
+          .attr('class', 'labelPath')
+          .attr('d', `M ${sx} ${sy} A ${r} ${r} 0 ${largeArc} ${sweep} ${ex} ${ey}`);
+
+        gLabels.append('text')
+          .attr('class','labelText')
+          .append('textPath')
+          .attr('href', `#${id}`)
+          .attr('startOffset','50%')
+          .attr('text-anchor','middle')
+          .text(d.data.name.length > 40 ? d.data.name.slice(0, 37) + '…' : d.data.name);
+      });
     }
-  },
-  "H+": {
-    "Other": {
-      "–": {
-        "HO₂ (proton superoxide)": []
-      },
-      "Partial Li → H substitution": {
-        "Li₅₃O₁₀₈H (H–Li mixed superoxide)": []
-      }
-    },
-    "Polymer composite": {
-      "–": {
-        "Disulfonic acid polymer (–SO3H rich)": [],
-        "PVA–Iron Alum (uncrosslinked)": []
-      },
-      "Glycerol": {
-        "PVA–Iron Alum + Glycerol": []
-      },
-      "Succinic acid": {
-        "PVA–Iron Alum + Succinic Acid": []
-      },
-      "Glyoxal": {
-        "PVA–Iron Alum + Glyoxal": []
-      },
-      "Deep eutectic solvent (DES) based on glycosyl-zwitterion with POM nanoclusters": {
-        "SPPC (Supramolecular Polymer Proton Conductor, DES-GZ/POM)": [
-          1.07
-        ]
-      }
-    }
-  },
-  "Effectiveioniccarriers(colloidal)": {
-    "Other": {
-      "–": {
-        "Binary charged colloidal crystal (RL=5 nm, qL=−80e; RS=1 nm, qS=+10e)": []
-      }
-    }
-  },
-  "Rb+": {
-    "Glassy sulfide": {
-      "–": {
-        "(Rb₂O)₁₀(B₂O₃)₉₀": [],
-        "(Rb₂O)₁₅(B₂O₃)₈₅": [],
-        "(Rb₂O)₂₀(B₂O₃)₈₀": [],
-        "(Rb₂O)₃₀(B₂O₃)₇₀": [
-          0.97
-        ],
-        "(Rb2O)10(B2O3)90": [],
-        "(Rb2O)15(B2O3)85": [],
-        "(Rb2O)20(B2O3)80": [],
-        "(Rb2O)30(B2O3)70": []
-      }
-    }
-  },
-  "Cu+": {
-    "Other": {
-      "–": {
-        "Cu₂Se": [],
-        "CuInSnS4": [],
-        "CuIn11S17": []
-      }
-    },
-    "Halide": {
-      "–": {
-        "Cu₂ZrCl₆": [
-          1.0
-        ]
-      }
-    }
-  },
-  "In3+": {
-    "Other": {
-      "–": {
-        "CuInSnS4": []
-      }
-    }
-  },
-  "Sn4+(mixedcation)": {
-    "Other": {
-      "–": {
-        "CuInSnS4": []
-      }
-    }
-  },
-  "In3+(mixedcation)": {
-    "Other": {
-      "–": {
-        "CuIn11S17": []
-      }
-    }
-  },
-  "Mg2+": {
-    "Other": {
-      "–": {
-        "MgYb2Se4": []
-      },
-      "Multicationic substitution (Sc, Y, Er, Tm, Yb)": {
-        "MgSc0.4Y0.4Er0.4Tm0.4Yb0.4Se4": []
-      },
-      "Anion substitution (Se → Br)": {
-        "Mg0.75Sc2Se3.5Br0.5": []
-      }
-    }
-  },
-  "O2-": {
-    "Polymer composite": {
-      "Sm3+ doping in CeO2 + amorphous Na2CO3 shell": {
-        "Ce0.8Sm0.2O1.9/Na2CO3 (20 wt% Na2CO3, core–shell)": [
-          0.1
-        ]
-      }
-    }
-  },
-  "Zn²+(protectivelayerforZnanodeinAZIBs)": {
-    "NASICON": {
-      "–": {
-        "Na₃V₂(PO₄)₃ (NVP)": []
-      }
-    }
-  }
-}
+  </script>
+</body>
+</html>
