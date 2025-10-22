@@ -153,7 +153,7 @@ d3.csv(CSV_PATH).then(raw => {
 
   // Axes
   const gAxis = svg.append("g").attr("class","axis");
-  const axisLabelOffset = 50;
+  const axisLabelOffset = 25;
   categories.forEach((cat, i) => {
     const ang = angleSlice*i - Math.PI/2;
     const x = cx + Math.cos(ang)*radius;
