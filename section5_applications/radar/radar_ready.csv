@@ -1,0 +1,8 @@
+Structure_Type,log_cond_norm,inv_Ea_norm,cycle_norm,ret_norm,simplicity
+Amorphous,0.7,0.6,0.5,0.6,0.6
+Anti-perovskite,0.65,0.7,0.6,0.7,0.6
+Argyrodite,0.4,0.5,0.45,0.5,0.4
+Halide,0.6,0.65,0.55,0.65,0.6
+NASICON,0.45,0.55,0.4,0.55,0.4
+Spinel,0.5,0.5,0.45,0.5,0.4
+Polymeric,0.8,0.9,0.7,0.9,1.0
