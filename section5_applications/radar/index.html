@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>D3 Radar — Sharp + Bold Level Labels</title>
+<title>D3 Radar — Values on Rings</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
@@ -66,15 +66,7 @@
     font-size:12px;
     font-weight:500;
   }
-  .value-label{
-    font-size:11px;
-    fill:#111827;
-    paint-order:stroke;
-    stroke:#fff;
-    stroke-width:3px;
-    stroke-linejoin:round;
-  }
-  /* ✅ Bold, distinct level ticks */
+  /* Bold tick labels */
   .levelLabel{
     font-size:12px;
     font-weight:700;
@@ -84,6 +76,15 @@
     stroke-width:3px;
     stroke-linejoin:round;
     text-shadow:0 1px 2px rgba(255,255,255,0.9);
+  }
+  /* Value numbers on data points */
+  .value-label{
+    font-size:11px;
+    fill:#111827;
+    paint-order:stroke;
+    stroke:#fff;
+    stroke-width:3px;
+    stroke-linejoin:round;
   }
 </style>
 </head>
@@ -97,7 +98,7 @@
 </div>
 
 <script>
-const CSV_PATH = "data.csv";
+const CSV_PATH = "radar_ready_transposed_for_draxlr.csv";
 const svg = d3.select("#radar");
 const legend = d3.select("#legend");
 
@@ -106,10 +107,9 @@ const margin = {top:60,right:70,bottom:60,left:70};
 const cx = W/2, cy = H/2;
 const radius = Math.min(W, H)/2 - Math.max(margin.left, margin.top);
 
-// === Customize tick positions and placement angle ===
-const levelTicks = [0.2, 0.4, 0.6, 0.8, 1.0];   // tick values
-const levelLabelAngleDeg = -120;                 // top-left direction
-// =====================================================
+// tick labels
+const levelTicks = [0.2, 0.4, 0.6, 0.8, 1.0];
+const levelLabelAngleDeg = -120;
 
 d3.csv(CSV_PATH).then(raw => {
   const cols = raw.columns ?? Object.keys(raw[0]);
@@ -126,16 +126,15 @@ d3.csv(CSV_PATH).then(raw => {
   const color = d3.scaleOrdinal(d3.schemeTableau10);
   const fmtValue = d3.format(",.2~f");
 
-  // Grid rings
+  // Grid
   const gGrid = svg.append("g");
   levelTicks.forEach(t => {
     gGrid.append("circle")
       .attr("class","gridCircle")
-      .attr("cx",cx).attr("cy",cy)
-      .attr("r", rScale(t));
+      .attr("cx",cx).attr("cy",cy).attr("r",rScale(t));
   });
 
-  // Level labels (200,400,...) at marked angle
+  // Tick labels (top-left direction)
   const a = levelLabelAngleDeg * Math.PI / 180;
   levelTicks.forEach(t => {
     const r = rScale(t);
@@ -151,9 +150,9 @@ d3.csv(CSV_PATH).then(raw => {
       .text(d3.format(",")(t));
   });
 
-  // Axes
+  // Axes (column labels)
   const gAxis = svg.append("g").attr("class","axis");
-  const axisLabelOffset = 25;
+  const axisLabelOffset = 20; // closer to ring
   categories.forEach((cat, i) => {
     const ang = angleSlice*i - Math.PI/2;
     const x = cx + Math.cos(ang)*radius;
@@ -172,7 +171,7 @@ d3.csv(CSV_PATH).then(raw => {
       .text(cat);
   });
 
-  // Sharp radar polygons
+  // Sharp polygons
   const line = d3.lineRadial()
     .radius(d => rScale(d.value))
     .angle((d,i) => i*angleSlice)
@@ -192,7 +191,7 @@ d3.csv(CSV_PATH).then(raw => {
 
     const g = svg.append("g").attr("transform", `translate(${cx},${cy})`);
 
-    // Points
+    // points
     g.selectAll("circle.point")
       .data(series).enter().append("circle")
       .attr("r",3.2)
@@ -200,23 +199,22 @@ d3.csv(CSV_PATH).then(raw => {
       .attr("cy", d => Math.sin(d.angle - Math.PI/2)*rScale(d.value))
       .attr("fill", color(si));
 
-    // Numeric labels near points
+    // ✅ value labels placed exactly on ring (no offset)
     g.selectAll("text.value-label")
       .data(series).enter().append("text")
       .attr("class","value-label")
       .attr("x", d => Math.cos(d.angle - Math.PI/2)*rScale(d.value))
       .attr("y", d => Math.sin(d.angle - Math.PI/2)*rScale(d.value))
-      .attr("dx", d => Math.cos(d.angle - Math.PI/2)*12)
-      .attr("dy", d => Math.sin(d.angle - Math.PI/2)*12)
       .attr("text-anchor", d => {
         const ux = Math.cos(d.angle - Math.PI/2);
         if (Math.abs(ux) < 0.35) return "middle";
         return ux > 0 ? "start" : "end";
       })
+      .attr("dy", "0.35em")
       .text(d => fmtValue(d.value));
   });
 
-  // Legend
+  // legend
   raw.forEach((row,i)=>{
     const it = legend.append("div").attr("class","item");
     it.append("span").attr("class","swatch").style("background", color(i));
