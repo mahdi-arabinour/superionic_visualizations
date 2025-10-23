@@ -2,13 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sunburst — Radial Labels (Always Show)</title>
+<title>Sunburst — Per-Level Radial Labels (Always Show)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   :root { color-scheme: dark; }
   html, body { height:100%; margin:0; }
   body { font-family:system-ui, Segoe UI, Roboto, sans-serif; background:#0f1115; color:#e8e8ea; display:flex; flex-direction:column; }
   header { padding:10px 14px; background:#171a20; display:flex; gap:16px; align-items:center; flex-wrap:wrap; border-bottom:1px solid #262a32; }
+  .controlGroup { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .control { display:flex; align-items:center; gap:6px; background:#0f141f; border:1px solid #2a3240; border-radius:10px; padding:6px 8px; }
+  .control label { font-size:12px; color:#cbd5e1; }
+  .control input[type="range"] { width:120px; }
   #wrap { flex:1; display:flex; padding:10px 12px; gap:12px; min-height:0; }
   #chartCard { flex:1; display:grid; grid-template-columns:minmax(640px,1.6fr) 300px; gap:12px; align-items:start; min-height:0; }
   .chartBody { background:#101626; border:1px dashed #333a49; border-radius:12px; position:relative; height:min(88vh,900px); min-height:520px; contain:content; }
@@ -47,24 +51,28 @@
 </head>
 <body>
   <header>
-    <strong>Sunburst — Radial Labels (Always Show)</strong>
+    <strong>Sunburst — Per-Level Radial Labels</strong>
 
-    <label style="font-size:13px;">
-      <input type="checkbox" id="labelToggle" checked>
-      Show labels
-    </label>
+    <div class="control"><label><input type="checkbox" id="labelToggle" checked> Show all labels</label></div>
 
-    <div style="display:flex; align-items:center; gap:8px; font-size:12px;">
-      <span>Label size</span>
-      <input id="labelSize" type="range" min="6" max="14" step="1" value="9" />
-      <span id="labelSizeVal">9px</span>
+    <div class="controlGroup">
+      <div class="control">
+        <label><input type="checkbox" id="showIon" checked> Ion</label>
+        <input id="fsIon" type="range" min="7" max="16" step="1" value="12"><span id="fsIonVal">12px</span>
+      </div>
+      <div class="control">
+        <label><input type="checkbox" id="showStruct" checked> Structure</label>
+        <input id="fsStruct" type="range" min="7" max="16" step="1" value="11"><span id="fsStructVal">11px</span>
+      </div>
+      <div class="control">
+        <label><input type="checkbox" id="showStrat" checked> Strategy</label>
+        <input id="fsStrat" type="range" min="7" max="16" step="1" value="10"><span id="fsStratVal">10px</span>
+      </div>
+      <div class="control">
+        <label><input type="checkbox" id="showFormula" checked> Formula</label>
+        <input id="fsFormula" type="range" min="6" max="14" step="1" value="9"><span id="fsFormulaVal">9px</span>
+      </div>
     </div>
-
-    <!-- Ion-zoom formula toggle -->
-    <label id="z1FormulasWrap" class="muted" style="font-size:13px; display:flex; align-items:center; gap:6px;">
-      <input type="checkbox" id="z1Formulas" disabled>
-      Show formulas in Ion zoom
-    </label>
 
     <span id="rtStats" style="font-size:12px;color:#9fb3cc;"></span>
     <span id="crumbs" class="crumbs"></span>
@@ -92,7 +100,7 @@
   const RING_SCALE = [1.0, 1.32, 1.52];
   const LEAF_SCALE = [1.0, 1.45, 1.6];
 
-  // Label policy / always-show behavior
+  // Label always-show behavior
   const LEAF_MIN_DEG = 0.03;               // allow very narrow leaves to try
   const ANG_PAD_PX   = 2;                  // tighter angular padding
   const FONT_TRY_STEPS = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
@@ -105,40 +113,44 @@
   // ================== State ==================
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
   let gArcs, colorIon, maxRGlobal=0, labelsVisible=true;
-  let LABEL_PX = 9;
-  let SHOW_FORMULAS_AT_Z1 = false;
+
+  // Per-level show flags + fonts (controlled by UI)
+  let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=true, SHOW_FORMULA=true;
+  let FS_ION=12, FS_STRUCT=11, FS_STRAT=10, FS_FORM=9;
 
   // Refs
   let _nodesCache=null, _outerR=null, _defs=null, _g=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
 
   const ui = {};
   document.addEventListener('DOMContentLoaded', async ()=>{
-    ui.z1Formulas = document.getElementById('z1Formulas');
-    ui.z1FormulasWrap = document.getElementById('z1FormulasWrap');
+    // --- wire controls
+    ui.labelToggle = document.getElementById('labelToggle');
 
+    ui.showIon     = document.getElementById('showIon');
+    ui.showStruct  = document.getElementById('showStruct');
+    ui.showStrat   = document.getElementById('showStrat');
+    ui.showFormula = document.getElementById('showFormula');
+
+    ui.fsIon = document.getElementById('fsIon');       ui.fsIonVal = document.getElementById('fsIonVal');
+    ui.fsStruct = document.getElementById('fsStruct'); ui.fsStructVal = document.getElementById('fsStructVal');
+    ui.fsStrat = document.getElementById('fsStrat');   ui.fsStratVal = document.getElementById('fsStratVal');
+    ui.fsFormula = document.getElementById('fsFormula'); ui.fsFormulaVal = document.getElementById('fsFormulaVal');
+
+    ui.labelToggle.onchange = ()=>{ labelsVisible = ui.labelToggle.checked; applyLabelVisibility(); };
+    ui.showIon.onchange = ()=>{ SHOW_ION = ui.showIon.checked; layoutAllLabels(); };
+    ui.showStruct.onchange = ()=>{ SHOW_STRUCT = ui.showStruct.checked; layoutAllLabels(); };
+    ui.showStrat.onchange = ()=>{ SHOW_STRAT = ui.showStrat.checked; layoutAllLabels(); };
+    ui.showFormula.onchange = ()=>{ SHOW_FORMULA = ui.showFormula.checked; layoutAllLabels(); };
+
+    ui.fsIon.oninput = ()=>{ FS_ION = +ui.fsIon.value; ui.fsIonVal.textContent = FS_ION+'px'; layoutAllLabels(true); };
+    ui.fsStruct.oninput = ()=>{ FS_STRUCT = +ui.fsStruct.value; ui.fsStructVal.textContent = FS_STRUCT+'px'; layoutAllLabels(true); };
+    ui.fsStrat.oninput = ()=>{ FS_STRAT = +ui.fsStrat.value; ui.fsStratVal.textContent = FS_STRAT+'px'; layoutAllLabels(true); };
+    ui.fsFormula.oninput = ()=>{ FS_FORM = +ui.fsFormula.value; ui.fsFormulaVal.textContent = FS_FORM+'px'; layoutAllLabels(true); };
+
+    // --- data + draw
     const dataObj=await (await fetch('data.simplified.json',{cache:'no-store'})).json();
     fullHierarchy = buildHierarchy(dataObj);
     draw();
-
-    document.getElementById('labelToggle').addEventListener('change', e=>{
-      labelsVisible = e.target.checked; applyLabelVisibility();
-    });
-
-    const sizeEl = document.getElementById('labelSize');
-    const sizeVal = document.getElementById('labelSizeVal');
-    sizeEl.addEventListener('input', ()=>{
-      LABEL_PX = Number(sizeEl.value);
-      sizeVal.textContent = LABEL_PX + 'px';
-      layoutRadialInternalLabels(true);
-      layoutRadialLeafLabels(true);
-    });
-    sizeVal.textContent = LABEL_PX + 'px';
-
-    ui.z1Formulas.addEventListener('change', ()=>{
-      SHOW_FORMULAS_AT_Z1 = ui.z1Formulas.checked;
-      layoutRadialLeafLabels();
-      applyLabelVisibility();
-    });
 
     window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(draw,120); });
   });
@@ -212,7 +224,7 @@
     const side=Math.min(Math.max(500,rect.width), Math.max(500,rect.height));
 
     const root=makeFocusRoot();
-    _focusDepth=(focusNode?.depth ?? 0); // 0=root, 1=ion, 2=structure+
+    _focusDepth=(focusNode?.depth ?? 0);
 
     const ringScale=RING_SCALE[Math.min(_focusDepth, RING_SCALE.length-1)];
     const leafScale=LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
@@ -237,8 +249,7 @@
 
     const svg=d3.select(chartEl).append('svg').attr('width','100%').attr('height','100%')
       .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
-    _g=svg.append('g'); gArcs=_g;
-    _defs=svg.append('defs');
+    _g=svg.append('g'); _defs=svg.append('defs');
 
     const arc=d3.arc().startAngle(d=>d.x0).endAngle(d=>d.x1)
       .padAngle(d=>Math.min(0.006,(d.x1-d.x0)/6)).padRadius(maxR*0.9)
@@ -261,15 +272,16 @@
 
     // tooltip
     const tipVal=v=>(!Number.isFinite(v)?'n/a':(v<0.01?`${(v*1000).toFixed(3)} mS·cm⁻¹`:`${Number(v).toPrecision(3)} S·cm⁻¹`));
+    const tt=document.getElementById('tooltip');
     paths.on('mousemove',(evt,d)=>{
       const trail=d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
       let html=`<strong>${trail}</strong>`;
       html += d.children ? `<br/>Share (by formula count): ${d.value}`
                          : (d.data.hasCond ? `<br/>σ: ${tipVal(d.data.cond)}<br/><small>RT preferred; else first</small>`
                                            : `<br/><em>No conductivity — default height</em>`);
-      tooltip.style.display='block'; tooltip.innerHTML=html;
-      tooltip.style.left=(evt.clientX+10)+'px'; tooltip.style.top=(evt.clientY+10)+'px';
-    }).on('mouseleave',()=>{ tooltip.style.display='none'; });
+      tt.style.display='block'; tt.innerHTML=html;
+      tt.style.left=(evt.clientX+10)+'px'; tt.style.top=(evt.clientY+10)+'px';
+    }).on('mouseleave',()=>{ tt.style.display='none'; });
 
     // click to zoom / step back
     paths.on('click',(evt,d)=>{
@@ -291,9 +303,8 @@
       .style('font-size','12px').style('fill','#dfe6f3')
       .text(focusNode ? focusNode.data.name : 'All ions');
 
-    // labels (RADIAL upright, always-show)
-    layoutRadialInternalLabels(false);
-    layoutRadialLeafLabels(false);
+    // labels (RADIAL upright, per-level toggles + per-level fonts)
+    layoutAllLabels();
 
     // ring track captions (curved, for ring meaning)
     renderRingCaptions(root);
@@ -304,76 +315,60 @@
     renderCrumbs(root);
     buildLegend(legendEl, root);
     applyLabelVisibility();
-
-    // enable/disable the Z1 formulas toggle depending on focus
-    if (_focusDepth === 1) {
-      ui.z1Formulas.disabled = false;
-      ui.z1FormulasWrap.classList.remove('muted');
-      ui.z1Formulas.checked = SHOW_FORMULAS_AT_Z1;
-    } else {
-      ui.z1Formulas.disabled = true;
-      ui.z1FormulasWrap.classList.add('muted');
-    }
   }
 
-  // ================== Label policy ==================
-  function wantInternal(depthHere){
-    if (_focusDepth===0) return (depthHere===1 || depthHere===2);   // Root: Ion + Structure
-    if (_focusDepth===1) return (depthHere===2 || depthHere===3);   // Ion focus: Structure + Strategy
-    return (depthHere===2 || depthHere===3);                        // Structure+: Structure + Strategy
-  }
-  function wantLeaves(){
-    if (_focusDepth>=2) return true;                                // Structure+: formulas on
-    if (_focusDepth===1) return SHOW_FORMULAS_AT_Z1;                // Ion focus: toggle
-    return false;                                                   // Root: off
-  }
+  // ================== Label layout helpers ==================
+  function layoutAllLabels(isLive){
+    // clear existing label nodes (we recompute everything)
+    _g.selectAll('.labels').remove();
+    const layer = _g.append('g').attr('class','labels');
 
-  // ================== Radial labels (internal) ==================
-  let _internalSel=null;
-  function layoutRadialInternalLabels(isUpdate){
-    const layer = (_g.select('.labels').empty() ? _g.append('g').attr('class','labels') : _g.select('.labels'));
-    const targets = _nodesCache.filter(d => d.children && wantInternal(d.depth));
-    if (isUpdate && _internalSel){ _internalSel.style('font-size', LABEL_PX+'px'); return; }
+    // Internal (Ion / Structure / Strategy)
+    const internals = _nodesCache.filter(d => d.children);
+    const toShow = internals.filter(d=>{
+      if (d.depth===1) return SHOW_ION;
+      if (d.depth===2) return SHOW_STRUCT;
+      if (d.depth===3) return SHOW_STRAT;
+      return false;
+    });
 
-    _internalSel = layer.selectAll('text.internal')
-      .data(targets, d=>d.data._uid)
+    const selInt = layer.selectAll('text.internal')
+      .data(toShow, d=>d.data._uid)
       .join('text')
       .attr('class','label visibleLabel internal')
       .text(d=>d.data.name)
-      .style('font-weight', d=> (d.depth===1?'600': d.depth===2?'500':'400'))
+      .style('font-weight', d=> (d.depth===1?'700': d.depth===2?'600':'500'))
       .style('fill', d=> (d.depth===1 ? '#fff' : '#e7eaf2'))
-      .style('font-size', LABEL_PX + 'px');
+      .style('font-size', d=> (d.depth===1?FS_ION: d.depth===2?FS_STRUCT:FS_STRAT) + 'px');
 
-    placeRadial(_internalSel);
-  }
-
-  // ================== Radial labels (leaves) ==================
-  function layoutRadialLeafLabels(isUpdate){
-    _g.selectAll('text.leaf').remove();
-    if (!wantLeaves()) return;
-
-    // Allow everything to try (we’ll force-show anyway)
+    // Leaves (Formula)
     const leaves = _nodesCache.filter(d => !d.children);
+    const selLeaf = SHOW_FORMULA
+      ? layer.selectAll('text.leaf').data(leaves, d=>d.data._uid).join('text')
+          .attr('class','leafLabel visibleLabel leaf')
+          .text(d=>d.data.name)
+          .style('font-size', FS_FORM + 'px')
+      : layer.selectAll('text.leaf').data([], d=>d.data?d.data._uid:null).join('text'); // nothing
 
-    const layer = (_g.select('.labels').empty() ? _g.append('g').attr('class','labels') : _g.select('.labels'));
-    const sel = layer.selectAll('text.leaf')
-      .data(leaves, d=>d.data._uid)
-      .join('text')
-      .attr('class','leafLabel visibleLabel leaf')
-      .text(d=>d.data.name)
-      .style('font-size', Math.max(MIN_FONT_PX, LABEL_PX-1)+'px');
+    // Place both with upright radial algorithm
+    placeRadial(selInt);
+    if (SHOW_FORMULA) placeRadial(selLeaf);
 
-    placeRadial(sel);
+    applyLabelVisibility();
   }
 
-  // ================== Placement helper: greedy fit + last resort ==================
+  // Upright, tangential rotation with greedy fit + last-resort placement
   function placeRadial(selection){
     const occByRing = new Map(); // per-radius occupancy intervals (radians)
 
     selection.each(function(d){
       const el = d3.select(this);
-      const isLeaf = this.classList.contains('leaf');
-      const basePx = isLeaf ? Math.max(MIN_FONT_PX, LABEL_PX - 1) : LABEL_PX;
+
+      // choose base font per node depth
+      const basePx = (!d.children) ? FS_FORM
+                     : d.depth===1 ? FS_ION
+                     : d.depth===2 ? FS_STRUCT
+                     : FS_STRAT;
 
       const rMid = (d.y0 + (d.children ? d.y1 : _outerR(d)))/2;
       const key  = Math.round(rMid);
@@ -425,12 +420,7 @@
     _g.selectAll('.ringGuides').remove();
     const guides = _g.append('g').attr('class','ringGuides');
 
-    const caps = [
-      ['Ion','Structure','Doping strategy','Formula'],
-      ['Structure','Doping strategy','Formula'],
-      ['Doping strategy','Formula'],
-      ['Doping strategy','Formula']
-    ][Math.min(_focusDepth,3)];
+    const caps = ['Ion','Structure','Doping strategy','Formula'];
 
     const a0 = (-90 - CAP_ARC_DEG/2) * Math.PI/180;
     const a1 = (-90 + CAP_ARC_DEG/2) * Math.PI/180;
@@ -447,22 +437,13 @@
     const rFormula = (bandCount * _ringThickness) + (_leafBase * 0.65);
 
     const items=[];
-    if (_focusDepth===0){
-      if (bandMids[0]!=null) items.push({text:'Ion', r:bandMids[0]});
-      if (bandMids[1]!=null) items.push({text:'Structure', r:bandMids[1]});
-      if (bandMids[2]!=null) items.push({text:'Doping strategy', r:bandMids[2]});
-      items.push({text:'Formula', r:rFormula});
-    } else if (_focusDepth===1){
-      if (bandMids[0]!=null) items.push({text:'Structure', r:bandMids[0]});
-      if (bandMids[1]!=null) items.push({text:'Doping strategy', r:bandMids[1]});
-      items.push({text:'Formula', r:rFormula});
-    } else {
-      if (bandMids[0]!=null) items.push({text:'Doping strategy', r:bandMids[0]});
-      items.push({text:'Formula', r:rFormula});
-    }
+    if (bandMids[0]!=null) items.push({text:caps[0], r:bandMids[0]});
+    if (bandMids[1]!=null) items.push({text:caps[1], r:bandMids[1]});
+    if (bandMids[2]!=null) items.push({text:caps[2], r:bandMids[2]});
+    items.push({text:caps[3], r:rFormula});
 
     items.forEach((it,i)=>{
-      const id = `ringcap-${_focusDepth}-${i}-${Math.floor(it.r)}`;
+      const id = `ringcap-${i}-${Math.floor(it.r)}`;
       const d = arcPath(it.r, a0, a1);
       _defs.append('path').attr('class','ringArc').attr('id',id).attr('d',d);
       guides.append('text').attr('class','ringCaption')
