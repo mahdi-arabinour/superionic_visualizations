@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Sunburst — Ion Zoom + Legend Toggle</title>
+  <title>Sunburst — Ion Zoom + Smart Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root { color-scheme: dark; }
@@ -106,12 +106,12 @@
     const selIons = new Set(), selStructs = new Set(), selStrats = new Set();
     let hoverKey = null;
 
-    // NEW: zoom state + hold data across redraws
-    let activeIon = null;       // which ion is zoomed (null = full view)
-    let dataObjGlobal = null;   // keep data for redraws
+    // Zoom state + hold data across redraws
+    let activeIon = null;
+    let dataObjGlobal = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
-      // Adjust the filename if needed, e.g. 'data.simplified (2).json'
+      // Your file name:
       dataObjGlobal = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
       draw(dataObjGlobal);
       window.addEventListener('resize', () => requestAnimationFrame(() => draw(dataObjGlobal)));
@@ -270,13 +270,31 @@
         }
       });
 
-      // -------- LABELS: Ion + Structure only --------
+      // ----------------- LABELS -----------------
+      // Default (no zoom): label depths 1 & 2 only
+      // Zoomed: label depths 1, 2, 3 (strategies), and leaves (treated as depth=4 for grouping)
       const angleToPixels = (d, radius) => (d.x1 - d.x0) * radius;
+
+      function labelDepthsForState(){
+        return activeIon ? [1,2,3,4] : [1,2];
+      }
+      const depthsToLabel = labelDepthsForState();
+
+      // choose nodes to label according to current state
+      const labelNodes = nodes.filter(d => {
+        const depthGroup = d.children ? d.depth : 4; // treat leaves as group 4
+        if (!depthsToLabel.includes(depthGroup)) return false;
+        // only label internal nodes or leaves depending on state
+        if (depthGroup === 4) return !d.children;          // only leaves
+        return d.children;                                  // internal nodes
+      });
+
       const labels = g.selectAll('text')
-        .data(nodes.filter(d => d.children && (d.depth===1 || d.depth===2)))
+        .data(labelNodes, d => d.data.name + '-' + d.depth + '-' + (activeIon? 'zoom':'root'))
         .join('text')
-        .attr('class', 'label visibleLabel')
+        .attr('class', 'label')
         .attr('dy', '0.32em')
+        .attr('data-allow', '1')
         .attr('transform', d => {
           const a = (d.x0 + d.x1) / 2 * 180 / Math.PI;
           const r = (d.y0 + outerR(d)) / 2;
@@ -284,25 +302,79 @@
         })
         .text(d => d.data.name);
 
+      // size & initial allow based on available arc length
       labels.each(function(d){
         const rMid = (d.y0 + outerR(d)) / 2;
         const arcPixels = angleToPixels(d, rMid);
-        let fs = d.depth===1 ? 14 : 11;
-        fs = fs * Math.min(1.2, Math.max(0.7, (rMid / maxRGlobal) * 1.5));
+
+        // font size by level + scale a bit with radius
+        let fs;
+        const depthGroup = d.children ? d.depth : 4;
+        if (depthGroup === 1) fs = 14;
+        else if (depthGroup === 2) fs = 11;
+        else if (depthGroup === 3) fs = 10;
+        else fs = 10; // leaves
+
+        fs = fs * Math.min(1.25, Math.max(0.7, (rMid / maxRGlobal) * 1.5));
         this.style.fontSize = fs + 'px';
-        this.style.fill = d.depth===1 ? '#ffffff' : '#d5d9e0';
-        this.style.fontWeight = d.depth===1 ? '600' : '500';
-        const minNeeded = Math.min(70, fs * 5);
-        this.classList.toggle('hiddenLabel', arcPixels < minNeeded);
+        this.style.fill =
+          (depthGroup===1) ? '#ffffff'
+          : (depthGroup===2) ? '#d5d9e0'
+          : (depthGroup===3) ? '#cfd4de'
+          : '#cfd4de';
+        this.style.fontWeight = (depthGroup===1) ? '600' : (depthGroup===2 ? '500' : '400');
+
+        // minimum arc length needed, proportional to text length
+        const textLen = this.textContent.length || 1;
+        const minNeededBase =
+          (depthGroup===1) ? 70 :
+          (depthGroup===2) ? 60 :
+          50;
+        const minNeeded = Math.min(150, Math.max(minNeededBase, fs * (textLen * 0.55))); // heuristic
+        const allow = arcPixels >= minNeeded ? '1' : '0';
+        this.setAttribute('data-allow', allow);
       });
 
-      toggleLabels();
+      // collision resolution for currently labeled depths
+      requestAnimationFrame(() => {
+        depthsToLabel.forEach(d => resolveCollisionsForDepth(d));
+        toggleLabels(); // respect checkbox + allow flags
+      });
+
+      function resolveCollisionsForDepth(depthWanted){
+        const texts = Array.from(g.selectAll('text').nodes())
+          .filter(el => {
+            const d = d3.select(el).datum();
+            const depthGroup = d.children ? d.depth : 4;
+            return (depthGroup === depthWanted) && el.getAttribute('data-allow') === '1';
+          });
+
+        // sort left-to-right by angular start (x0)
+        texts.sort((a,b) => {
+          const da = d3.select(a).datum(), db = d3.select(b).datum();
+          return da.x0 - db.x0;
+        });
+
+        const kept = [];
+        const pad = 2; // px padding between labels
+        texts.forEach(el => {
+          const rect = el.getBoundingClientRect();
+          let collides = kept.some(r =>
+            !(rect.right + pad < r.left || rect.left - pad > r.right || rect.bottom + pad < r.top || rect.top - pad > r.bottom)
+          );
+          if (collides) {
+            el.setAttribute('data-allow','0');
+          } else {
+            kept.push(rect);
+          }
+        });
+      }
 
       // Header stat + focus crumb
       const rtStats = document.getElementById('rtStats');
       rtStats.textContent =
         `Formulas w/ conductivity: ${leaves.filter(d=>d.data.hasCond).length}/${leaves.length}`
-        + (activeIon ? `  •  Focus: ${activeIon} (click an ion/arc to reset)` : '');
+        + (activeIon ? `  •  Focus: ${activeIon} (click inside to reset)` : '');
 
       // ---------- Build legend & enable highlight ----------
       buildLegendTree(legendEl);
@@ -332,7 +404,7 @@
           if (selIons.has(ion)) selIons.delete(ion); else selIons.add(ion);
           applyHighlight();
 
-          // NEW: legend also toggles zoom
+          // legend also toggles zoom
           activeIon = (activeIon === ion) ? null : ion;
           selIons.clear(); selStructs.clear(); selStrats.clear(); hoverKey = null;
           draw(dataObjGlobal);
@@ -415,9 +487,13 @@
       });
     }
 
+    // respect checkbox + per-label "allow" flag
     function toggleLabels(){
-      d3.selectAll('.label')
-        .attr('class', labelsVisible ? 'label visibleLabel' : 'label hiddenLabel');
+      d3.selectAll('.label').each(function(){
+        const allowed = this.getAttribute('data-allow') !== '0';
+        const shouldShow = labelsVisible && allowed;
+        this.setAttribute('class', shouldShow ? 'label visibleLabel' : 'label hiddenLabel');
+      });
     }
   </script>
 </body>
