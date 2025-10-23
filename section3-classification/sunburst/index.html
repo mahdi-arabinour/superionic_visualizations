@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sunburst — Per-Level Radial Labels (Always Show)</title>
+<title>Sunburst — Single-Level Radial Labels (Always Show)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   :root { color-scheme: dark; }
@@ -51,26 +51,38 @@
 </head>
 <body>
   <header>
-    <strong>Sunburst — Per-Level Radial Labels</strong>
+    <strong>Sunburst — Single-Level Labels</strong>
 
-    <div class="control"><label><input type="checkbox" id="labelToggle" checked> Show all labels</label></div>
+    <div class="control">
+      <label><input type="checkbox" id="labelToggle" checked> Show labels</label>
+    </div>
 
+    <!-- choose ONE level to show -->
+    <div class="control">
+      <label style="margin-right:6px;">Show only:</label>
+      <label><input type="radio" name="level" value="ion" checked> Ion</label>
+      <label><input type="radio" name="level" value="struct"> Structure</label>
+      <label><input type="radio" name="level" value="strat"> Strategy</label>
+      <label><input type="radio" name="level" value="formula"> Formula</label>
+    </div>
+
+    <!-- per-level font sizes -->
     <div class="controlGroup">
       <div class="control">
-        <label><input type="checkbox" id="showIon" checked> Ion</label>
-        <input id="fsIon" type="range" min="7" max="16" step="1" value="12"><span id="fsIonVal">12px</span>
+        <label>Ion</label>
+        <input id="fsIon" type="range" min="7" max="20" step="1" value="12"><span id="fsIonVal">12px</span>
       </div>
       <div class="control">
-        <label><input type="checkbox" id="showStruct" checked> Structure</label>
-        <input id="fsStruct" type="range" min="7" max="16" step="1" value="11"><span id="fsStructVal">11px</span>
+        <label>Structure</label>
+        <input id="fsStruct" type="range" min="7" max="20" step="1" value="11"><span id="fsStructVal">11px</span>
       </div>
       <div class="control">
-        <label><input type="checkbox" id="showStrat" checked> Strategy</label>
-        <input id="fsStrat" type="range" min="7" max="16" step="1" value="10"><span id="fsStratVal">10px</span>
+        <label>Strategy</label>
+        <input id="fsStrat" type="range" min="7" max="20" step="1" value="10"><span id="fsStratVal">10px</span>
       </div>
       <div class="control">
-        <label><input type="checkbox" id="showFormula" checked> Formula</label>
-        <input id="fsFormula" type="range" min="6" max="14" step="1" value="9"><span id="fsFormulaVal">9px</span>
+        <label>Formula</label>
+        <input id="fsFormula" type="range" min="6" max="18" step="1" value="9"><span id="fsFormulaVal">9px</span>
       </div>
     </div>
 
@@ -101,11 +113,10 @@
   const LEAF_SCALE = [1.0, 1.45, 1.6];
 
   // Label always-show behavior
-  const LEAF_MIN_DEG = 0.03;               // allow very narrow leaves to try
-  const ANG_PAD_PX   = 2;                  // tighter angular padding
+  const ANG_PAD_PX   = 2;
   const FONT_TRY_STEPS = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
-  const MIN_FONT_PX  = 6;                  // absolute min font size
-  const FORCE_SHOW_IF_FAILS = true;        // place even if it must overlap
+  const MIN_FONT_PX  = 6;
+  const FORCE_SHOW_IF_FAILS = true;
 
   // Curved ring caption arc length (for ring-level track labels)
   const CAP_ARC_DEG = 120;
@@ -113,9 +124,7 @@
   // ================== State ==================
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
   let gArcs, colorIon, maxRGlobal=0, labelsVisible=true;
-
-  // Per-level show flags + fonts (controlled by UI)
-  let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=true, SHOW_FORMULA=true;
+  let visibleLevel = 'ion'; // 'ion' | 'struct' | 'strat' | 'formula'
   let FS_ION=12, FS_STRUCT=11, FS_STRAT=10, FS_FORM=9;
 
   // Refs
@@ -123,31 +132,25 @@
 
   const ui = {};
   document.addEventListener('DOMContentLoaded', async ()=>{
-    // --- wire controls
+    // controls
     ui.labelToggle = document.getElementById('labelToggle');
+    ui.labelToggle.onchange = ()=>{ labelsVisible = ui.labelToggle.checked; applyLabelVisibility(); };
 
-    ui.showIon     = document.getElementById('showIon');
-    ui.showStruct  = document.getElementById('showStruct');
-    ui.showStrat   = document.getElementById('showStrat');
-    ui.showFormula = document.getElementById('showFormula');
+    document.querySelectorAll('input[name="level"]').forEach(r=>{
+      r.onchange = ()=>{ if (r.checked){ visibleLevel = r.value; layoutAllLabels(); } };
+    });
 
     ui.fsIon = document.getElementById('fsIon');       ui.fsIonVal = document.getElementById('fsIonVal');
     ui.fsStruct = document.getElementById('fsStruct'); ui.fsStructVal = document.getElementById('fsStructVal');
     ui.fsStrat = document.getElementById('fsStrat');   ui.fsStratVal = document.getElementById('fsStratVal');
     ui.fsFormula = document.getElementById('fsFormula'); ui.fsFormulaVal = document.getElementById('fsFormulaVal');
 
-    ui.labelToggle.onchange = ()=>{ labelsVisible = ui.labelToggle.checked; applyLabelVisibility(); };
-    ui.showIon.onchange = ()=>{ SHOW_ION = ui.showIon.checked; layoutAllLabels(); };
-    ui.showStruct.onchange = ()=>{ SHOW_STRUCT = ui.showStruct.checked; layoutAllLabels(); };
-    ui.showStrat.onchange = ()=>{ SHOW_STRAT = ui.showStrat.checked; layoutAllLabels(); };
-    ui.showFormula.onchange = ()=>{ SHOW_FORMULA = ui.showFormula.checked; layoutAllLabels(); };
+    ui.fsIon.oninput     = ()=>{ FS_ION    = +ui.fsIon.value;     ui.fsIonVal.textContent     = FS_ION+'px';    layoutAllLabels(true); };
+    ui.fsStruct.oninput  = ()=>{ FS_STRUCT = +ui.fsStruct.value;  ui.fsStructVal.textContent  = FS_STRUCT+'px'; layoutAllLabels(true); };
+    ui.fsStrat.oninput   = ()=>{ FS_STRAT  = +ui.fsStrat.value;   ui.fsStratVal.textContent   = FS_STRAT+'px';  layoutAllLabels(true); };
+    ui.fsFormula.oninput = ()=>{ FS_FORM   = +ui.fsFormula.value; ui.fsFormulaVal.textContent = FS_FORM+'px';   layoutAllLabels(true); };
 
-    ui.fsIon.oninput = ()=>{ FS_ION = +ui.fsIon.value; ui.fsIonVal.textContent = FS_ION+'px'; layoutAllLabels(true); };
-    ui.fsStruct.oninput = ()=>{ FS_STRUCT = +ui.fsStruct.value; ui.fsStructVal.textContent = FS_STRUCT+'px'; layoutAllLabels(true); };
-    ui.fsStrat.oninput = ()=>{ FS_STRAT = +ui.fsStrat.value; ui.fsStratVal.textContent = FS_STRAT+'px'; layoutAllLabels(true); };
-    ui.fsFormula.oninput = ()=>{ FS_FORM = +ui.fsFormula.value; ui.fsFormulaVal.textContent = FS_FORM+'px'; layoutAllLabels(true); };
-
-    // --- data + draw
+    // data + draw
     const dataObj=await (await fetch('data.simplified.json',{cache:'no-store'})).json();
     fullHierarchy = buildHierarchy(dataObj);
     draw();
@@ -303,7 +306,7 @@
       .style('font-size','12px').style('fill','#dfe6f3')
       .text(focusNode ? focusNode.data.name : 'All ions');
 
-    // labels (RADIAL upright, per-level toggles + per-level fonts)
+    // labels (only one level visible)
     layoutAllLabels();
 
     // ring track captions (curved, for ring meaning)
@@ -317,44 +320,35 @@
     applyLabelVisibility();
   }
 
-  // ================== Label layout helpers ==================
-  function layoutAllLabels(isLive){
-    // clear existing label nodes (we recompute everything)
+  // ================== Label layout (single level) ==================
+  function layoutAllLabels(){
     _g.selectAll('.labels').remove();
     const layer = _g.append('g').attr('class','labels');
 
-    // Internal (Ion / Structure / Strategy)
-    const internals = _nodesCache.filter(d => d.children);
-    const toShow = internals.filter(d=>{
-      if (d.depth===1) return SHOW_ION;
-      if (d.depth===2) return SHOW_STRUCT;
-      if (d.depth===3) return SHOW_STRAT;
-      return false;
-    });
+    let selectionData=[];
+    if (visibleLevel === 'ion') {
+      selectionData = _nodesCache.filter(d => d.children && d.depth===1);
+    } else if (visibleLevel === 'struct') {
+      selectionData = _nodesCache.filter(d => d.children && d.depth===2);
+    } else if (visibleLevel === 'strat') {
+      selectionData = _nodesCache.filter(d => d.children && d.depth===3);
+    } else { // 'formula'
+      selectionData = _nodesCache.filter(d => !d.children);
+    }
 
-    const selInt = layer.selectAll('text.internal')
-      .data(toShow, d=>d.data._uid)
+    const sel = layer.selectAll('text.levelLabel')
+      .data(selectionData, d=>d.data._uid)
       .join('text')
-      .attr('class','label visibleLabel internal')
+      .attr('class', d=> (!d.children ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'))
       .text(d=>d.data.name)
-      .style('font-weight', d=> (d.depth===1?'700': d.depth===2?'600':'500'))
-      .style('fill', d=> (d.depth===1 ? '#fff' : '#e7eaf2'))
-      .style('font-size', d=> (d.depth===1?FS_ION: d.depth===2?FS_STRUCT:FS_STRAT) + 'px');
+      .style('font-size', d=>{
+        if (!d.children) return FS_FORM+'px';
+        return d.depth===1 ? FS_ION+'px' : d.depth===2 ? FS_STRUCT+'px' : FS_STRAT+'px';
+      })
+      .style('font-weight', d=> d.children ? (d.depth===1?700: d.depth===2?600:500) : 400)
+      .style('fill', d=> d.children && d.depth===1 ? '#fff' : '#e7eaf2');
 
-    // Leaves (Formula)
-    const leaves = _nodesCache.filter(d => !d.children);
-    const selLeaf = SHOW_FORMULA
-      ? layer.selectAll('text.leaf').data(leaves, d=>d.data._uid).join('text')
-          .attr('class','leafLabel visibleLabel leaf')
-          .text(d=>d.data.name)
-          .style('font-size', FS_FORM + 'px')
-      : layer.selectAll('text.leaf').data([], d=>d.data?d.data._uid:null).join('text'); // nothing
-
-    // Place both with upright radial algorithm
-    placeRadial(selInt);
-    if (SHOW_FORMULA) placeRadial(selLeaf);
-
-    applyLabelVisibility();
+    placeRadial(sel);
   }
 
   // Upright, tangential rotation with greedy fit + last-resort placement
@@ -363,8 +357,6 @@
 
     selection.each(function(d){
       const el = d3.select(this);
-
-      // choose base font per node depth
       const basePx = (!d.children) ? FS_FORM
                      : d.depth===1 ? FS_ION
                      : d.depth===2 ? FS_STRUCT
@@ -420,8 +412,6 @@
     _g.selectAll('.ringGuides').remove();
     const guides = _g.append('g').attr('class','ringGuides');
 
-    const caps = ['Ion','Structure','Doping strategy','Formula'];
-
     const a0 = (-90 - CAP_ARC_DEG/2) * Math.PI/180;
     const a1 = (-90 + CAP_ARC_DEG/2) * Math.PI/180;
 
@@ -437,10 +427,10 @@
     const rFormula = (bandCount * _ringThickness) + (_leafBase * 0.65);
 
     const items=[];
-    if (bandMids[0]!=null) items.push({text:caps[0], r:bandMids[0]});
-    if (bandMids[1]!=null) items.push({text:caps[1], r:bandMids[1]});
-    if (bandMids[2]!=null) items.push({text:caps[2], r:bandMids[2]});
-    items.push({text:caps[3], r:rFormula});
+    if (bandMids[0]!=null) items.push({text:'Ion', r:bandMids[0]});
+    if (bandMids[1]!=null) items.push({text:'Structure', r:bandMids[1]});
+    if (bandMids[2]!=null) items.push({text:'Doping strategy', r:bandMids[2]});
+    items.push({text:'Formula', r:rFormula});
 
     items.forEach((it,i)=>{
       const id = `ringcap-${i}-${Math.floor(it.r)}`;
