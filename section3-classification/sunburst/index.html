@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sunburst — Ring Captions (Horizontal) + Zoom/Toggles</title>
+<title>Sunburst — Curved Ring Captions + Zoom Toggles</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   :root { color-scheme: dark; }
@@ -31,19 +31,16 @@
   .crumbs a { color:#c6d7ff; text-decoration:none; cursor:pointer; }
   .crumbs a:hover { text-decoration:underline; }
 
-  /* Ring captions */
-  .ringGuides text {
+  /* Curved ring captions */
+  .ringGuides text.ringCaption {
     font-size: 11px;
     fill: #9fb3cc;
+    letter-spacing: .3px;
     paint-order: stroke;
-    stroke: rgba(15,17,21,0.85);
-    stroke-width: 3px; /* subtle outline for readability */
+    stroke: rgba(15,17,21,0.85); /* subtle outline */
+    stroke-width: 3px;
   }
-  .ringGuides line {
-    stroke: #2b3342;
-    stroke-opacity: .8;
-    stroke-width: 1;
-  }
+  .ringGuides path.ringArc { fill: none; stroke: none; }
 
   .muted { opacity:.45; }
 </style>
@@ -91,7 +88,7 @@
   // ---- Tunables ----
   const DEF_COND=1e-6, SCALE_MODE='log';
   const RING_SCALE=[1.0,1.32,1.52], LEAF_SCALE=[1.0,1.45,1.6]; // root, ion, structure
-  const LEAF_MIN_DEG = 0.2;
+  const LEAF_MIN_DEG = 0.2; // small guard for formula label
   const ANG_PAD_PX = 4, FONT_TRY_STEPS = [1.0, 0.9, 0.8, 0.7];
 
   // ---- State ----
@@ -99,6 +96,9 @@
   let gArcs, colorIon, maxRGlobal=0, labelsVisible=true;
   let LABEL_PX = 9;
   let SHOW_FORMULAS_AT_Z1 = false;
+
+  // Refs used across functions
+  let _nodesCache=null, _outerR=null, _defs=null, _g=null, _internalSel=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
 
   const ui = {};
   document.addEventListener('DOMContentLoaded', async ()=>{
@@ -191,7 +191,6 @@
   }
 
   // ---------- Draw ----------
-  let _nodesCache=null, _outerR=null, _defs=null, _g=null, _internalSel=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
   function draw(){
     const chartEl=document.getElementById('chart');
     const legendEl=document.querySelector('.legendGroup');
@@ -285,7 +284,7 @@
     layoutInternalLabels(false);
     layoutFormulaLabels(); // respects zoom policy + checkbox
 
-    // ring captions (horizontal, persistent)
+    // curved ring captions
     renderRingCaptions(root);
 
     // stats + crumbs + legend
@@ -409,45 +408,75 @@
     });
   }
 
-  // -------- Horizontal ring captions (persistent across zooms) --------
+  // -------- Curved ring captions (persistent across zooms) --------
   function renderRingCaptions(partitionRoot){
     // Remove old
     _g.selectAll('.ringGuides').remove();
 
-    const g = _g.append('g').attr('class','ringGuides');
+    const guides = _g.append('g').attr('class','ringGuides');
 
-    // Which captions to show at this zoom?
-    // We always show from the first ring outward for this view.
+    // captions by zoom
     const captionsByZoom = [
-      ['Ion','Structure','Doping strategy','Formula'],
-      ['Structure','Doping strategy','Formula'],
-      ['Doping strategy','Formula'],
+      ['Ion','Structure','Doping strategy','Formula'],  // root
+      ['Structure','Doping strategy','Formula'],        // ion focus
+      ['Doping strategy','Formula'],                    // structure+
       ['Doping strategy','Formula']
     ];
+
     const caps = captionsByZoom[Math.min(_focusDepth, 3)];
 
-    // Radii for ring mids relative to this view
-    // band i spans [i*ringThickness, (i+1)*ringThickness]
-    const radii = [];
-    for (let i=0; i<Math.min(caps.length, partitionRoot.height); i++){
-      radii.push((i + 0.5) * _ringThickness);
+    // We'll draw the caption along a short arc near the TOP of the circle (centered at -90°)
+    const aSpanDeg = 120;                  // arc length for caption (degrees)
+    const a0 = (-90 - aSpanDeg/2) * Math.PI/180; // start angle (radians)
+    const a1 = (-90 + aSpanDeg/2) * Math.PI/180; // end angle (radians)
+
+    function arcPath(r, a0, a1){
+      const x0 = r * Math.cos(a0), y0 = r * Math.sin(a0);
+      const x1 = r * Math.cos(a1), y1 = r * Math.sin(a1);
+      const largeArc = (a1 - a0) % (2*Math.PI) > Math.PI ? 1 : 0;
+      const sweep = 1;
+      return `M ${x0.toFixed(3)} ${y0.toFixed(3)} A ${r.toFixed(3)} ${r.toFixed(3)} 0 ${largeArc} ${sweep} ${x1.toFixed(3)} ${y1.toFixed(3)}`;
     }
-    // Add a radius for "Formula" caption slightly outside the last base band
-    const rFormula = (partitionRoot.height * _ringThickness) + (_leafBase * 0.75);
-    if (caps.includes('Formula')) radii.push(rFormula);
 
-    // Place captions on the right side (x = r, y = 0), horizontal
-    const items = caps.map((t, i) => ({text: t, r: (t==='Formula') ? rFormula : radii[i]}));
+    // Band mids for current partition
+    const bandCount = partitionRoot.height; // number of partition bands
+    const bandMids = Array.from({length: bandCount}, (_,i)=> (i+0.5) * _ringThickness);
+    // Formula radius slightly outside base bands
+    const rFormula = (bandCount * _ringThickness) + (_leafBase * 0.65);
 
-    items.forEach(({text, r})=>{
-      // guide tick
-      g.append('line').attr('x1', r).attr('y1', -6).attr('x2', r).attr('y2', 6);
-      // label
-      g.append('text')
-        .attr('x', r + 8)
-        .attr('y', 0)
-        .attr('text-anchor', 'start')
-        .text(text);
+    // Map caption -> radius for this zoom
+    const items = [];
+    if (_focusDepth === 0){
+      if (bandMids[0] != null) items.push({text:'Ion', r: bandMids[0]});
+      if (bandMids[1] != null) items.push({text:'Structure', r: bandMids[1]});
+      if (bandMids[2] != null) items.push({text:'Doping strategy', r: bandMids[2]});
+      items.push({text:'Formula', r: rFormula});
+    } else if (_focusDepth === 1){
+      if (bandMids[0] != null) items.push({text:'Structure', r: bandMids[0]});
+      if (bandMids[1] != null) items.push({text:'Doping strategy', r: bandMids[1]});
+      items.push({text:'Formula', r: rFormula});
+    } else {
+      if (bandMids[0] != null) items.push({text:'Doping strategy', r: bandMids[0]});
+      items.push({text:'Formula', r: rFormula});
+    }
+
+    // draw curved captions
+    items.forEach((it, i) => {
+      const id = `ringcap-${_focusDepth}-${i}-${Math.floor(it.r)}`;
+      const d = arcPath(it.r, a0, a1);
+
+      _defs.append('path')
+        .attr('class', 'ringArc')
+        .attr('id', id)
+        .attr('d', d);
+
+      guides.append('text')
+        .attr('class', 'ringCaption')
+        .append('textPath')
+        .attr('href', `#${id}`)
+        .attr('startOffset', '50%')
+        .attr('text-anchor', 'middle')
+        .text(it.text);
     });
   }
 
@@ -492,7 +521,7 @@
       const base = this.classList.contains('leafLabel') ? 'leafLabel' : 'label';
       this.setAttribute('class', labelsVisible ? `${base} visibleLabel` : `${base} hiddenLabel`);
     });
-    // ring captions are “meta” — keep them always visible regardless of toggle
+    // ring captions are meta — leave them always visible
   }
   </script>
 </body>
