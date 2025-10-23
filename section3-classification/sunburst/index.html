@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Sunburst — Ion Zoom (All Labels In Zoom)</title>
+  <title>Sunburst — Zoom Bigger + Overlap-Safe Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root { color-scheme: dark; }
@@ -28,22 +28,17 @@
       position:relative;
       height:min(88vh,900px);
       min-height:520px;
+      contain: content;
     }
     svg { width:100%; height:100%; display:block; }
 
-    /* Legend */
     .legend {
       background:#0f141f; border:1px solid #2a3240; border-radius:12px;
       padding:10px; overflow:auto; max-height:calc(100vh - 150px);
     }
     .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
     .legendGroup { display:flex; flex-direction:column; gap:6px; }
-
-    .ionRow {
-      display:grid; grid-template-columns:18px 1fr 18px;
-      gap:10px; align-items:center; padding:6px 8px;
-      border-radius:8px; user-select:none; cursor:pointer;
-    }
+    .ionRow { display:grid; grid-template-columns:18px 1fr 18px; gap:10px; align-items:center; padding:6px 8px; border-radius:8px; user-select:none; cursor:pointer; }
     .ionRow:hover { background:#0f1726; }
     .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(255,255,255,.35); }
     .chev { width:18px; text-align:center; color:#a9b3c8; }
@@ -52,19 +47,14 @@
 
     .structRow, .stratRow {
       display:grid; grid-template-columns:14px 1fr 18px;
-      gap:8px; align-items:center; padding:4px 6px;
-      border-radius:6px; cursor:pointer;
+      gap:8px; align-items:center; padding:4px 6px; border-radius:6px; cursor:pointer;
     }
     .structRow:hover, .stratRow:hover { background:#0c1322; }
     .smSwatch { width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,.28); }
 
-    /* Tooltip + labels */
-    .tooltip {
-      position:fixed; pointer-events:none; background:rgba(0,0,0,.9);
-      color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3;
-      display:none; z-index:10; box-shadow:0 6px 18px rgba(0,0,0,.45);
-    }
-    .label { fill:#e8e8ea; text-anchor:middle; pointer-events:none; }
+    .tooltip { position:fixed; pointer-events:none; background:rgba(0,0,0,.9); color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3; display:none; z-index:10; box-shadow:0 6px 18px rgba(0,0,0,.45); }
+
+    .label, .leafLabel { fill:#e8e8ea; pointer-events:none; }
     .hiddenLabel { opacity:0; transition:opacity .12s ease; }
     .visibleLabel { opacity:1; transition:opacity .12s ease; }
 
@@ -96,33 +86,41 @@
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script>
+    // -------- Tunables --------
     const DEF_COND = 1e-6;
     const SCALE_MODE = 'log';
+    const ZOOM_RING_SCALE = 1.25;   // ring thickness multiplier when zoomed
+    const ZOOM_LEAF_SCALE = 1.35;   // extra leaf height multiplier when zoomed
+    const STRAT_MIN_DEG = 0.9;      // min angular span (deg) to consider for strategy label
+    const LEAF_MIN_DEG  = 0.6;      // min angular span (deg) to consider for leaf textPath
 
+    const LEAF_BATCH = 150;         // progressive batch size for formula labels
+
+    // -------- State --------
     let root, gArcs, colorIon, maxRGlobal = 0;
     let labelsVisible = true;
 
-    // Legend interaction state
     const selIons = new Set(), selStructs = new Set(), selStrats = new Set();
     let hoverKey = null;
 
-    // Zoom state + hold data across redraws
     let activeIon = null;
     let dataObjGlobal = null;
 
+    let isDrawing = false;
+    let resizeTimer = null;
+    const idle = window.requestIdleCallback || ((cb)=>setTimeout(()=>cb({timeRemaining:()=>0, didTimeout:true}),0));
+
     document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        dataObjGlobal = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
-        draw(dataObjGlobal);
-        window.addEventListener('resize', () => requestAnimationFrame(() => draw(dataObjGlobal)));
-        document.getElementById('labelToggle').addEventListener('change', e => {
-          labelsVisible = e.target.checked;
-          applyLabelVisibility();
-        });
-      } catch (e) {
-        console.error(e);
-        document.getElementById('chart').innerHTML = '<div style="padding:16px;color:#f88">Failed to load data.simplified.json</div>';
-      }
+      dataObjGlobal = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
+      draw(dataObjGlobal);
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => draw(dataObjGlobal), 120);
+      });
+      document.getElementById('labelToggle').addEventListener('change', e => {
+        labelsVisible = e.target.checked;
+        applyLabelVisibility();
+      });
     });
 
     function obj2children(obj){
@@ -152,6 +150,9 @@
     }
 
     function draw(dataObj){
+      if (isDrawing) return;
+      isDrawing = true;
+
       const chartEl = document.getElementById('chart');
       const legendEl = document.querySelector('.legendGroup');
       const tooltip  = document.getElementById('tooltip');
@@ -162,7 +163,7 @@
       const ch = Math.max(500, rect.height);
       const side = Math.min(cw, ch);
 
-      // Build children and optionally narrow to a single ion (zoom)
+      // Build hierarchy (zoom isolates one ion)
       const allIons = obj2children(dataObj);
       const children = activeIon ? allIons.filter(d => d.name === activeIon) : allIons;
 
@@ -171,9 +172,13 @@
                .sum(d => Array.isArray(d?.values) ? 1 : 0)
                .sort((a,b) => (b.value||0) - (a.value||0));
 
-      const ringThickness = Math.max(40, side * 0.08);
+      // bigger rings in zoom
+      const ringScale = activeIon ? ZOOM_RING_SCALE : 1;
+      const leafScale = activeIon ? ZOOM_LEAF_SCALE : 1;
+
+      const ringThickness = Math.max(40, side * 0.08) * ringScale;
       const leafBase      = Math.max(12, side * 0.03);
-      const extraLeafMax  = Math.max(90, side * 0.22);
+      const extraLeafMax  = Math.max(90, side * 0.22) * leafScale;
 
       computeLeafCond(root, DEF_COND);
       d3.partition().size([2*Math.PI, (root.height + 1) * ringThickness])(root);
@@ -192,7 +197,7 @@
       colorIon = d3.scaleOrdinal(ions, d3.quantize(t=>d3.interpolateRainbow(t), Math.max(3, ions.length)));
 
       const outerR = d => d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || DEF_COND);
-      const maxR   = d3.max(root.descendants(), d => outerR(d)) + 6; // padding for stroke
+      const maxR   = d3.max(root.descendants(), d => outerR(d)) + 6;
       maxRGlobal = maxR;
 
       const svg = d3.select(chartEl).append('svg')
@@ -200,6 +205,8 @@
         .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
       const g = svg.append('g');
       gArcs = g;
+
+      const defs = svg.append('defs'); // for leaf textPaths
 
       const arc = d3.arc()
         .startAngle(d=>d.x0)
@@ -211,7 +218,7 @@
 
       const nodes = root.descendants().filter(d=>d.depth>0);
 
-      const paths = g.selectAll('path').data(nodes).join('path')
+      const paths = g.selectAll('path').data(nodes, d => d.data.name + '-' + d.depth).join('path')
         .attr('d', arc)
         .attr('fill', d => {
           let ion=d; while(ion.depth>1) ion=ion.parent;
@@ -226,7 +233,7 @@
       paths.each(function(d){
         let ion=d; while(ion && ion.depth>1) ion=ion.parent;
         let struct=d; while(struct && struct.depth>2) struct=struct.parent;
-        let strat=d; while(strat && strat.depth>3) strat=strat.parent;  /* <-- fixed */
+        let strat=d; while(strat && strat.depth>3) strat=strat.parent;
         this.dataset.ion   = ion?.data?.name   || '';
         this.dataset.struct= struct?.data?.name|| '';
         this.dataset.strat = strat?.data?.name || '';
@@ -251,9 +258,7 @@
 
       // CLICK-TO-ZOOM
       paths.on('click', (evt, d) => {
-        // ion ancestor for any clicked arc
-        let ion = d;
-        while (ion && ion.depth > 1) ion = ion.parent;
+        let ion = d; while (ion && ion.depth > 1) ion = ion.parent;
         const ionName = ion?.data?.name;
 
         if (d.depth === 1 && ionName) {
@@ -269,79 +274,158 @@
         }
       });
 
-      // ----------------- LABELS (always-on per state) -----------------
-      const labelGroup = g.append('g').attr('class','labels');
+      // ----------------- LABELS -----------------
+      const labelLayer = g.append('g').attr('class','labels');
 
-      function depthsToLabel(){
-        // default: ions + structures
-        // zoom: ion + structures + strategies + formulas (all)
-        return activeIon ? [1,2,3,4] : [1,2];
-      }
-      const labelDepths = depthsToLabel();
+      // default: ions+structures; zoom: structures+strategies+formulas (+ion in center ring still shows)
+      const angleToPixels = (d, radius) => (d.x1 - d.x0) * radius;
 
-      const labelNodes = nodes.filter(d => {
-        const group = d.children ? d.depth : 4; // leaves as 4
-        return labelDepths.includes(group);
+      // Internal (ions/structures/strategies) first
+      const internalTargets = nodes.filter(d=>{
+        if (!activeIon) return d.children && (d.depth===1 || d.depth===2);
+        return d.children && (d.depth===1 || d.depth===2 || d.depth===3);
       });
 
-      const labels = labelGroup.selectAll('text')
-        .data(labelNodes, d => d.data.name + '-' + d.depth + (activeIon?'z':'r'))
+      const internal = labelLayer.selectAll('text.internal')
+        .data(internalTargets, d => 'i-' + d.depth + '-' + d.data.name + (activeIon?'z':'r'))
         .join('text')
-        .attr('class', 'label visibleLabel')
-        .attr('dy', '0.32em')
+        .attr('class','label visibleLabel internal')
+        .attr('dy','0.32em')
         .attr('transform', d => {
           const a = (d.x0 + d.x1) / 2 * 180 / Math.PI;
           const r = (d.y0 + (d.children ? d.y1 : outerR(d))) / 2;
           return `rotate(${a-90}) translate(${r},0) rotate(${a<180?0:180})`;
         })
-        .text(d => d.data.name)
+        .text(d=>d.data.name)
         .each(function(d){
-          const group = d.children ? d.depth : 4;
-          let fs = (group===1) ? 14 : (group===2) ? 12 : (group===3) ? 11 : 10;
-          const rMid = (d.y0 + (d.children ? d.y1 : outerR(d))) / 2;
-          fs = fs * Math.min(1.2, Math.max(0.75, (rMid / maxRGlobal) * 1.4));
+          let fs = d.depth===1 ? 14 : d.depth===2 ? 12 : 11;
+          const rMid=(d.y0 + d.y1)/2;
+          fs = fs * Math.min(1.25, Math.max(0.75, (rMid / maxRGlobal) * 1.4));
           this.style.fontSize = fs + 'px';
-          this.style.fill = (group===1) ? '#fff' : (group===2) ? '#d5d9e0' : '#cfd4de';
-          this.style.fontWeight = (group===1) ? '600' : (group===2 ? '500' : '400');
+          this.style.fill = d.depth===1 ? '#fff' : d.depth===2 ? '#d5d9e0' : '#cfd4de';
+          this.style.fontWeight = d.depth===1 ? '600' : d.depth===2 ? '500' : '400';
         });
 
-      applyLabelVisibility();
+      // In zoom, do overlap control for strategies (depth 3)
+      if (activeIon) {
+        // gate by arc length + min angle
+        internal.each(function(d){
+          if (d.depth !== 3) return;
+          const rMid = (d.y0 + d.y1)/2;
+          const arcPx = angleToPixels(d, rMid);
+          const minAngleRad = STRAT_MIN_DEG * Math.PI/180;
+          const hasAngle = (d.x1 - d.x0) >= minAngleRad;
+          const w = this.getComputedTextLength ? this.getComputedTextLength() : 0;
+          const allow = hasAngle && arcPx >= (w + 8);
+          this.__allow = allow;
+          this.style.display = allow ? null : 'none';
+        });
 
-      // Header stat + focus crumb
-      const rtStats = document.getElementById('rtStats');
-      rtStats.textContent =
+        // greedy collision among shown depth-3
+        const shown = internal.filter(function(d){ return d.depth===3 && this.__allow; }).nodes()
+          .sort((a,b)=> d3.select(a).datum().x0 - d3.select(b).datum().x0);
+        const kept = [];
+        const pad = 2;
+        shown.forEach(el=>{
+          const rect = el.getBoundingClientRect();
+          const ok = kept.every(r => (rect.right + pad < r.left) || (rect.left - pad > r.right) ||
+                                     (rect.bottom + pad < r.top) || (rect.top - pad > r.bottom));
+          if (ok) kept.push(rect); else el.style.display = 'none';
+        });
+      }
+
+      // Leaf (formulas) via curved textPath — progressive for perf
+      if (activeIon) {
+        const leavesToLabel = nodes.filter(d => !d.children)
+          .filter(d => (d.x1 - d.x0) >= (LEAF_MIN_DEG * Math.PI/180)); // small angle guard
+
+        // thin middle-arc path for each leaf
+        const arcMid = d3.arc()
+          .startAngle(d=>d.x0).endAngle(d=>d.x1)
+          .innerRadius(d=>{
+            const r0 = d.y0, r1 = outerR(d);
+            return (r0 + r1) / 2;
+          })
+          .outerRadius(d=>{
+            const r0 = d.y0, r1 = outerR(d);
+            return (r0 + r1) / 2 + 0.01; // tiny thickness
+          });
+
+        // Progressive batching
+        let i=0;
+        function batch(deadline){
+          let n=0;
+          while(i<leavesToLabel.length && (deadline.timeRemaining ? deadline.timeRemaining()>0 : n<LEAF_BATCH)){
+            const d = leavesToLabel[i++];
+            const id = 'leaf-path-' + i;
+
+            defs.append('path')
+              .attr('class','leafArcPath')
+              .attr('id', id)
+              .attr('d', arcMid(d));
+
+            const t = labelLayer.append('text')
+              .attr('class','leafLabel visibleLabel')
+              .style('font-size','10px')
+              .style('font-weight','400')
+              .style('fill','#cfd4de')
+              .append('textPath')
+              .attr('href', `#${id}`)
+              .attr('startOffset','50%')
+              .attr('text-anchor','middle')
+              .text(d.data.name);
+
+            // path-length vs text width gate
+            const path = document.getElementById(id);
+            const pathLen = path && path.getTotalLength ? path.getTotalLength() : 0;
+            const textEl = t.node().parentNode; // <text>
+            const w = textEl.getComputedTextLength ? textEl.getComputedTextLength() : 0;
+            const ok = pathLen >= (w + 10);
+            if (!ok) textEl.remove(); // hide if it won't fit
+
+            n++;
+          }
+          applyLabelVisibility();
+          if (i < leavesToLabel.length) idle(batch);
+        }
+        idle(batch);
+      }
+
+      // Stats + legend
+      document.getElementById('rtStats').textContent =
         `Formulas w/ conductivity: ${root.leaves().filter(d=>d.data.hasCond).length}/${root.leaves().length}`
         + (activeIon ? `  •  Focus: ${activeIon} (click inside to reset)` : '');
 
-      // ---------- Build legend & enable highlight ----------
       buildLegendTree(legendEl);
       applyHighlight();
+
+      applyLabelVisibility();
+      isDrawing = false;
     }
 
     // ---------- Legend (Ion -> Structure -> Strategy) ----------
     function buildLegendTree(container){
       container.innerHTML='';
+      const frag = document.createDocumentFragment();
+
       (root.children||[]).forEach(ionNode=>{
         const ion = ionNode.data.name;
+
         const ionRow = document.createElement('div'); ionRow.className='ionRow';
         const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(ion);
         const nm  = document.createElement('div'); nm.textContent = ion;
         const cv  = document.createElement('div'); cv.className='chev'; cv.textContent = '▸';
-        ionRow.append(sw, nm, cv); container.appendChild(ionRow);
+        ionRow.append(sw, nm, cv); frag.appendChild(ionRow);
 
         const subStruct = document.createElement('div'); subStruct.className='sublist';
-        container.appendChild(subStruct);
+        frag.appendChild(subStruct);
 
         ionRow.addEventListener('click',(e)=>{
           e.stopPropagation();
           subStruct.classList.toggle('open');
           cv.textContent = subStruct.classList.contains('open') ? '▾' : '▸';
 
-          // selection highlight (kept)
-          if (selIons.has(ion)) selIons.delete(ion); else selIons.add(ion);
-          applyHighlight();
-
-          // legend also toggles zoom
+          // toggle zoom to this ion
           activeIon = (activeIon === ion) ? null : ion;
           selIons.clear(); selStructs.clear(); selStrats.clear(); hoverKey = null;
           draw(dataObjGlobal);
@@ -392,6 +476,8 @@
           });
         });
       });
+
+      container.appendChild(frag);
     }
 
     // ---------- Highlight logic ----------
@@ -412,7 +498,7 @@
         if (selStrats.has(`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`)) return true;
         return false;
       }
-      return true; // no selection -> all on
+      return true;
     }
 
     function applyHighlight(){
@@ -426,7 +512,10 @@
 
     // checkbox: show/hide all labels together
     function applyLabelVisibility(){
-      d3.selectAll('.label').attr('class', () => labelsVisible ? 'label visibleLabel' : 'label hiddenLabel');
+      d3.selectAll('.label, .leafLabel').each(function(){
+        const base = this.classList.contains('leafLabel') ? 'leafLabel' : 'label';
+        this.setAttribute('class', labelsVisible ? `${base} visibleLabel` : `${base} hiddenLabel`);
+      });
     }
   </script>
 </body>
