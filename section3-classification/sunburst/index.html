@@ -1,8 +1,8 @@
-=<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sunburst — Zoomed Label Policy + Ion-zoom Formula Toggle</title>
+<title>Sunburst — Ring Captions (Horizontal) + Zoom/Toggles</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   :root { color-scheme: dark; }
@@ -31,6 +31,20 @@
   .crumbs a { color:#c6d7ff; text-decoration:none; cursor:pointer; }
   .crumbs a:hover { text-decoration:underline; }
 
+  /* Ring captions */
+  .ringGuides text {
+    font-size: 11px;
+    fill: #9fb3cc;
+    paint-order: stroke;
+    stroke: rgba(15,17,21,0.85);
+    stroke-width: 3px; /* subtle outline for readability */
+  }
+  .ringGuides line {
+    stroke: #2b3342;
+    stroke-opacity: .8;
+    stroke-width: 1;
+  }
+
   .muted { opacity:.45; }
 </style>
 </head>
@@ -50,7 +64,7 @@
       <span id="labelSizeVal">9px</span>
     </div>
 
-    <!-- NEW: Only active at Zoom 1 (Ion focus) -->
+    <!-- Ion-zoom formula toggle -->
     <label id="z1FormulasWrap" class="muted" style="font-size:13px; display:flex; align-items:center; gap:6px;">
       <input type="checkbox" id="z1Formulas" disabled>
       Show formulas in Ion zoom
@@ -77,16 +91,15 @@
   // ---- Tunables ----
   const DEF_COND=1e-6, SCALE_MODE='log';
   const RING_SCALE=[1.0,1.32,1.52], LEAF_SCALE=[1.0,1.45,1.6]; // root, ion, structure
-  const LEAF_MIN_DEG = 0.2; // tiny guard
+  const LEAF_MIN_DEG = 0.2;
   const ANG_PAD_PX = 4, FONT_TRY_STEPS = [1.0, 0.9, 0.8, 0.7];
 
   // ---- State ----
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
   let gArcs, colorIon, maxRGlobal=0, labelsVisible=true;
-  let LABEL_PX = 9; // slider-controlled
-  let SHOW_FORMULAS_AT_Z1 = false; // <- new toggle for Ion zoom
+  let LABEL_PX = 9;
+  let SHOW_FORMULAS_AT_Z1 = false;
 
-  // UI handles
   const ui = {};
   document.addEventListener('DOMContentLoaded', async ()=>{
     ui.z1Formulas = document.getElementById('z1Formulas');
@@ -96,26 +109,22 @@
     fullHierarchy = buildHierarchy(dataObj);
     draw();
 
-    // checkbox: show/hide all labels
     document.getElementById('labelToggle').addEventListener('change', e=>{
       labelsVisible = e.target.checked; applyLabelVisibility();
     });
 
-    // slider
     const sizeEl = document.getElementById('labelSize');
     const sizeVal = document.getElementById('labelSizeVal');
     sizeEl.addEventListener('input', ()=>{
       LABEL_PX = Number(sizeEl.value);
       sizeVal.textContent = LABEL_PX + 'px';
-      layoutInternalLabels(true);             // live update
+      layoutInternalLabels(true);
       d3.selectAll('.leafLabel').style('font-size', Math.max(6, LABEL_PX-1) + 'px');
     });
     sizeVal.textContent = LABEL_PX + 'px';
 
-    // NEW: ion-zoom formula toggle
     ui.z1Formulas.addEventListener('change', ()=>{
       SHOW_FORMULAS_AT_Z1 = ui.z1Formulas.checked;
-      // just re-run label layout (leaves) for current view
       layoutFormulaLabels();
       applyLabelVisibility();
     });
@@ -182,7 +191,7 @@
   }
 
   // ---------- Draw ----------
-  let _nodesCache=null, _outerR=null, _defs=null, _g=null, _internalSel=null, _focusDepth=0;
+  let _nodesCache=null, _outerR=null, _defs=null, _g=null, _internalSel=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
   function draw(){
     const chartEl=document.getElementById('chart');
     const legendEl=document.querySelector('.legendGroup');
@@ -197,11 +206,11 @@
 
     const ringScale=RING_SCALE[Math.min(_focusDepth, RING_SCALE.length-1)];
     const leafScale=LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
-    const ringThickness=Math.max(44, side*0.085)*ringScale;
-    const leafBase=Math.max(12, side*0.03);
+    _ringThickness=Math.max(44, side*0.085)*ringScale;
+    _leafBase=Math.max(12, side*0.03);
     const extraLeafMax=Math.max(90, side*0.22)*leafScale;
 
-    d3.partition().size([2*Math.PI, (root.height+1)*ringThickness])(root);
+    d3.partition().size([2*Math.PI, (root.height+1)*_ringThickness])(root);
 
     // cond scale
     const condVals=root.leaves().map(l=>l.data.cond||DEF_COND);
@@ -213,7 +222,7 @@
     const ions=(fullHierarchy.children||[]).map(d=>d.data.name);
     colorIon=d3.scaleOrdinal(ions, d3.quantize(t=>d3.interpolateRainbow(t), Math.max(3, ions.length)));
 
-    _outerR=d=>d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || DEF_COND);
+    _outerR=d=>d.children ? d.y1 : d.y1 + _leafBase + condScale(d.data.cond || DEF_COND);
     const maxR=d3.max(root.descendants(), d=>_outerR(d)) + 6; maxRGlobal=maxR;
 
     const svg=d3.select(chartEl).append('svg').attr('width','100%').attr('height','100%')
@@ -276,6 +285,9 @@
     layoutInternalLabels(false);
     layoutFormulaLabels(); // respects zoom policy + checkbox
 
+    // ring captions (horizontal, persistent)
+    renderRingCaptions(root);
+
     // stats + crumbs + legend
     document.getElementById('rtStats').textContent =
       `Formulas w/ conductivity: ${fullHierarchy.leaves().filter(d=>d.data.hasCond).length}/${fullHierarchy.leaves().length}`;
@@ -326,7 +338,6 @@
       .style('font-weight', d=> (d.depth===1?'600': d.depth===2?'500':'400'))
       .style('fill', d=> (d.depth===1 ? '#fff' : '#cfd4de'));
 
-    // angular greedy placement per depth ring, with shrink-to-fit
     [1,2,3].forEach(depth=>{
       const ringSel = _internalSel.filter(d=>d.depth===depth);
       placeAngular(ringSel, depth);
@@ -369,7 +380,6 @@
 
   // -------- Formula labels (curved) respecting zoom/toggle --------
   function layoutFormulaLabels(){
-    // clear previous leaf labels/paths
     _g.selectAll('.leafLabel').remove();
     _g.selectAll('.leafArcPath').remove();
 
@@ -396,6 +406,48 @@
         .attr('startOffset','50%')
         .attr('text-anchor','middle')
         .text(d.data.name);
+    });
+  }
+
+  // -------- Horizontal ring captions (persistent across zooms) --------
+  function renderRingCaptions(partitionRoot){
+    // Remove old
+    _g.selectAll('.ringGuides').remove();
+
+    const g = _g.append('g').attr('class','ringGuides');
+
+    // Which captions to show at this zoom?
+    // We always show from the first ring outward for this view.
+    const captionsByZoom = [
+      ['Ion','Structure','Doping strategy','Formula'],
+      ['Structure','Doping strategy','Formula'],
+      ['Doping strategy','Formula'],
+      ['Doping strategy','Formula']
+    ];
+    const caps = captionsByZoom[Math.min(_focusDepth, 3)];
+
+    // Radii for ring mids relative to this view
+    // band i spans [i*ringThickness, (i+1)*ringThickness]
+    const radii = [];
+    for (let i=0; i<Math.min(caps.length, partitionRoot.height); i++){
+      radii.push((i + 0.5) * _ringThickness);
+    }
+    // Add a radius for "Formula" caption slightly outside the last base band
+    const rFormula = (partitionRoot.height * _ringThickness) + (_leafBase * 0.75);
+    if (caps.includes('Formula')) radii.push(rFormula);
+
+    // Place captions on the right side (x = r, y = 0), horizontal
+    const items = caps.map((t, i) => ({text: t, r: (t==='Formula') ? rFormula : radii[i]}));
+
+    items.forEach(({text, r})=>{
+      // guide tick
+      g.append('line').attr('x1', r).attr('y1', -6).attr('x2', r).attr('y2', 6);
+      // label
+      g.append('text')
+        .attr('x', r + 8)
+        .attr('y', 0)
+        .attr('text-anchor', 'start')
+        .text(text);
     });
   }
 
@@ -440,6 +492,7 @@
       const base = this.classList.contains('leafLabel') ? 'leafLabel' : 'label';
       this.setAttribute('class', labelsVisible ? `${base} visibleLabel` : `${base} hiddenLabel`);
     });
+    // ring captions are “meta” — keep them always visible regardless of toggle
   }
   </script>
 </body>
