@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Sunburst — Zoomable + Legend + Smart Labels</title>
+  <title>Sunburst — Ion Toggle Zoom + Legend + Smart Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root { color-scheme: dark; }
@@ -28,7 +28,6 @@
       position:relative;
       height:min(88vh,900px);
       min-height:520px;
-      cursor:default;
     }
     svg { width:100%; height:100%; display:block; }
 
@@ -50,7 +49,6 @@
     .chev { width:18px; text-align:center; color:#a9b3c8; }
     .sublist { margin-left:26px; display:none; }
     .sublist.open { display:block; }
-
     .structRow, .stratRow {
       display:grid; grid-template-columns:14px 1fr 18px;
       gap:8px; align-items:center; padding:4px 6px;
@@ -71,17 +69,11 @@
 
     .dimmed { opacity:.18; transition:opacity .15s ease; }
     .highlight { opacity:1; transition:opacity .15s ease; }
-
-    /* Center target (click to reset zoom) */
-    .centerCircle {
-      fill:#0d1424; stroke:#2b3650; stroke-width:1px; cursor:pointer;
-    }
-    .centerCircle:hover { stroke:#5a6c95; }
   </style>
 </head>
 <body>
   <header>
-    <strong>Sunburst (Zoomable)</strong>
+    <strong>Sunburst (Ion Toggle Zoom)</strong>
     <label style="font-size:13px;">
       <input type="checkbox" id="labelToggle" checked>
       Show labels
@@ -106,13 +98,13 @@
     // ----- Config -----
     const DEF_COND = 1e-6;   // default height for missing conductivity
     const SCALE_MODE = 'log'; // 'log' or 'linear'
-    const ZOOM_MS = 800;      // zoom transition duration
+    const ZOOM_MS = 800;      // ion zoom animation
     // -------------------
 
     let root, gArcs, gLabels, colorIon, maxRGlobal=0, currentRoot=null;
     let labelsVisible = true;
 
-    // Legend interaction state
+    // Legend interaction state (highlight/dim only)
     const selIons=new Set(), selStructs=new Set(), selStrats=new Set();
     let hoverKey=null;
 
@@ -157,7 +149,7 @@
     function initChart(dataObj){
       const chartEl = document.getElementById('chart');
       const legendEl = document.querySelector('.legendGroup');
-      const tooltip  = document.getElementById('tooltip');   // keep ONLY this declaration
+      const tooltip  = document.getElementById('tooltip');
       chartEl.innerHTML=''; legendEl.innerHTML='';
 
       // Size
@@ -206,15 +198,9 @@
         .attr('width','100%').attr('height','100%')
         .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
 
-      // Center circle to zoom out
-      svg.append('circle')
-        .attr('class','centerCircle')
-        .attr('r', Math.max(18, side*0.04))
-        .on('click', ()=>zoomTo(root));
-
       const g = svg.append('g');
-      gArcs   = g.append('g');     // arcs group
-      gLabels = g.append('g');     // labels group
+      gArcs   = g.append('g');
+      gLabels = g.append('g');
 
       const arc = d3.arc()
         .startAngle(d=>d._x0)
@@ -222,7 +208,7 @@
         .innerRadius(d=>d._y0)
         .outerRadius(d=>d._y1);
 
-      // Initialize current display coords
+      // Initialize current display coords (start from absolute)
       root.each(d=>{
         d._x0 = d.x0;
         d._x1 = d.x1;
@@ -243,8 +229,15 @@
         })
         .attr('stroke','#fff').attr('stroke-opacity',0.28)
         .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.6, side * 0.0012))
-        .style('cursor','pointer')
-        .on('click', (e,d)=>{ e.stopPropagation(); zoomTo(d); });
+        .style('cursor', d => d.depth===1 ? 'zoom-in' : 'default')
+        .on('click', (e,d)=>{   // Ion toggle zoom only
+          e.stopPropagation();
+          if (d.depth === 1) {
+            const target = (currentRoot === d) ? root : d;
+            paths.style('cursor', n => (target===root ? (n.depth===1?'zoom-in':'default') : (n.depth===1?'zoom-out':'default')));
+            zoomTo(target);
+          }
+        });
 
       // dataset tags for legend mapping
       paths.each(function(d){
@@ -256,7 +249,7 @@
         this.dataset.strat = strat?.data?.name || '';
       });
 
-      // Tooltip (use the tooltip defined above; DO NOT redeclare)
+      // Tooltip
       const tooltipVal = v => (!Number.isFinite(v) ? 'n/a'
         : (v < 0.01 ? `${(v*1000).toFixed(3)} mS·cm⁻¹` : `${Number(v).toPrecision(3)} S·cm⁻¹`));
       paths.on('mousemove',(evt,d)=>{
@@ -291,8 +284,8 @@
             return `rotate(${a-90}) translate(${r},0) rotate(${a<180?0:180})`;
           })
           .each(function(d){
-            // Default view: only Ion & Structure labels.
-            // Zoomed view: show all labels within the zoomed branch (including formulas).
+            // Default: show Ion + Structure only
+            // When zoomed into an Ion: show all labels inside that Ion
             let show = false;
             if (currentRoot === null || currentRoot === root) {
               show = (d.depth===1 || d.depth===2);
@@ -325,16 +318,14 @@
       document.getElementById('rtStats').textContent =
         `Formulas w/ conductivity: ${root.leaves().filter(d=>d.data.hasCond).length}/${root.leaves().length}`;
 
-      // ---------- Legend ----------
+      // ---------- Legend (highlight/dim + zoom on Ion) ----------
       buildLegendTree(legendEl);
       applyHighlight();
 
       // Set initial zoom state
       currentRoot = root;
-      // Background click zooms out
-      svg.on('click', ()=> zoomTo(root));
 
-      // ----- Zoom mechanics -----
+      // ----- Ion-only zoom -----
       function zoomTo(target){
         if (!target) return;
         const v = target;
@@ -368,7 +359,7 @@
               o.d._y0 = o.y0i(t);
               o.d._y1 = o.y1i(t);
             });
-            // redraw paths and labels in-flight
+            // redraw paths and labels during animation
             paths.attr('d', arcFor(arc));
             positionLabels();
             applyHighlight();
@@ -388,6 +379,10 @@
       function isDescendantOf(node, ancestor){
         return node === ancestor || node.ancestors().indexOf(ancestor) !== -1;
       }
+
+      // ---- Expose zoom + ion lookup for legend clicks ----
+      window.__zoomTo = zoomTo;
+      window.__ionByName = (name) => (root.children || []).find(n => n.data.name === name);
     }
 
     // ---------- Legend UI ----------
@@ -406,9 +401,19 @@
 
         ionRow.addEventListener('click',(e)=>{
           e.stopPropagation();
+          // Expand/collapse
           subStruct.classList.toggle('open');
           cv.textContent = subStruct.classList.contains('open') ? '▾' : '▸';
+
+          // (Optional) keep highlight selection; remove this line if you want zoom-only
           applyHighlightToggle(selIons, ion);
+
+          // Toggle zoom via legend Ion click
+          const ionNode = window.__ionByName ? window.__ionByName(ion) : null;
+          if (ionNode && window.__zoomTo) {
+            const target = (currentRoot === ionNode) ? root : ionNode;
+            window.__zoomTo(target);
+          }
         });
         ionRow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}`; applyHighlight(); });
         ionRow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
