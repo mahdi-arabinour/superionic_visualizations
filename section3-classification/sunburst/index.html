@@ -1,8 +1,8 @@
-<!doctype html>
+=<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sunburst — Always-Visible Labels + Size Slider</title>
+<title>Sunburst — Zoomed Label Policy + Ion-zoom Formula Toggle</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   :root { color-scheme: dark; }
@@ -30,12 +30,18 @@
   .crumbs { font-size:12px; color:#9fb3cc; }
   .crumbs a { color:#c6d7ff; text-decoration:none; cursor:pointer; }
   .crumbs a:hover { text-decoration:underline; }
+
+  .muted { opacity:.45; }
 </style>
 </head>
 <body>
   <header>
     <strong>Sunburst</strong>
-    <label style="font-size:13px;"><input type="checkbox" id="labelToggle" checked> Show labels</label>
+
+    <label style="font-size:13px;">
+      <input type="checkbox" id="labelToggle" checked>
+      Show labels
+    </label>
 
     <!-- Label size slider -->
     <div style="display:flex; align-items:center; gap:8px; font-size:12px;">
@@ -43,6 +49,12 @@
       <input id="labelSize" type="range" min="6" max="14" step="1" value="9" />
       <span id="labelSizeVal">9px</span>
     </div>
+
+    <!-- NEW: Only active at Zoom 1 (Ion focus) -->
+    <label id="z1FormulasWrap" class="muted" style="font-size:13px; display:flex; align-items:center; gap:6px;">
+      <input type="checkbox" id="z1Formulas" disabled>
+      Show formulas in Ion zoom
+    </label>
 
     <span id="rtStats" style="font-size:12px;color:#9fb3cc;"></span>
     <span id="crumbs" class="crumbs"></span>
@@ -64,19 +76,27 @@
   <script>
   // ---- Tunables ----
   const DEF_COND=1e-6, SCALE_MODE='log';
-  const RING_SCALE=[1.0,1.32,1.52], LEAF_SCALE=[1.0,1.45,1.6];
+  const RING_SCALE=[1.0,1.32,1.52], LEAF_SCALE=[1.0,1.45,1.6]; // root, ion, structure
+  const LEAF_MIN_DEG = 0.2; // tiny guard
+  const ANG_PAD_PX = 4, FONT_TRY_STEPS = [1.0, 0.9, 0.8, 0.7];
 
   // ---- State ----
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
   let gArcs, colorIon, maxRGlobal=0, labelsVisible=true;
   let LABEL_PX = 9; // slider-controlled
+  let SHOW_FORMULAS_AT_Z1 = false; // <- new toggle for Ion zoom
 
+  // UI handles
+  const ui = {};
   document.addEventListener('DOMContentLoaded', async ()=>{
+    ui.z1Formulas = document.getElementById('z1Formulas');
+    ui.z1FormulasWrap = document.getElementById('z1FormulasWrap');
+
     const dataObj=await (await fetch('data.simplified.json',{cache:'no-store'})).json();
     fullHierarchy = buildHierarchy(dataObj);
     draw();
 
-    // checkbox
+    // checkbox: show/hide all labels
     document.getElementById('labelToggle').addEventListener('change', e=>{
       labelsVisible = e.target.checked; applyLabelVisibility();
     });
@@ -87,11 +107,18 @@
     sizeEl.addEventListener('input', ()=>{
       LABEL_PX = Number(sizeEl.value);
       sizeVal.textContent = LABEL_PX + 'px';
-      // live update font sizes without redrawing geometry
-      d3.selectAll('.internal').style('font-size', LABEL_PX + 'px');
+      layoutInternalLabels(true);             // live update
       d3.selectAll('.leafLabel').style('font-size', Math.max(6, LABEL_PX-1) + 'px');
     });
     sizeVal.textContent = LABEL_PX + 'px';
+
+    // NEW: ion-zoom formula toggle
+    ui.z1Formulas.addEventListener('change', ()=>{
+      SHOW_FORMULAS_AT_Z1 = ui.z1Formulas.checked;
+      // just re-run label layout (leaves) for current view
+      layoutFormulaLabels();
+      applyLabelVisibility();
+    });
 
     window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(draw,120); });
   });
@@ -155,6 +182,7 @@
   }
 
   // ---------- Draw ----------
+  let _nodesCache=null, _outerR=null, _defs=null, _g=null, _internalSel=null, _focusDepth=0;
   function draw(){
     const chartEl=document.getElementById('chart');
     const legendEl=document.querySelector('.legendGroup');
@@ -165,10 +193,10 @@
     const side=Math.min(Math.max(500,rect.width), Math.max(500,rect.height));
 
     const root=makeFocusRoot();
-    const focusDepth=(focusNode?.depth ?? 0);
-    const ringScale=RING_SCALE[Math.min(focusDepth, RING_SCALE.length-1)];
-    const leafScale=LEAF_SCALE[Math.min(focusDepth, LEAF_SCALE.length-1)];
+    _focusDepth=(focusNode?.depth ?? 0); // 0=root, 1=ion, 2=structure+
 
+    const ringScale=RING_SCALE[Math.min(_focusDepth, RING_SCALE.length-1)];
+    const leafScale=LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
     const ringThickness=Math.max(44, side*0.085)*ringScale;
     const leafBase=Math.max(12, side*0.03);
     const extraLeafMax=Math.max(90, side*0.22)*leafScale;
@@ -185,26 +213,26 @@
     const ions=(fullHierarchy.children||[]).map(d=>d.data.name);
     colorIon=d3.scaleOrdinal(ions, d3.quantize(t=>d3.interpolateRainbow(t), Math.max(3, ions.length)));
 
-    const outerR=d=>d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || DEF_COND);
-    const maxR=d3.max(root.descendants(), d=>outerR(d)) + 6; maxRGlobal=maxR;
+    _outerR=d=>d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || DEF_COND);
+    const maxR=d3.max(root.descendants(), d=>_outerR(d)) + 6; maxRGlobal=maxR;
 
     const svg=d3.select(chartEl).append('svg').attr('width','100%').attr('height','100%')
       .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
-    const g=svg.append('g'); gArcs=g;
-    const defs=svg.append('defs');
+    _g=svg.append('g'); gArcs=_g;
+    _defs=svg.append('defs');
 
     const arc=d3.arc().startAngle(d=>d.x0).endAngle(d=>d.x1)
       .padAngle(d=>Math.min(0.006,(d.x1-d.x0)/6)).padRadius(maxR*0.9)
-      .innerRadius(d=>d.y0).outerRadius(d=>outerR(d));
+      .innerRadius(d=>d.y0).outerRadius(d=>_outerR(d));
 
     const nodes=root.descendants().filter(d=>d.depth>0);
+    _nodesCache = nodes;
 
     // arcs
-    const paths=g.selectAll('path').data(nodes, d=>d.data._uid).join('path')
+    const paths=_g.selectAll('path').data(nodes, d=>d.data._uid).join('path')
       .attr('d', arc)
       .attr('fill', d=>{
-        let full = idMap.get(d.data._uid);
-        while(full && full.depth>1) full = full.parent;
+        let full = idMap.get(d.data._uid); while(full && full.depth>1) full = full.parent;
         const base=colorIon(full?.data?.name || 'default');
         if (!d.children && !d.data.hasCond){ const c=d3.color(base); c.opacity=0.55; return c.formatRgb(); }
         return base;
@@ -234,45 +262,130 @@
 
     // center back target + name
     const backR = Math.max(16, (root.y1 - root.y0) * 0.38);
-    g.append('circle')
+    _g.append('circle')
       .attr('r', backR)
       .attr('fill', 'rgba(255,255,255,0.02)')
       .style('cursor', focusNode ? 'pointer' : 'default')
       .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; draw(); }});
-    g.append('text')
+    _g.append('text')
       .attr('text-anchor','middle').attr('dy','0.35em')
       .style('font-size','12px').style('fill','#dfe6f3')
       .text(focusNode ? focusNode.data.name : 'All ions');
 
-    // -------- Labels (always show, no collision filtering) --------
-    const labelLayer=g.append('g').attr('class','labels');
+    // labels
+    layoutInternalLabels(false);
+    layoutFormulaLabels(); // respects zoom policy + checkbox
 
-    // Internal labels (ions/structures/strategies) — straight text, always drawn
-    const internal = labelLayer.selectAll('text.internal')
-      .data(nodes.filter(d=>d.children), d=>d.data._uid)
+    // stats + crumbs + legend
+    document.getElementById('rtStats').textContent =
+      `Formulas w/ conductivity: ${fullHierarchy.leaves().filter(d=>d.data.hasCond).length}/${fullHierarchy.leaves().length}`;
+    renderCrumbs(root);
+    buildLegend(legendEl, root);
+    applyLabelVisibility();
+
+    // enable/disable the Z1 formulas toggle depending on focus
+    if (_focusDepth === 1) {
+      ui.z1Formulas.disabled = false;
+      ui.z1FormulasWrap.classList.remove('muted');
+      ui.z1Formulas.checked = SHOW_FORMULAS_AT_Z1;
+    } else {
+      ui.z1Formulas.disabled = true;
+      ui.z1FormulasWrap.classList.add('muted');
+    }
+  }
+
+  // -------- Label policy by zoom depth --------
+  function wantInternal(depthHere){
+    if (_focusDepth===0) return (depthHere===1 || depthHere===2);   // Root: Ion + Structure
+    if (_focusDepth===1) return (depthHere===2 || depthHere===3);   // Ion focus: Structure + Strategy
+    return (depthHere===2 || depthHere===3);                        // Structure+: Structure + Strategy
+  }
+  function wantLeaves(){
+    if (_focusDepth>=2) return true;                                // Structure+: show formulas
+    if (_focusDepth===1) return SHOW_FORMULAS_AT_Z1;                // Ion focus: controlled by toggle
+    return false;                                                   // Root: never show formulas
+  }
+
+  // -------- Internal labels (ions/structures/strategies) with angular placement --------
+  function layoutInternalLabels(isLiveUpdate){
+    const labelLayer = (_g.select('.labels').empty() ? _g.append('g').attr('class','labels') : _g.select('.labels'));
+    const internalTargets = _nodesCache.filter(d => d.children && wantInternal(d.depth));
+
+    if (isLiveUpdate && _internalSel) {
+      _internalSel.style('font-size', LABEL_PX + 'px');
+      return;
+    }
+
+    _internalSel = labelLayer.selectAll('text.internal')
+      .data(internalTargets, d=>d.data._uid)
       .join('text')
       .attr('class','label visibleLabel internal')
       .attr('dy','0.32em')
       .attr('text-anchor','middle')
       .text(d=>d.data.name)
-      .each(function(d){
-        const a=(d.x0+d.x1)/2*180/Math.PI, r=(d.y0+d.y1)/2;
-        const upright = !(a>90 && a<270);
-        d3.select(this)
-          .style('font-size', LABEL_PX + 'px')
-          .style('font-weight', d.depth===1 ? '600' : (d.depth===2 ? '500' : '400'))
-          .style('fill', d.depth===1 ? '#fff' : '#cfd4de')
-          .attr('transform', `rotate(${a-90}) translate(${r},0) rotate(${upright?0:180})`);
-      });
+      .style('font-weight', d=> (d.depth===1?'600': d.depth===2?'500':'400'))
+      .style('fill', d=> (d.depth===1 ? '#fff' : '#cfd4de'));
 
-    // Leaf (formula) labels — curved textPath, always drawn (no dropping)
-    const leaves = nodes.filter(d=>!d.children);
+    // angular greedy placement per depth ring, with shrink-to-fit
+    [1,2,3].forEach(depth=>{
+      const ringSel = _internalSel.filter(d=>d.depth===depth);
+      placeAngular(ringSel, depth);
+    });
+
+    _internalSel.style('font-size', LABEL_PX + 'px');
+  }
+
+  function placeAngular(selection, depth){
+    const occ = [];
+    const nodes = selection.nodes().map(n => ({el:n, d:d3.select(n).datum()}))
+      .sort((a,b)=> (a.d.x0+a.d.x1) - (b.d.x0+b.d.x1));
+
+    nodes.forEach(({el,d})=>{
+      const text = d3.select(el);
+      const rMid = (d.y0 + d.y1)/2;
+      const a0 = d.x0, a1 = d.x1, amid = (a0+a1)/2;
+      const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
+
+      for (const s of FONT_TRY_STEPS){
+        const fs = LABEL_PX * s;
+        text.style('font-size', fs + 'px').style('display', null);
+        const w = el.getComputedTextLength ? el.getComputedTextLength() : fs*(el.textContent.length*0.55);
+        const need = (w + ANG_PAD_PX) / Math.max(1, rMid); // radians
+        if ((a1-a0) < need*0.9) { text.style('display','none'); continue; }
+
+        const t0 = amid - need/2, t1 = amid + need/2;
+        const ok = occ.every(([o0,o1]) => t1 <= o0 || t0 >= o1);
+        if (!ok) { text.style('display','none'); continue; }
+
+        occ.push([t0,t1]); occ.sort((x,y)=>x[0]-y[0]);
+        const deg = amid * 180/Math.PI;
+        text.attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`);
+        text.style('display', null);
+        return;
+      }
+      text.style('display','none');
+    });
+  }
+
+  // -------- Formula labels (curved) respecting zoom/toggle --------
+  function layoutFormulaLabels(){
+    // clear previous leaf labels/paths
+    _g.selectAll('.leafLabel').remove();
+    _g.selectAll('.leafArcPath').remove();
+
+    if (!wantLeaves()) return;
+
+    const labelLayer = (_g.select('.labels').empty() ? _g.append('g').attr('class','labels') : _g.select('.labels'));
+    const leaves = _nodesCache.filter(d => !d.children)
+      .filter(d => (d.x1 - d.x0) >= (LEAF_MIN_DEG * Math.PI/180));
+
     const arcMid=d3.arc().startAngle(d=>d.x0).endAngle(d=>d.x1)
-      .innerRadius(d=> (d.y0 + outerR(d))/2 )
-      .outerRadius(d=> (d.y0 + outerR(d))/2 + 0.01);
-    leaves.forEach((d,i)=>{
+      .innerRadius(d=> (d.y0 + _outerR(d))/2 )
+      .outerRadius(d=> (d.y0 + _outerR(d))/2 + 0.01);
+
+    leaves.forEach(d=>{
       const id='leaf-'+d.data._uid;
-      defs.append('path').attr('id',id).attr('d',arcMid(d));
+      _defs.append('path').attr('class','leafArcPath').attr('id',id).attr('d',arcMid(d));
       labelLayer.append('text')
         .attr('class','leafLabel visibleLabel')
         .style('font-size', Math.max(6, LABEL_PX-1) + 'px')
@@ -284,16 +397,9 @@
         .attr('text-anchor','middle')
         .text(d.data.name);
     });
-
-    // stats + crumbs + legend
-    document.getElementById('rtStats').textContent =
-      `Formulas w/ conductivity: ${fullHierarchy.leaves().filter(d=>d.data.hasCond).length}/${fullHierarchy.leaves().length}`;
-    renderCrumbs();
-    buildLegend(legendEl, root);
-    applyLabelVisibility();
   }
 
-  // ---------- Legend (focus-aware, simple) ----------
+  // ---------- Legend ----------
   function buildLegend(container, subtreeRoot){
     container.innerHTML='';
     (subtreeRoot.children||[]).forEach(node=>{
@@ -309,7 +415,7 @@
   }
 
   // ---------- Breadcrumb ----------
-  function renderCrumbs(){
+  function renderCrumbs(root){
     const el=document.getElementById('crumbs');
     if (!focusNode || focusNode.depth===0){
       el.innerHTML='<a data-ix="root">All ions</a>';
