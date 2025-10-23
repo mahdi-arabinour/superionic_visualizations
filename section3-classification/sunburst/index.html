@@ -111,14 +111,18 @@
     let dataObjGlobal = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
-      // your data file
-      dataObjGlobal = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
-      draw(dataObjGlobal);
-      window.addEventListener('resize', () => requestAnimationFrame(() => draw(dataObjGlobal)));
-      document.getElementById('labelToggle').addEventListener('change', e => {
-        labelsVisible = e.target.checked;
-        applyLabelVisibility();
-      });
+      try {
+        dataObjGlobal = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
+        draw(dataObjGlobal);
+        window.addEventListener('resize', () => requestAnimationFrame(() => draw(dataObjGlobal)));
+        document.getElementById('labelToggle').addEventListener('change', e => {
+          labelsVisible = e.target.checked;
+          applyLabelVisibility();
+        });
+      } catch (e) {
+        console.error(e);
+        document.getElementById('chart').innerHTML = '<div style="padding:16px;color:#f88">Failed to load data.simplified.json</div>';
+      }
     });
 
     function obj2children(obj){
@@ -160,9 +164,7 @@
 
       // Build children and optionally narrow to a single ion (zoom)
       const allIons = obj2children(dataObj);
-      const children = activeIon
-        ? allIons.filter(d => d.name === activeIon)
-        : allIons;
+      const children = activeIon ? allIons.filter(d => d.name === activeIon) : allIons;
 
       const data = { name:'root', children };
       root = d3.hierarchy(data, d=>d.children)
@@ -224,7 +226,7 @@
       paths.each(function(d){
         let ion=d; while(ion && ion.depth>1) ion=ion.parent;
         let struct=d; while(struct && struct.depth>2) struct=struct.parent;
-        let strat=d; while(strat && strat.depth>3) strat=stat = strat= strat; // (no-op safeguard)
+        let strat=d; while(strat && strat.depth>3) strat=strat.parent;  /* <-- fixed */
         this.dataset.ion   = ion?.data?.name   || '';
         this.dataset.struct= struct?.data?.name|| '';
         this.dataset.strat = strat?.data?.name || '';
@@ -279,7 +281,6 @@
 
       const labelNodes = nodes.filter(d => {
         const group = d.children ? d.depth : 4; // leaves as 4
-        // in default state, group 1&2; in zoom, 1..4
         return labelDepths.includes(group);
       });
 
@@ -425,7 +426,7 @@
 
     // checkbox: show/hide all labels together
     function applyLabelVisibility(){
-      d3.selectAll('.label').attr('class', d => labelsVisible ? 'label visibleLabel' : 'label hiddenLabel');
+      d3.selectAll('.label').attr('class', () => labelsVisible ? 'label visibleLabel' : 'label hiddenLabel');
     }
   </script>
 </body>
