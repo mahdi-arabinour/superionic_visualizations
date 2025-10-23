@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sunburst — Radial (Upright) Labels</title>
+<title>Sunburst — Radial Labels (Always Show)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   :root { color-scheme: dark; }
@@ -47,7 +47,7 @@
 </head>
 <body>
   <header>
-    <strong>Sunburst — Radial Labels</strong>
+    <strong>Sunburst — Radial Labels (Always Show)</strong>
 
     <label style="font-size:13px;">
       <input type="checkbox" id="labelToggle" checked>
@@ -84,15 +84,25 @@
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script>
-  // ---- Tunables ----
-  const DEF_COND=1e-6, SCALE_MODE='log';
-  const RING_SCALE=[1.0,1.32,1.52], LEAF_SCALE=[1.0,1.45,1.6]; // root, ion, structure
-  const LEAF_MIN_DEG = 0.18;             // hide ultra-tiny leaf labels
-  const ANG_PAD_PX = 4;
-  const FONT_TRY_STEPS = [1.0, 0.9, 0.8, 0.7]; // shrink attempts for fitting
-  const CAP_ARC_DEG = 120;               // curved track captions arc length
+  // ================== Tunables ==================
+  const DEF_COND = 1e-6;
+  const SCALE_MODE = 'log';
 
-  // ---- State ----
+  // Size multipliers by zoom (root, ion, structure+)
+  const RING_SCALE = [1.0, 1.32, 1.52];
+  const LEAF_SCALE = [1.0, 1.45, 1.6];
+
+  // Label policy / always-show behavior
+  const LEAF_MIN_DEG = 0.03;               // allow very narrow leaves to try
+  const ANG_PAD_PX   = 2;                  // tighter angular padding
+  const FONT_TRY_STEPS = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
+  const MIN_FONT_PX  = 6;                  // absolute min font size
+  const FORCE_SHOW_IF_FAILS = true;        // place even if it must overlap
+
+  // Curved ring caption arc length (for ring-level track labels)
+  const CAP_ARC_DEG = 120;
+
+  // ================== State ==================
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
   let gArcs, colorIon, maxRGlobal=0, labelsVisible=true;
   let LABEL_PX = 9;
@@ -133,7 +143,7 @@
     window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(draw,120); });
   });
 
-  // ---------- Build once ----------
+  // ================== Hierarchy build ==================
   function obj2children(obj){
     return Object.entries(obj).map(([ion, structures])=>({
       name:ion,
@@ -191,7 +201,7 @@
              children: node.children?.map(c=>cloneData(c)) };
   }
 
-  // ---------- Draw ----------
+  // ================== Draw ==================
   function draw(){
     const chartEl=document.getElementById('chart');
     const legendEl=document.querySelector('.legendGroup');
@@ -281,11 +291,11 @@
       .style('font-size','12px').style('fill','#dfe6f3')
       .text(focusNode ? focusNode.data.name : 'All ions');
 
-    // labels (RADIAL upright on each slice)
+    // labels (RADIAL upright, always-show)
     layoutRadialInternalLabels(false);
     layoutRadialLeafLabels(false);
 
-    // ring track captions (curved by design, for ring meaning)
+    // ring track captions (curved, for ring meaning)
     renderRingCaptions(root);
 
     // stats + crumbs + legend
@@ -306,7 +316,7 @@
     }
   }
 
-  // -------- Label policy --------
+  // ================== Label policy ==================
   function wantInternal(depthHere){
     if (_focusDepth===0) return (depthHere===1 || depthHere===2);   // Root: Ion + Structure
     if (_focusDepth===1) return (depthHere===2 || depthHere===3);   // Ion focus: Structure + Strategy
@@ -318,7 +328,7 @@
     return false;                                                   // Root: off
   }
 
-  // -------- RADIAL (upright) labels for internal nodes --------
+  // ================== Radial labels (internal) ==================
   let _internalSel=null;
   function layoutRadialInternalLabels(isUpdate){
     const layer = (_g.select('.labels').empty() ? _g.append('g').attr('class','labels') : _g.select('.labels'));
@@ -337,13 +347,13 @@
     placeRadial(_internalSel);
   }
 
-  // -------- RADIAL (upright) labels for leaves --------
+  // ================== Radial labels (leaves) ==================
   function layoutRadialLeafLabels(isUpdate){
     _g.selectAll('text.leaf').remove();
     if (!wantLeaves()) return;
 
-    const leaves = _nodesCache.filter(d => !d.children)
-      .filter(d => (d.x1 - d.x0) >= (LEAF_MIN_DEG * Math.PI/180));
+    // Allow everything to try (we’ll force-show anyway)
+    const leaves = _nodesCache.filter(d => !d.children);
 
     const layer = (_g.select('.labels').empty() ? _g.append('g').attr('class','labels') : _g.select('.labels'));
     const sel = layer.selectAll('text.leaf')
@@ -351,57 +361,66 @@
       .join('text')
       .attr('class','leafLabel visibleLabel leaf')
       .text(d=>d.data.name)
-      .style('font-size', Math.max(6, LABEL_PX-1)+'px');
+      .style('font-size', Math.max(MIN_FONT_PX, LABEL_PX-1)+'px');
 
     placeRadial(sel);
   }
 
-  // -------- Placement helper: upright, tangential rotation + greedy fitting --------
+  // ================== Placement helper: greedy fit + last resort ==================
   function placeRadial(selection){
     const occByRing = new Map(); // per-radius occupancy intervals (radians)
 
     selection.each(function(d){
       const el = d3.select(this);
+      const isLeaf = this.classList.contains('leaf');
+      const basePx = isLeaf ? Math.max(MIN_FONT_PX, LABEL_PX - 1) : LABEL_PX;
+
       const rMid = (d.y0 + (d.children ? d.y1 : _outerR(d)))/2;
-      const key = Math.round(rMid); // bucket by radius (enough for occupancy)
-      const a0 = d.x0, a1 = d.x1, amid = (a0+a1)/2;
+      const key  = Math.round(rMid);
+      const a0   = d.x0, a1 = d.x1, amid = (a0+a1)/2;
       const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
 
-      // ensure bucket
       if (!occByRing.has(key)) occByRing.set(key, []);
 
-      // try multiple font scales to fit angular span & avoid collisions
+      let placed = false;
       for (const s of FONT_TRY_STEPS){
-        const fs = (this.classList.contains('leaf') ? Math.max(6, LABEL_PX-1) : LABEL_PX) * s;
-        el.style('font-size', fs+'px').style('display', null);
+        const fs = Math.max(MIN_FONT_PX, basePx * s);
+        el.style('font-size', fs + 'px').style('display', null);
 
-        // rough width measure
-        const w = this.getComputedTextLength ? this.getComputedTextLength() : fs*(this.textContent.length*0.56);
-        const need = (w + ANG_PAD_PX) / Math.max(1, rMid); // radians required
-        if ((a1-a0) < need*0.9) { el.style('display','none'); continue; }
+        const w = this.getComputedTextLength ? this.getComputedTextLength()
+                                             : fs * (this.textContent.length * 0.56);
+        const need = (w + ANG_PAD_PX) / Math.max(1, rMid); // radians needed
+        if ((a1 - a0) < need * 0.92) { el.style('display','none'); continue; }
 
-        // collision check on this ring
         const occ = occByRing.get(key);
         const t0 = amid - need/2, t1 = amid + need/2;
         const ok = occ.every(([o0,o1]) => t1 <= o0 || t0 >= o1);
         if (!ok) { el.style('display','none'); continue; }
 
-        // reserve interval
+        // Reserve & place
         occ.push([t0,t1]); occ.sort((x,y)=>x[0]-y[0]);
-
-        // place
         const deg = amid * 180/Math.PI;
         el.attr('dy','0.32em')
           .attr('text-anchor','middle')
           .attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`)
           .style('display', null);
-        return;
+        placed = true;
+        break;
       }
-      el.style('display','none');
+
+      // Last resort: force-show even if overlapping/too long
+      if (!placed && FORCE_SHOW_IF_FAILS){
+        const fs = MIN_FONT_PX;
+        el.style('font-size', fs + 'px').style('display', null).style('opacity', 0.98);
+        const deg = amid * 180/Math.PI;
+        el.attr('dy','0.32em')
+          .attr('text-anchor','middle')
+          .attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`);
+      }
     });
   }
 
-  // -------- Curved ring captions (track labels) --------
+  // ================== Curved ring captions (track labels) ==================
   function renderRingCaptions(partitionRoot){
     _g.selectAll('.ringGuides').remove();
     const guides = _g.append('g').attr('class','ringGuides');
@@ -455,7 +474,7 @@
     });
   }
 
-  // ---------- Legend ----------
+  // ================== Legend & Breadcrumb ==================
   function buildLegend(container, subtreeRoot){
     container.innerHTML='';
     (subtreeRoot.children||[]).forEach(node=>{
@@ -470,8 +489,7 @@
     });
   }
 
-  // ---------- Breadcrumb ----------
-  function renderCrumbs(root){
+  function renderCrumbs(){
     const el=document.getElementById('crumbs');
     if (!focusNode || focusNode.depth===0){
       el.innerHTML='<a data-ix="root">All ions</a>';
@@ -490,7 +508,7 @@
     });
   }
 
-  // ---------- Visibility ----------
+  // ================== Label visibility ==================
   function applyLabelVisibility(){
     const show = labelsVisible;
     d3.selectAll('.label, .leafLabel').classed('hiddenLabel', !show).classed('visibleLabel', show);
