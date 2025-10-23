@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Sunburst — Zoom Bigger + All Zoom Labels Visible</title>
+  <title>Sunburst — Multi-Level Zoom (Ion & Structure)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root { color-scheme: dark; }
@@ -61,6 +61,11 @@
 
     .dimmed { opacity:.18; transition:opacity .15s ease; }
     .highlight { opacity:1; transition:opacity .15s ease; }
+
+    /* breadcrumb */
+    .crumbs { font-size:12px; color:#9fb3cc; }
+    .crumbs a { color:#c6d7ff; text-decoration:none; cursor:pointer; }
+    .crumbs a:hover { text-decoration:underline; }
   </style>
 </head>
 <body>
@@ -71,6 +76,7 @@
       Show labels
     </label>
     <span id="rtStats" style="font-size:12px;color:#9fb3cc;"></span>
+    <span id="crumbs" class="crumbs"></span>
   </header>
 
   <div id="wrap">
@@ -90,31 +96,35 @@
     // -------- Tunables --------
     const DEF_COND = 1e-6;
     const SCALE_MODE = 'log';
-    const ZOOM_RING_SCALE = 1.3;    // more room when zoomed
-    const ZOOM_LEAF_SCALE = 1.4;    // taller leaves when zoomed
     const LEAF_BATCH = 150;         // formula labels per idle batch
-    const LEAF_MIN_DEG  = 0.2;      // effectively “no min”; just prevents degenerate arcs
+    const LEAF_MIN_DEG  = 0.2;      // tiny guard to avoid degenerate arcs
+
+    // Ring/leaf size by zoom depth (0=root, 1=ion, 2=structure)
+    const RING_SCALE_BY_DEPTH = [1.0, 1.3, 1.5];
+    const LEAF_SCALE_BY_DEPTH = [1.0, 1.4, 1.55];
 
     // -------- State --------
-    let root, gArcs, colorIon, maxRGlobal = 0;
+    let fullHierarchy = null;  // full data hierarchy (root)
+    let focusNode = null;      // the node we're zoomed into (null => root/all)
+    let gArcs, colorIon, maxRGlobal = 0;
     let labelsVisible = true;
 
+    // legend highlight state (kept)
     const selIons = new Set(), selStructs = new Set(), selStrats = new Set();
     let hoverKey = null;
-
-    let activeIon = null;
-    let dataObjGlobal = null;
 
     let isDrawing = false;
     let resizeTimer = null;
     const idle = window.requestIdleCallback || ((cb)=>setTimeout(()=>cb({timeRemaining:()=>0, didTimeout:true}),0));
 
+    // ---------- Boot ----------
     document.addEventListener('DOMContentLoaded', async () => {
-      dataObjGlobal = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
-      draw(dataObjGlobal);
+      const dataObj = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
+      fullHierarchy = buildHierarchy(dataObj);
+      draw();
       window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => draw(dataObjGlobal), 120);
+        resizeTimer = setTimeout(draw, 120);
       });
       document.getElementById('labelToggle').addEventListener('change', e => {
         labelsVisible = e.target.checked;
@@ -122,6 +132,7 @@
       });
     });
 
+    // ---------- Data ----------
     function obj2children(obj){
       return Object.entries(obj).map(([ion, structures]) => ({
         name: ion,
@@ -138,6 +149,15 @@
       }));
     }
 
+    function buildHierarchy(dataObj){
+      const data = { name:'root', children: obj2children(dataObj) };
+      const root = d3.hierarchy(data, d=>d.children)
+                     .sum(d => Array.isArray(d?.values) ? 1 : 0)
+                     .sort((a,b) => (b.value||0) - (a.value||0));
+      computeLeafCond(root, DEF_COND);
+      return root;
+    }
+
     function computeLeafCond(h, def){
       h.each(n=>{
         if (n.data && Array.isArray(n.data.values)) {
@@ -148,7 +168,37 @@
       });
     }
 
-    function draw(dataObj){
+    // Build a subtree rooted at focusNode (or the whole thing if null)
+    function makeFocusRoot(){
+      if (!focusNode || focusNode.depth === 0) return fullHierarchy.copy();
+      // clone a mini tree with focusNode as the new root (depth reset)
+      const clone = d3.hierarchy({
+        name: focusNode.data.name,
+        children: focusNode.children?.map(child => cloneData(child))
+      }, d=>d.children);
+      // recompute sums so partition sizing is right
+      clone.sum(d => Array.isArray(d?.values) ? 1 : 0)
+           .sort((a,b)=>(b.value||0)-(a.value||0));
+      // also copy cond flags on leaves
+      clone.each(n=>{
+        if (n.data && Array.isArray(n.data.values)) {
+          const vals = n.data.values.filter(Number.isFinite);
+          n.data.cond = vals.length ? vals[0] : DEF_COND;
+          n.data.hasCond = vals.length > 0;
+        }
+      });
+      return clone;
+    }
+    function cloneData(node){
+      return {
+        name: node.data.name,
+        values: node.data.values,
+        children: node.children?.map(c => cloneData(c))
+      };
+    }
+
+    // ---------- Draw ----------
+    function draw(){
       if (isDrawing) return;
       isDrawing = true;
 
@@ -157,29 +207,23 @@
       const tooltip  = document.getElementById('tooltip');
       chartEl.innerHTML = ''; legendEl.innerHTML = '';
 
+      // layout box
       const rect = chartEl.getBoundingClientRect();
       const cw = Math.max(500, rect.width);
       const ch = Math.max(500, rect.height);
       const side = Math.min(cw, ch);
 
-      // Build hierarchy (zoom isolates one ion)
-      const allIons = obj2children(dataObj);
-      const children = activeIon ? allIons.filter(d => d.name === activeIon) : allIons;
+      // choose focus subtree
+      const root = makeFocusRoot();
+      const focusDepth = (focusNode?.depth ?? 0); // 0 root, 1 ion, 2 structure (in the full tree)
+      const ringScale = RING_SCALE_BY_DEPTH[Math.min(focusDepth, RING_SCALE_BY_DEPTH.length-1)];
+      const leafScale = LEAF_SCALE_BY_DEPTH[Math.min(focusDepth, LEAF_SCALE_BY_DEPTH.length-1)];
 
-      const data = { name:'root', children };
-      root = d3.hierarchy(data, d=>d.children)
-               .sum(d => Array.isArray(d?.values) ? 1 : 0)
-               .sort((a,b) => (b.value||0) - (a.value||0));
-
-      // bigger rings in zoom
-      const ringScale = activeIon ? ZOOM_RING_SCALE : 1;
-      const leafScale = activeIon ? ZOOM_LEAF_SCALE : 1;
-
-      const ringThickness = Math.max(40, side * 0.08) * ringScale;
+      // partition geometry
+      const ringThickness = Math.max(42, side * 0.085) * ringScale;
       const leafBase      = Math.max(12, side * 0.03);
       const extraLeafMax  = Math.max(90, side * 0.22) * leafScale;
 
-      computeLeafCond(root, DEF_COND);
       d3.partition().size([2*Math.PI, (root.height + 1) * ringThickness])(root);
 
       const leaves   = root.leaves();
@@ -192,11 +236,11 @@
         : d3.scaleLog().domain([Math.max(cmin,1e-12), Math.max(cmax,1e-12)]));
       const condScale = baseScale.range([0, extraLeafMax]).clamp(true);
 
-      const ions = (root.children||[]).map(d=>d.data.name);
+      const ions = (fullHierarchy.children||[]).map(d=>d.data.name); // palette by global ions
       colorIon = d3.scaleOrdinal(ions, d3.quantize(t=>d3.interpolateRainbow(t), Math.max(3, ions.length)));
 
       const outerR = d => d.children ? d.y1 : d.y1 + leafBase + condScale(d.data.cond || DEF_COND);
-      const maxR   = d3.max(root.descendants(), d => outerR(d)) + 6;
+      const maxR   = d3.max(root.descendants(), d => outerR(d)) + 6; // padding
       maxRGlobal = maxR;
 
       const svg = d3.select(chartEl).append('svg')
@@ -204,8 +248,7 @@
         .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
       const g = svg.append('g');
       gArcs = g;
-
-      const defs = svg.append('defs'); // for leaf textPaths
+      const defs = svg.append('defs');
 
       const arc = d3.arc()
         .startAngle(d=>d.x0)
@@ -217,28 +260,29 @@
 
       const nodes = root.descendants().filter(d=>d.depth>0);
 
+      // arcs
       const paths = g.selectAll('path').data(nodes, d => d.data.name + '-' + d.depth).join('path')
         .attr('d', arc)
         .attr('fill', d => {
-          let ion=d; while(ion.depth>1) ion=ion.parent;
-          const base=colorIon(ion.data.name);
+          // color based on top-level ion in the *full* dataset for consistency
+          let ion = getTopIonInFullTree(d);
+          const base = colorIon(ion || d.ancestors().at(-1)?.data.name || 'default');
           if (!d.children && !d.data.hasCond) { const c=d3.color(base); c.opacity=0.55; return c.formatRgb(); }
           return base;
         })
         .attr('stroke','#fff').attr('stroke-opacity',0.28)
         .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.6, side * 0.0012));
 
-      // dataset tags for legend mapping
+      // dataset tags for legend mapping (using names along the *rendered* path)
       paths.each(function(d){
-        let ion=d; while(ion && ion.depth>1) ion=ion.parent;
-        let struct=d; while(struct && struct.depth>2) struct=struct.parent;
-        let strat=d; while(strat && strat.depth>3) strat=strat.parent;
-        this.dataset.ion   = ion?.data?.name   || '';
-        this.dataset.struct= struct?.data?.name|| '';
-        this.dataset.strat = strat?.data?.name || '';
+        const anc = d.ancestors().reverse().slice(1); // exclude synthetic root
+        const ion   = anc[0]?.data?.name || '';
+        const struct= anc[1]?.data?.name || '';
+        const strat = anc[2]?.data?.name || '';
+        this.dataset.ion = ion; this.dataset.struct = struct; this.dataset.strat = strat;
       });
 
-      // Tooltip
+      // tooltip
       const tooltipVal = v => (!Number.isFinite(v) ? 'n/a'
         : (v < 0.01 ? `${(v*1000).toFixed(3)} mS·cm⁻¹` : `${Number(v).toPrecision(3)} S·cm⁻¹`));
       paths.on('mousemove',(evt,d)=>{
@@ -255,38 +299,36 @@
         tooltip.style.left=(evt.clientX+10)+'px'; tooltip.style.top=(evt.clientY+10)+'px';
       }).on('mouseleave',()=>{ tooltip.style.display='none'; });
 
-      // CLICK-TO-ZOOM
+      // CLICK TO ZOOM / STEP BACK
       paths.on('click', (evt, d) => {
-        let ion = d; while (ion && ion.depth > 1) ion = ion.parent;
-        const ionName = ion?.data?.name;
-
-        if (d.depth === 1 && ionName) {
-          activeIon = (activeIon === ionName) ? null : ionName;
-          selIons.clear(); selStructs.clear(); selStrats.clear(); hoverKey = null;
-          draw(dataObjGlobal);
-          return;
+        // if clicking the current focus (same label at top of subtree), go one level up
+        if (focusNode && d.data.name === root.data.name) {
+          focusNode = getFullTreeParent(focusNode) ?? null; // up one level
+        } else {
+          // map this displayed node back to a node in the full tree by following the name trail
+          focusNode = findInFullTree(d.ancestors().reverse().slice(1).map(n=>n.data.name));
         }
-        if (activeIon && ionName === activeIon) {
-          activeIon = null;
-          selIons.clear(); selStructs.clear(); selStrats.clear(); hoverKey = null;
-          draw(dataObjGlobal);
-        }
+        draw();
       });
 
-      // ----------------- LABELS -----------------
+      // ---------- Labels ----------
       const labelLayer = g.append('g').attr('class','labels');
 
-      // default: ions+structures; zoom: ion+structures+strategies+formulas
+      // Which depths to label for this focus?
+      // focusDepth in the *full* tree: 0=root, 1=ion, 2=structure+
+      function wantLabel(d){
+        const depthHere = d.children ? d.depth : 4; // leaves as 4
+        if (focusDepth === 0) return (depthHere===1 || depthHere===2);
+        if (focusDepth === 1) return (depthHere===1 || depthHere===2 || depthHere===3 || depthHere===4);
+        return (depthHere===1 || depthHere===2 || depthHere===3 || depthHere===4); // structure focus: show all levels inside it
+      }
+
+      // internal labels (straight text with light collision on strategies)
       const angleToPixels = (d, radius) => (d.x1 - d.x0) * radius;
 
-      // Internal (ions/structures/strategies)
-      const internalTargets = nodes.filter(d=>{
-        if (!activeIon) return d.children && (d.depth===1 || d.depth===2);
-        return d.children && (d.depth===1 || d.depth===2 || d.depth===3);
-      });
-
+      const internalTargets = nodes.filter(d => d.children && wantLabel(d));
       const internal = labelLayer.selectAll('text.internal')
-        .data(internalTargets, d => 'i-' + d.depth + '-' + d.data.name + (activeIon?'z':'r'))
+        .data(internalTargets, d => 'i-' + d.depth + '-' + d.data.name + '-fd' + focusDepth)
         .join('text')
         .attr('class','label visibleLabel internal')
         .attr('dy','0.32em')
@@ -297,7 +339,8 @@
         })
         .text(d=>d.data.name)
         .each(function(d){
-          let fs = d.depth===1 ? 14 : d.depth===2 ? 12 : 11; // strategies = 11
+          // size/tone by depth
+          let fs = d.depth===1 ? 14 : d.depth===2 ? 12 : 11;
           const rMid=(d.y0 + d.y1)/2;
           fs = fs * Math.min(1.25, Math.max(0.75, (rMid / maxRGlobal) * 1.4));
           this.style.fontSize = fs + 'px';
@@ -305,14 +348,14 @@
           this.style.fontWeight = d.depth===1 ? '600' : d.depth===2 ? '500' : '400';
         });
 
-      // In zoom: light greedy collision on strategies ONLY (no arc-length gate, so they always show unless overlapping a neighbor)
-      if (activeIon) {
+      // In zoom (ion or structure), apply light greedy collision on strategies (depth 3) so they remain readable
+      if (focusDepth >= 1) {
         const stratEls = internal.filter(d => d.depth===3).nodes()
           .sort((a,b)=> d3.select(a).datum().x0 - d3.select(b).datum().x0);
         const kept = [];
         const pad = 2;
         stratEls.forEach(el=>{
-          el.style.display = ''; // reset
+          el.style.display = '';
           const rect = el.getBoundingClientRect();
           const ok = kept.every(r => (rect.right + pad < r.left) || (rect.left - pad > r.right) ||
                                      (rect.bottom + pad < r.top) || (rect.top - pad > r.bottom));
@@ -320,12 +363,12 @@
         });
       }
 
-      // Leaf (formulas) via curved textPath — progressive & shrink-to-fit
-      if (activeIon) {
+      // leaf (formula) labels via curved textPath — progressive
+      const showLeaves = nodes.some(d => !d.children) && wantLabel({children:false, depth:4});
+      if (showLeaves) {
         const leavesToLabel = nodes.filter(d => !d.children)
-          .filter(d => (d.x1 - d.x0) >= (LEAF_MIN_DEG * Math.PI/180)); // tiny guard
+          .filter(d => (d.x1 - d.x0) >= (LEAF_MIN_DEG * Math.PI/180));
 
-        const defs = svg.select('defs');
         const arcMid = d3.arc()
           .startAngle(d=>d.x0).endAngle(d=>d.x1)
           .innerRadius(d=>{
@@ -342,12 +385,9 @@
           let n=0;
           while(i<leavesToLabel.length && (deadline.timeRemaining ? deadline.timeRemaining()>0 : n<LEAF_BATCH)){
             const d = leavesToLabel[i++];
-            const id = 'leaf-path-' + i;
+            const id = 'leaf-path-' + focusDepth + '-' + i;
 
-            defs.append('path')
-              .attr('class','leafArcPath')
-              .attr('id', id)
-              .attr('d', arcMid(d));
+            defs.append('path').attr('class','leafArcPath').attr('id', id).attr('d', arcMid(d));
 
             const text = labelLayer.append('text')
               .attr('class','leafLabel visibleLabel')
@@ -367,11 +407,10 @@
             let w = text.node().getComputedTextLength ? text.node().getComputedTextLength() : 0;
             const pad = 10;
             if (L && w && L < (w + pad)) {
-              const scale = Math.max(0.7, (L - pad) / w); // shrink to as low as 70%
+              const scale = Math.max(0.7, (L - pad) / w);
               text.style('font-size', (10 * scale).toFixed(2) + 'px');
               w = text.node().getComputedTextLength ? text.node().getComputedTextLength() : w * scale;
             }
-            // if still too long, drop it (prevents ugly overrun)
             if (L && w && L < (w + pad)) text.remove();
 
             n++;
@@ -382,28 +421,39 @@
         idle(batch);
       }
 
-      // Stats + legend
+      // Header stats + breadcrumb
       document.getElementById('rtStats').textContent =
-        `Formulas w/ conductivity: ${root.leaves().filter(d=>d.data.hasCond).length}/${root.leaves().length}`
-        + (activeIon ? `  •  Focus: ${activeIon} (click inside to reset)` : '');
+        `Formulas w/ conductivity: ${fullHierarchy.leaves().filter(d=>d.data.hasCond).length}/${fullHierarchy.leaves().length}`;
+      renderCrumbs();
 
-      buildLegendTree(legendEl);
+      // Legend (subtree under current focus)
+      buildLegendTree(legendEl, root);
       applyHighlight();
 
       applyLabelVisibility();
       isDrawing = false;
+
+      // helpers mapping names back to full tree
+      function getTopIonInFullTree(dInSubtree){
+        // follow ancestors in the *rendered* subtree and map that chain back to the full tree
+        const names = dInSubtree.ancestors().reverse().slice(1).map(n=>n.data.name);
+        const fullNode = findInFullTree(names);
+        let x = fullNode;
+        while (x && x.depth > 1) x = x.parent;
+        return x?.data?.name;
+      }
     }
 
-    // ---------- Legend (Ion -> Structure -> Strategy) ----------
-    function buildLegendTree(container){
+    // ---------- Legend for current focus subtree ----------
+    function buildLegendTree(container, subtreeRoot){
       container.innerHTML='';
       const frag = document.createDocumentFragment();
 
-      (root.children||[]).forEach(ionNode=>{
+      (subtreeRoot.children||[]).forEach(ionNode=>{
         const ion = ionNode.data.name;
 
         const ionRow = document.createElement('div'); ionRow.className='ionRow';
-        const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(ion);
+        const sw  = document.createElement('div'); sw.className='swatch'; sw.style.background = colorIon(getTopOf(ionNode) || ion);
         const nm  = document.createElement('div'); nm.textContent = ion;
         const cv  = document.createElement('div'); cv.className='chev'; cv.textContent = '▸';
         ionRow.append(sw, nm, cv); frag.appendChild(ionRow);
@@ -415,63 +465,90 @@
           e.stopPropagation();
           subStruct.classList.toggle('open');
           cv.textContent = subStruct.classList.contains('open') ? '▾' : '▸';
-
-          // toggle zoom to this ion
-          activeIon = (activeIon === ion) ? null : ion;
-          selIons.clear(); selStructs.clear(); selStrats.clear(); hoverKey = null;
-          draw(dataObjGlobal);
+          // focus this ion; second click would be handled on the chart by clicking center ring again
+          focusNode = findInFullTree(trailFromSubtreeNode(ionNode));
+          draw();
         });
-        ionRow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}`; applyHighlight(); });
-        ionRow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
 
         (ionNode.children||[]).forEach(structNode=>{
           const struct=structNode.data.name;
           const srow=document.createElement('div'); srow.className='structRow';
           const sm=document.createElement('div'); sm.className='smSwatch';
-          sm.style.background = d3.color(colorIon(ion)).brighter(0.8).formatRgb();
+          sm.style.background = d3.color(colorIon(getTopOf(ionNode) || ion)).brighter(0.8).formatRgb();
           const sn=document.createElement('div'); sn.textContent=struct;
           const cv2=document.createElement('div'); cv2.className='chev'; cv2.textContent='▸';
           srow.append(sm,sn,cv2); subStruct.appendChild(srow);
 
-          const subStrat=document.createElement('div'); subStrat.className='sublist';
-          subStruct.appendChild(subStrat);
-
           srow.addEventListener('click',(ev)=>{
             ev.stopPropagation();
-            const key=`ION:${ion}|STRUCT:${struct}`;
-            if (selStructs.has(key)) selStructs.delete(key); else selStructs.add(key);
-            subStrat.classList.toggle('open');
-            cv2.textContent=subStrat.classList.contains('open') ? '▾' : '▸';
-            applyHighlight();
+            focusNode = findInFullTree(trailFromSubtreeNode(structNode));
+            draw();
           });
-          srow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}|STRUCT:${struct}`; applyHighlight(); });
-          srow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
+
+          const subStrat=document.createElement('div'); subStrat.className='sublist';
+          subStruct.appendChild(subStrat);
 
           (structNode.children||[]).forEach(stratNode=>{
             const strat=stratNode.data.name;
             const trow=document.createElement('div'); trow.className='stratRow';
             const tm=document.createElement('div'); tm.className='smSwatch';
-            tm.style.background = d3.color(colorIon(ion)).brighter(1.4).formatRgb();
+            tm.style.background = d3.color(colorIon(getTopOf(ionNode) || ion)).brighter(1.4).formatRgb();
             const tn=document.createElement('div'); tn.textContent=strat;
             const filler=document.createElement('div'); filler.style.width='18px';
             trow.append(tm,tn,filler); subStrat.appendChild(trow);
 
             trow.addEventListener('click',(ev)=>{
               ev.stopPropagation();
-              const key=`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`;
-              if (selStrats.has(key)) selStrats.delete(key); else selStrats.add(key);
-              applyHighlight();
+              // focusing strategy still shows all formulas under it
+              focusNode = findInFullTree(trailFromSubtreeNode(stratNode));
+              draw();
             });
-            trow.addEventListener('mouseenter',()=>{ hoverKey=`ION:${ion}|STRUCT:${struct}|STRAT:${strat}`; applyHighlight(); });
-            trow.addEventListener('mouseleave',()=>{ hoverKey=null; applyHighlight(); });
           });
         });
       });
 
       container.appendChild(frag);
+
+      function getTopOf(n){
+        let x=n; while (x && x.depth>1) x=x.parent;
+        return x?.data?.name;
+      }
+      function trailFromSubtreeNode(n){
+        return n.ancestors().reverse().slice(1).map(m=>m.data.name);
+      }
     }
 
-    // ---------- Highlight logic ----------
+    // ---------- Breadcrumb ----------
+    function renderCrumbs(){
+      const el = document.getElementById('crumbs');
+      const parts = [];
+      if (!focusNode || focusNode.depth===0) {
+        parts.push('<a data-ix="root">All ions</a>');
+      } else {
+        // build path from root->...->focusNode in the full tree
+        const chain = focusNode.ancestors().reverse().slice(1); // skip full root
+        parts.push('<a data-ix="root">All ions</a>');
+        chain.forEach((n,i)=>{
+          parts.push(' / ');
+          parts.push(`<a data-ix="${i}">${n.data.name}</a>`);
+        });
+      }
+      el.innerHTML = parts.join('');
+      el.querySelectorAll('a').forEach(a=>{
+        a.addEventListener('click',()=>{
+          const ix = a.getAttribute('data-ix');
+          if (ix === 'root') { focusNode = null; }
+          else {
+            const i = Number(ix);
+            const anc = focusNode.ancestors().reverse().slice(1);
+            focusNode = anc[i] || null;
+          }
+          draw();
+        });
+      });
+    }
+
+    // ---------- Highlight logic (same as before) ----------
     function matchBranch(el){
       const ion = el.dataset.ion || '';
       const struct = el.dataset.struct || '';
@@ -501,12 +578,27 @@
       });
     }
 
-    // checkbox: show/hide all labels together
+    // ---------- Label visibility ----------
     function applyLabelVisibility(){
       d3.selectAll('.label, .leafLabel').each(function(){
         const base = this.classList.contains('leafLabel') ? 'leafLabel' : 'label';
         this.setAttribute('class', labelsVisible ? `${base} visibleLabel` : `${base} hiddenLabel`);
       });
+    }
+
+    // ---------- Mapping helpers (subtree->full tree) ----------
+    function findInFullTree(nameTrail){
+      // nameTrail is like ["Li+", "Garnet", "Aliovalent doping"]
+      let node = fullHierarchy;
+      let idx = 0;
+      while (idx < nameTrail.length && node) {
+        const name = nameTrail[idx++];
+        node = (node.children||[]).find(c => c.data.name === name);
+      }
+      return node || null;
+    }
+    function getFullTreeParent(node){
+      return node?.parent || null;
     }
   </script>
 </body>
