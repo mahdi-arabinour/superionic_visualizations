@@ -28,7 +28,7 @@
   }
   svg { width:100%; height:100%; display:block; }
 
-  /* Legend + controls embedded */
+  /* Legend + controls at bottom */
   .legend {
     background:#0f141f; border:1px solid #2a3240; border-radius:12px;
     padding:10px; overflow:auto; max-height:calc(100vh - 150px);
@@ -43,7 +43,6 @@
   .ionRow:hover { background:#0f1726; }
   .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(255,255,255,.35); }
 
-  /* Embedded controls at bottom of legend */
   .controls { border-top:1px solid #2a3240; padding-top:8px; display:flex; flex-direction:column; gap:10px; }
   .controls h4 { margin:4px 0 0 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
   .toggleRow { display:flex; align-items:center; gap:8px; font-size:13px; }
@@ -61,12 +60,13 @@
   .hiddenLabel { opacity:0; transition:opacity .12s ease; }
   .visibleLabel { opacity:1; transition:opacity .12s ease; }
 
-  /* Curved ring captions (track labels) */
-  .ringGuides text.ringCaption {
+  /* Dedicated caption layers (always on top) */
+  .cap { pointer-events:none; }
+  .cap text {
     font-size: 11px; fill: #9fb3cc; letter-spacing: .3px;
-    paint-order: stroke; stroke: rgba(15,17,21,0.85); stroke-width: 3px;
+    paint-order: stroke; stroke: rgba(15,17,21,0.85); stroke-width:3px;
   }
-  .ringGuides path.ringArc { fill: none; stroke: none; }
+  .cap path { fill:none; stroke:none; }
 
   .crumbs { font-size:12px; color:#9fb3cc; }
   .crumbs a { color:#c6d7ff; text-decoration:none; cursor:pointer; }
@@ -139,22 +139,27 @@
   const RING_SCALE = [1.0, 1.32, 1.52];  // root, ion, structure+
   const LEAF_SCALE = [1.0, 1.45, 1.6];
 
-  // Label placement (always show fallback)
+  // Label placement
   const ANG_PAD_PX = 2;
   const FONT_TRY_STEPS = [1.0, 0.9, 0.8, 0.7, 0.6];
   const MIN_FONT_PX = 6;
   const FORCE_SHOW_IF_FAILS = true;
 
+  // Anti-overlap tweaks
+  const ANG_GUTTER_RAD = 0.006; // ~0.34° gap between labels on a ring
+  const SEAM_BIAS = 0.01;       // shift away from 0/2π seam if straddling
+
   // Ring captions
-  const CAP_ARC_DEG = 120;
+  const CAP_ARC_DEG = 90;
 
   // ---------------- State ----------------
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
   let colorIon, maxRGlobal=0, labelsVisible=true;
   let _nodesCache=null, _outerR=null, _defs=null, _g=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
-  let _lastPartitionRoot = null; // track current partition root for relayouts
+  let _lastPartitionRoot = null;
+  let _capLayers = null;
 
-  // checkbox + fonts
+  // checkboxes + fonts
   let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=false, SHOW_FORM=false;
   let FS_ION=13, FS_STRUCT=12, FS_STRAT=11, FS_FORM=10;
 
@@ -184,7 +189,7 @@
     ui.showStrat.onchange   = ()=>{ SHOW_STRAT   = ui.showStrat.checked;   layoutLabels(); };
     ui.showFormula.onchange = ()=>{ SHOW_FORM    = ui.showFormula.checked; layoutLabels(); };
 
-    // Font sliders — live update (labels only; captions unaffected)
+    // Font sliders — live update
     ui.fsIon.oninput     = ()=>{ FS_ION   = +ui.fsIon.value;     layoutLabels(true); };
     ui.fsStruct.oninput  = ()=>{ FS_STRUCT= +ui.fsStruct.value;  layoutLabels(true); };
     ui.fsStrat.oninput   = ()=>{ FS_STRAT = +ui.fsStrat.value;   layoutLabels(true); };
@@ -233,7 +238,6 @@
     return root;
   }
 
-  // recreate subtree of focus
   function makeFocusRoot(){
     if (!focusNode || focusNode.depth===0) return fullHierarchy.copy();
     const clone = d3.hierarchy({
@@ -256,6 +260,15 @@
              children: node.children?.map(c=>cloneData(c)) };
   }
 
+  // ---------------- Allowed-levels helper (single source of truth) ----------------
+  function allowedLevelsForDepth(depth){
+    // depth in the ORIGINAL tree: 0=root, 1=ion, 2=structure, 3=strategy, 4=formula
+    if (depth === 0) return new Set(['ion','struct']);
+    if (depth === 1) return new Set(['struct','strat']);
+    if (depth === 2) return new Set(['strat','formula']);
+    return new Set(['formula']); // depth >= 3
+  }
+
   // ---------------- Draw ----------------
   function draw(){
     const chartEl=document.getElementById('chart');
@@ -267,14 +280,15 @@
     const side=Math.min(Math.max(560, rect.width), Math.max(560, rect.height));
 
     const root = makeFocusRoot();
-    _lastPartitionRoot = root;  // remember for relayouts
-    _focusDepth = (focusNode?.depth ?? 0); // 0=root, 1=ion, 2=structure, 3=strategy, 4=formula (leaf)
+    _lastPartitionRoot = root;
+    _focusDepth = (focusNode?.depth ?? 0);
 
     // size scales by zoom
     const ringScale=RING_SCALE[Math.min(_focusDepth, RING_SCALE.length-1)];
+    const leafScale=LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
     _ringThickness=Math.max(44, side*0.085)*ringScale;
     _leafBase=Math.max(12, side*0.03);
-    const extraLeafMax=Math.max(90, side*0.22)*LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
+    const extraLeafMax=Math.max(90, side*0.22)*leafScale;
 
     d3.partition().size([2*Math.PI, (root.height + 1) * _ringThickness])(root);
 
@@ -346,10 +360,10 @@
       .style('font-size','12px').style('fill','#dfe6f3')
       .text(focusNode ? focusNode.data.name : 'All ions');
 
-    // labels for selected levels (respect zoom-allowed levels)
+    // labels for selected levels
     layoutLabels();
 
-    // ring captions (STATIC: depend only on zoom)
+    // ring captions (layered, static vs checkboxes)
     renderRingCaptions(root);
 
     // stats + crumbs + legend
@@ -358,9 +372,7 @@
     renderCrumbs();
     buildLegend(legendEl, root);
 
-    // enable/disable checkboxes per zoom, then refresh labels/visibility
     updateCheckboxesForZoom();
-
     applyLabelVisibility();
   }
 
@@ -399,7 +411,7 @@
     });
   }
 
-  // ---------------- Absolute level mapping (works at any zoom) ----------------
+  // ---------------- Absolute level mapping ----------------
   function levelOf(d){
     const orig = idMap.get(d.data._uid);
     const od = orig?.depth ?? 0; // 0=root, 1=ion, 2=structure, 3=strategy, 4=formula
@@ -411,12 +423,7 @@
     _g.selectAll('.labels').remove();
     const layer = _g.append('g').attr('class','labels');
 
-    // allowed at this zoom
-    const allow = new Set();
-    if (_focusDepth===0) { allow.add('ion'); allow.add('struct'); }
-    else if (_focusDepth===1) { allow.add('struct'); allow.add('strat'); }
-    else if (_focusDepth===2) { allow.add('strat'); allow.add('formula'); }
-    else { allow.add('formula'); }
+    const allow = allowedLevelsForDepth(_focusDepth);
 
     const wantIon     = SHOW_ION     && allow.has('ion');
     const wantStruct  = SHOW_STRUCT  && allow.has('struct');
@@ -433,7 +440,7 @@
       .data(data, d=>`${d.data._uid}-${levelOf(d)}`)
       .join('text')
       .attr('class', d=> (levelOf(d)==='formula' ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'))
-      .text(d=> d.data.name) // <-- Strategy shows names (not values)
+      .text(d=> d.data.name)
       .style('font-size', d=>{
         const lv = levelOf(d);
         return lv==='ion' ? (FS_ION+'px')
@@ -450,7 +457,7 @@
     placeRadial(sel);
   }
 
-  // ---------------- Placement (upright radial with graceful fallback) ----------------
+  // ---------------- Placement (upright radial + anti-overlap) ----------------
   function placeRadial(selection){
     const occByRing = new Map(); // per-radius occupancy intervals (radians)
 
@@ -462,11 +469,21 @@
                    : lv==='strat' ? FS_STRAT
                    : FS_FORM;
 
-      const rMid = (d.y0 + (lv==='formula' ? _outerR(d) : d.y1))/2;
+      // Inter-ring padding: more room for non-leaf labels
+      const rMidBase = (d.y0 + (lv==='formula' ? _outerR(d) : d.y1))/2;
+      const rMid = rMidBase + (lv==='formula' ? 0 : 4);
       const key  = Math.round(rMid);
-      const a0   = d.x0, a1 = d.x1, amid = (a0+a1)/2;
-      const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
 
+      let a0 = d.x0, a1 = d.x1, amid = (a0+a1)/2;
+
+      // Minimum angle rule (skip very thin slices quickly)
+      const minAngle = (basePx * 3.2) / Math.max(1, rMid); // heuristic
+      if ((a1 - a0) < minAngle) { el.style('display','none'); return; }
+
+      // Seam bias: if label would straddle 0/2π, bias slightly
+      if (a0 < 0 && a1 > 0) { amid += SEAM_BIAS; }
+
+      const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
       if (!occByRing.has(key)) occByRing.set(key, []);
 
       let placed = false;
@@ -477,10 +494,12 @@
         const w = this.getComputedTextLength ? this.getComputedTextLength()
                                              : fs * (this.textContent.length * 0.56);
         const need = (w + ANG_PAD_PX) / Math.max(1, rMid); // radians needed
-        if ((a1 - a0) < need * 0.92) { el.style('display','none'); continue; }
+        const needWithGutter = need + ANG_GUTTER_RAD;
+
+        if ((a1 - a0) < needWithGutter * 0.92) { el.style('display','none'); continue; }
 
         const occ = occByRing.get(key);
-        const t0 = amid - need/2, t1 = amid + need/2;
+        const t0 = amid - needWithGutter/2, t1 = amid + needWithGutter/2;
         const ok = occ.every(([o0,o1]) => t1 <= o0 || t0 >= o1);
         if (!ok) { el.style('display','none'); continue; }
 
@@ -495,7 +514,7 @@
         break;
       }
 
-      // Last resort: force-show even if overlapping/too long
+      // Last resort: force-show
       if (!placed && FORCE_SHOW_IF_FAILS){
         const fs = MIN_FONT_PX;
         el.style('font-size', fs + 'px').style('display', null).style('opacity', 0.98);
@@ -507,18 +526,9 @@
     });
   }
 
-  // ---------------- Zoom-aware checkbox enabling ----------------
+  // ---------------- Zoom-aware checkbox enabling (uses the same helper) ----------------
   function updateCheckboxesForZoom(){
-    // Which levels are meaningful at this zoom?
-    // depth 0: Ion+Structure
-    // depth 1: Structure+Strategy
-    // depth 2: Strategy+Formula
-    // depth >=3: Formula only
-    const allow = new Set();
-    if (_focusDepth===0) { allow.add('ion'); allow.add('struct'); }
-    else if (_focusDepth===1) { allow.add('struct'); allow.add('strat'); }
-    else if (_focusDepth===2) { allow.add('strat'); allow.add('formula'); }
-    else { allow.add('formula'); }
+    const allow = allowedLevelsForDepth(_focusDepth);
 
     function setEn(id){
       const cb = ui[id];
@@ -535,12 +545,26 @@
     applyLabelVisibility();
   }
 
-  // ---------------- Ring captions (curved, STATIC w.r.t. checkboxes) ----------------
-  function renderRingCaptions(partitionRoot){
-    _g.selectAll('.ringGuides').remove();
-    _defs.selectAll('path.ringArc').remove(); // cleanup old defs
+  // ---------------- Caption layers ----------------
+  function ensureCaptionLayers(){
+    if (!_capLayers){
+      _capLayers = {
+        ion:     _g.append('g').attr('class','cap cap-ion'),
+        struct:  _g.append('g').attr('class','cap cap-struct'),
+        strat:   _g.append('g').attr('class','cap cap-strat'),
+        formula: _g.append('g').attr('class','cap cap-formula'),
+      };
+    }
+    _capLayers.ion.selectAll('*').remove();
+    _capLayers.struct.selectAll('*').remove();
+    _capLayers.strat.selectAll('*').remove();
+    _capLayers.formula.selectAll('*').remove();
+  }
 
-    const guides = _g.append('g').attr('class','ringGuides');
+  // ---------------- Ring captions (curved, layered, static vs checkboxes) ----------------
+  function renderRingCaptions(partitionRoot){
+    ensureCaptionLayers();
+    _defs.selectAll('path.ringArc').remove();
 
     const a0 = (-90 - CAP_ARC_DEG/2) * Math.PI/180;
     const a1 = (-90 + CAP_ARC_DEG/2) * Math.PI/180;
@@ -551,29 +575,35 @@
       return `M ${x0.toFixed(3)} ${y0.toFixed(3)} A ${r.toFixed(3)} ${r.toFixed(3)} 0 ${largeArc} 1 ${x1.toFixed(3)} ${y1.toFixed(3)}`;
     }
 
-    // Mid-radii for available bands in the current partition
-    const bandCount = partitionRoot.height; // number of inner (non-leaf) bands
+    const bandCount = partitionRoot.height;
     const bandMids = Array.from({length: bandCount}, (_,i)=> (i+0.5) * _ringThickness);
-    const rFormula = (bandCount * _ringThickness) + (_leafBase * 0.65); // formula "leaf" band
+    const rFormula = (bandCount * _ringThickness) + (_leafBase * 0.65);
 
-    // Build static captions for rings that actually exist at this zoom.
-    const items = [];
-    if (bandMids[0] != null) items.push({text:'Ion',              r:bandMids[0]});
-    if (bandMids[1] != null) items.push({text:'Structure',        r:bandMids[1]});
-    if (bandMids[2] != null) items.push({text:'Doping strategy',  r:bandMids[2]});
-    items.push({text:'Formula', r:rFormula});
+    const items = [
+      bandMids[0]!=null ? { key:'ion',     text:'Ion',              r:bandMids[0] } : null,
+      bandMids[1]!=null ? { key:'struct',  text:'Structure',        r:bandMids[1] } : null,
+      bandMids[2]!=null ? { key:'strat',   text:'Doping strategy',  r:bandMids[2] } : null,
+                           { key:'formula', text:'Formula',          r:rFormula     },
+    ].filter(Boolean);
 
     items.forEach((it,i)=>{
-      const id = `ringcap-${_focusDepth}-${i}-${Math.floor(it.r)}`;
+      const id = `ringcap-${_focusDepth}-${it.key}-${Math.floor(it.r)}`;
       const d = arcPath(it.r, a0, a1);
-      _defs.append('path').attr('class','ringArc').attr('id',id).attr('d',d);
-      guides.append('text').attr('class','ringCaption')
+      _defs.append('path').attr('id',id).attr('d',d);
+      const layer = _capLayers[it.key];
+      layer.append('text')
         .append('textPath')
         .attr('href','#'+id)
         .attr('startOffset','50%')
         .attr('text-anchor','middle')
         .text(it.text);
     });
+
+    // keep layers on top
+    _capLayers.ion.raise();
+    _capLayers.struct.raise();
+    _capLayers.strat.raise();
+    _capLayers.formula.raise();
   }
 
   // ---------------- Visibility toggle ----------------
