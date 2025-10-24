@@ -457,7 +457,7 @@
     placeRadial(sel);
   }
 
-  // ---------------- Placement (upright radial + anti-overlap) ----------------
+  // ---------------- Placement (upright radial + anti-overlap; no early return) ----------------
   function placeRadial(selection){
     const occByRing = new Map(); // per-radius occupancy intervals (radians)
 
@@ -476,9 +476,11 @@
 
       let a0 = d.x0, a1 = d.x1, amid = (a0+a1)/2;
 
-      // Minimum angle rule (skip very thin slices quickly)
-      const minAngle = (basePx * 3.2) / Math.max(1, rMid); // heuristic
-      if ((a1 - a0) < minAngle) { el.style('display','none'); return; }
+      // Heuristic min-angle, but DO NOT early return; allow force-show later
+      const minAngleBase = (basePx * 2.2) / Math.max(1, rMid);
+      const minAngle = (lv === 'ion') ? 0 : minAngleBase; // ions always allowed
+      const sliceSpan = (a1 - a0);
+      const sliceIsNarrow = sliceSpan < minAngle;
 
       // Seam bias: if label would straddle 0/2π, bias slightly
       if (a0 < 0 && a1 > 0) { amid += SEAM_BIAS; }
@@ -496,7 +498,8 @@
         const need = (w + ANG_PAD_PX) / Math.max(1, rMid); // radians needed
         const needWithGutter = need + ANG_GUTTER_RAD;
 
-        if ((a1 - a0) < needWithGutter * 0.92) { el.style('display','none'); continue; }
+        // If slice is narrow, don't pre-reject — try to place, else force-show
+        if (!sliceIsNarrow && sliceSpan < needWithGutter * 0.92) { el.style('display','none'); continue; }
 
         const occ = occByRing.get(key);
         const t0 = amid - needWithGutter/2, t1 = amid + needWithGutter/2;
@@ -514,7 +517,7 @@
         break;
       }
 
-      // Last resort: force-show
+      // Last resort: force-show so checkboxes always have effect
       if (!placed && FORCE_SHOW_IF_FAILS){
         const fs = MIN_FONT_PX;
         el.style('font-size', fs + 'px').style('display', null).style('opacity', 0.98);
