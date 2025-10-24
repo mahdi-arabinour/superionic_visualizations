@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tidy Tree — Light Theme (Canonical Grouping)</title>
+<title>Radial Tidy Tree — Canonical Grouping</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -121,7 +121,8 @@ function parseSigma(v){
   return m ? Number(m[0]) : NaN;
 }
 
-/* Build per-row leaf objects (group by canonical; display raw) */
+/* Build per-row leaf objects (group by canonical; display raw)
+   Also: apply default σ if missing/invalid, store back, and flag isDefault. */
 function buildLeaves(rows){
   const {ion,struct,doping,formula,sigma} = COLS; // struct = canonical
   const leaves = [];
@@ -138,16 +139,22 @@ function buildLeaves(rows){
     const dopV = (r[doping]||'(none)').toString().trim();
     const formV = (r[formula]||'(formula)').toString().trim();
 
-    const pv = parseSigma(r[sigma]);
-    const sig = (Number.isFinite(pv) && pv>0) ? pv : defSigma;
+    // --- apply default σ if missing/invalid & remember it's defaulted ---
+    let pv = parseSigma(r[sigma]);
+    const isDefault = !(Number.isFinite(pv) && pv > 0);
+    if (isDefault) {
+      pv = defSigma;
+      r[sigma] = defSigma.toExponential(3); // store back for consistency in tooltips
+    }
 
     leaves.push({
       ion: ionV,
-      structure: structCanon,   // used for grouping
-      structureLabel: structRaw,// shown on labels
+      structure: structCanon,     // used for grouping
+      structureLabel: structRaw,  // shown on labels
       doping: dopV,
       formula: formV,
-      sigma: sig
+      sigma: pv,                  // numeric value used downstream
+      isDefault                   // flag for styling & tooltip
     });
   }
   return leaves;
@@ -188,7 +195,7 @@ function drawTree(rows){
       const nStruct = { name:structCanon, structureLabel:structRawExample, children:[] };
       for(const [dop, g3] of g2){
         const nDop = { name:dop, children:[] };
-        for(const d of g3){ nDop.children.push({ name:d.formula, sigma:d.sigma, ion:d.ion }); }
+        for(const d of g3){ nDop.children.push({ name:d.formula, sigma:d.sigma, ion:d.ion, isDefault:d.isDefault }); }
         nStruct.children.push(nDop);
       }
       nIon.children.push(nStruct);
@@ -245,7 +252,10 @@ function drawTree(rows){
     .attr('transform',d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`)
     .attr('r',d=>d.children?2.2:1.8)
     .attr('fill',d=> d.ancestors().find(a=>a.depth===1)?.data?.color || '#9aa5b1')
-    .attr('stroke','var(--node-stroke)').attr('stroke-width',0.8)
+    .attr('stroke','var(--node-stroke)')
+    .attr('stroke-width',0.8)
+    /* dashed outline if this is a leaf that used the default σ */
+    .attr('stroke-dasharray', d => (!d.children && d.data?.isDefault) ? '3,2' : null)
     .on('mousemove',(e,d)=>showTip(e,d)).on('mouseleave',hideTip);
 
   // Labels (structure shows RAW type at depth 2)
@@ -299,7 +309,7 @@ function drawTree(rows){
   }
 
   // --- Bottom caption (responsive) ---
-  const caption = "Ion → Structure Group (Canonical) → Doping → Formula • leaf length ∝ σ • structure labels show RAW type";
+  const caption = "Ion → Structure Group (Canonical) → Doping → Formula • leaf length ∝ σ • structure labels show RAW type • dashed = default σ";
   const bottomMargin = 12;
   svg.selectAll("text.viz-caption")
     .data([caption])
@@ -317,14 +327,16 @@ function showTip(e,d){
   const structure=anc[2]?.data?.structureLabel || anc[2]?.data?.name || '(structure)';
   const doping=anc[3]?.data?.name||'(doping)';
   let html=`<b>${ion}</b> → ${structure} → ${doping}`;
+
   if(!d.children){
     const v = Number(d.data?.sigma);
     html += `<br><b>${d.data?.name}</b>`;
     if(Number.isFinite(v) && v>0) {
-      html += `<br>σ: ${v.toExponential(3)} S·cm⁻¹`;
+      const tag = d.data?.isDefault ? " (default σ)" : "";
+      html += `<br>σ: ${v.toExponential(3)} S·cm⁻¹${tag}`;
     } else {
       const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
-      html += `<br>σ: default ${def.toExponential(3)} S·cm⁻¹`;
+      html += `<br>σ: default ${def.toExponential(3)} S·cm⁻¹ (fallback)`;
     }
   }
   tip.html(html).style('left',(e.clientX+12)+'px').style('top',(e.clientY+12)+'px').style('opacity',1);
@@ -339,10 +351,9 @@ async function initFromCSV(){
     const rows = await d3.csv(CSV_PATH);
     if(!rows || !rows.length){ say("No rows found in data.csv"); return; }
 
-    // Strict mapping: canonical for grouping; raw used by buildLeaves
     COLS = {
       ion:    "Ion Type (Normalized)",
-      struct: "Structure Group (Canonical)",
+      struct: "Structure Group (Canonical)",  // grouping
       doping: "Doping / and or GB Strategy",
       formula:"superionic conductor Formula (Chemical)",
       sigma:  "Conductivity σ (S·cm⁻¹)"
@@ -369,6 +380,13 @@ async function initFromCSV(){
         const sw=document.createElement('div'); sw.className='sw'; sw.style.background=ionColorScale(i);
         chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); leg.appendChild(chip);
       });
+      // Legend note for default σ mark
+      const note = document.createElement('div');
+      note.style.marginTop = '6px';
+      note.style.fontSize = '12px';
+      note.style.color = '#6b7280';
+      note.textContent = 'Dashed outline = default σ used';
+      leg.appendChild(note);
     }
 
     drawTree(DATA);
