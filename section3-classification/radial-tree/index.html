@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tidy Tree — Canonical Grouping (Zoomable, σ-driven, auto-fit)</title>
+<title>Radial Tidy Tree — Canonical Grouping (with Ion Zoom)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -18,10 +18,9 @@
     position:sticky;top:0;z-index:10;
   }
   label{font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text);}
-  input[type="number"],input[type="range"],select,button{
-    background:#fff;color:var(--text);border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;cursor:pointer;
+  input[type="number"],input[type="range"],select{
+    background:#fff;color:var(--text);border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;
   }
-  button{font-size:13px}
   #status{margin-left:auto;font-size:12px;color:var(--muted);}
   #chart{width:100%;height:90vh;}
   aside{
@@ -44,20 +43,22 @@
   .lbl-doping{fill:#374151;font-weight:400;}
   .lbl-formula{fill:#4b5563;font-weight:400;}
   .viz-caption{font-size:12px;fill:#374151;text-anchor:middle;}
+  #resetView{display:none;}
 </style>
 </head>
 <body>
 <header>
+  <!-- No upload UI — reads ./data.csv -->
   <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:90px;"></label>
   <label><input type="checkbox" id="useLog" checked> log₁₀(σ) for leaf length</label>
-  <label>Base edge (target):
-    <input type="range" id="baseEdge" min="24" max="120" step="2" value="60"><span id="baseEdgeLbl">60</span> px
+  <label>Base edge:
+    <input type="range" id="baseEdge" min="30" max="120" step="2" value="60"><span id="baseEdgeLbl">60</span> px
   </label>
-  <label>Leaf extra (design span):
+  <label>Leaf extra:
     <input type="range" id="leafMin" min="6" max="80" step="1" value="10"><span id="leafMinLbl">10</span> px
-    <input type="range" id="leafMax" min="20" max="260" step="2" value="140"><span id="leafMaxLbl">140</span> px
+    <input type="range" id="leafMax" min="20" max="240" step="2" value="120"><span id="leafMaxLbl">120</span> px
   </label>
-  <button id="resetView" style="display:none">Reset View</button>
+  <button id="resetView">Reset View</button>
   <div id="status">Loading data.csv…</div>
 </header>
 
@@ -107,16 +108,15 @@ const basePalette = d3.schemeTableau10.concat(d3.schemeSet3);
 const ionColorScale = d3.scaleOrdinal().range(basePalette);
 
 let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
-let focusIon = null; // null = all ions
-
+let focusIon = null; // NEW: null = all ions (unzoomed)
 function say(t){ statusEl.textContent = t; }
 
-// Parse σ into number (S/cm) for ingestion/defaulting only
+// conductivity parser → numeric S/cm
 function parseSigma(v){
   if (v == null) return NaN;
   let s = String(v).trim();
   if (!s) return NaN;
-  s = s.replace(/[,\s]/g, '').replace(/[−–—-]/g, '-').replace('·','/');
+  s = s.replace(/[,\s]/g, '').replace(/[−–—-]/g, '-');
   const sup = { '⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁺':'+','⁻':'-' };
   s = [...s].map(ch => sup[ch] ?? ch).join('');
   s = s.replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i, '$1e$2');
@@ -125,14 +125,14 @@ function parseSigma(v){
   return m ? Number(m[0]) : NaN;
 }
 
-/* Build per-row leaf objects (group by canonical; display raw).
-   Default σ if missing/invalid; store numeric σ and isDefault flag. */
+/* Build per-row leaf objects (group by canonical; display raw)
+   Also: apply default σ if missing/invalid, store back, and flag isDefault. */
 function buildLeaves(rows){
-  const {ion,struct,doping,formula,sigma} = COLS;
+  const {ion,struct,doping,formula,sigma} = COLS; // struct = canonical
   const leaves = [];
   const defSigma = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
 
-  // If focused, force that ion regardless of multiselect; else use multiselect
+  // Multiselect or focused ion (zoom)
   const uiSel = Array.from(document.getElementById('ionSelect').selectedOptions || []).map(o=>o.value);
   const selectedSet = focusIon ? new Set([focusIon]) : (uiSel.length ? new Set(uiSel) : null);
 
@@ -145,53 +145,25 @@ function buildLeaves(rows){
     const dopV = (r[doping]||'(none)').toString().trim();
     const formV = (r[formula]||'(formula)').toString().trim();
 
-    // σ defaulting (store numeric σ; flag defaults)
+    // default σ if missing/invalid
     let pv = parseSigma(r[sigma]);
     const isDefault = !(Number.isFinite(pv) && pv > 0);
     if (isDefault) {
       pv = defSigma;
-      r[sigma] = defSigma.toExponential(3); // for consistent tooltips if ever read again
+      r[sigma] = defSigma.toExponential(3);
     }
 
     leaves.push({
       ion: ionV,
-      structure: structCanon,     // for grouping
-      structureLabel: structRaw,  // for label display (RAW)
+      structure: structCanon,     // used for grouping
+      structureLabel: structRaw,  // shown on labels
       doping: dopV,
       formula: formV,
-      sigma: pv,                  // NUMERIC σ (key!)
+      sigma: pv,                  // numeric value used downstream
       isDefault
     });
   }
   return leaves;
-}
-
-/* Build hierarchy; if focusIon set, include only that ion */
-function buildHierarchy(leaves){
-  const root = { name:'root', children:[] };
-  const grouped = d3.group(leaves, d=>d.ion, d=>d.structure, d=>d.doping);
-  const ions = focusIon ? [focusIon] : Array.from(grouped.keys());
-
-  for(const ion of ions){
-    const g1 = grouped.get(ion);
-    if (!g1) continue;
-    const nIon = { name:ion, color:ionColorScale(ion), children:[] };
-    for(const [structCanon, g2] of g1){
-      const structRawExample = g2[0]?.structureLabel || structCanon;
-      const nStruct = { name:structCanon, structureLabel:structRawExample, children:[] };
-      const gDop = d3.group(g2, d=>d.doping);
-      for(const [dop, g3] of gDop){
-        const nDop = { name:dop, children:[] };
-        for(const d of g3){
-          nDop.children.push({ name:d.formula, sigma:d.sigma, ion:d.ion, isDefault:d.isDefault });
-        }
-        nStruct.children.push(nDop);
-      }
-      nIon.children.push(nStruct);
-    }
-    root.children.push(nIon);
-  }
-  return d3.hierarchy(root).sort((a,b)=> d3.ascending(a.data.name, b.data.name));
 }
 
 function drawTree(rows){
@@ -199,27 +171,16 @@ function drawTree(rows){
   WIDTH = bb.width; HEIGHT = bb.height; R = Math.min(WIDTH, HEIGHT)/2 - 40;
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
 
-  let useLog  = document.getElementById('useLog').checked;
-  let baseEdgeWanted = +document.getElementById('baseEdge').value; // user's target
+  const useLog  = document.getElementById('useLog').checked;
+  const baseEdge = +document.getElementById('baseEdge').value;
   const leafMin  = +document.getElementById('leafMin').value;
   const leafMax  = +document.getElementById('leafMax').value;
   const fsStruct = +document.getElementById('fsStruct').value;
   const fsDoping = +document.getElementById('fsDoping').value;
   const fsFormula= +document.getElementById('fsFormula').value;
-  const leafSpreadPx = (+document.getElementById('leafSpread').value) + (focusIon ? 6 : 0);
+  const leafSpreadPx = +document.getElementById('leafSpread').value;
 
-  // We will *fit* baseEdge so that leaves never crowd R:
-  // - keep at least margin outside
-  // - reserve room for formula extra (worst case)
-  const margin = 14;
-  const maxBaseEdge = Math.max(12, (R - margin - leafMax) / 4);
-  const baseEdge = Math.min(baseEdgeWanted, maxBaseEdge);
-  if (baseEdge !== baseEdgeWanted) {
-    // reflect the adjusted value in the UI label (slider stays where it is)
-    document.getElementById('baseEdgeLbl').textContent = Math.round(baseEdge);
-  } else {
-    document.getElementById('baseEdgeLbl').textContent = baseEdge;
-  }
+  document.getElementById('baseEdgeLbl').textContent = baseEdge;
   document.getElementById('leafMinLbl').textContent = leafMin;
   document.getElementById('leafMaxLbl').textContent = leafMax;
   document.getElementById('fsStructLbl').textContent = fsStruct;
@@ -228,18 +189,39 @@ function drawTree(rows){
   document.getElementById('leafSpreadLbl').textContent = leafSpreadPx;
 
   const leaves = buildLeaves(rows);
-  const H = buildHierarchy(leaves);
 
-  // Layout in angle
+  // Build nested: Ion → StructureGroup(Canonical) → Doping → Formula
+  const root = { name:'root', children:[] };
+  const grouped = d3.group(leaves, d=>d.ion, d=>d.structure, d=>d.doping);
+
+  for(const [ion, g1] of grouped){
+    const nIon = { name:ion, color:ionColorScale(ion), children:[] };
+    for(const [structCanon, g2] of g1){
+      const structRawExample = g2[0]?.structureLabel || structCanon;
+      const nStruct = { name:structCanon, structureLabel:structRawExample, children:[] };
+      for(const [dop, g3] of g2){
+        const nDop = { name:dop, children:[] };
+        for(const d of g3){
+          // leaf node includes formula as .name (for labels)
+          nDop.children.push({ name:d.formula, sigma:d.sigma, ion:d.ion, isDefault:d.isDefault });
+        }
+        nStruct.children.push(nDop);
+      }
+      nIon.children.push(nStruct);
+    }
+    root.children.push(nIon);
+  }
+
+  // Hierarchy & initial angles
+  const H = d3.hierarchy(root).sort((a,b)=> d3.ascending(a.data.name, b.data.name));
   d3.cluster().size([2*Math.PI, 1])(H);
 
-  // Base rings for non-leaves (safe)
-  H.each(n=>{ if (n.children) n.y = n.depth * baseEdge; });
+  // Base rings for internal levels
+  H.each(n=>{ if (n.children) n.y = Math.min(R, n.depth * baseEdge); });
 
-  // --- σ domain built from POSITIVE numeric values only (current view) ---
+  // σ domain (positive numeric only; per current view)
   const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
-  const rawSig = H.leaves().map(l => +l.data.sigma);
-  const posSig = rawSig.filter(v => Number.isFinite(v) && v > 0);
+  const posSig = H.leaves().map(l => +l.data.sigma).filter(v => Number.isFinite(v) && v > 0);
   let sMin = posSig.length ? d3.min(posSig) : def;
   let sMax = posSig.length ? d3.max(posSig) : def * 10;
   if (sMin === sMax) { sMin *= 0.9; sMax *= 1.1; }
@@ -247,68 +229,69 @@ function drawTree(rows){
   const scaleLin = d3.scaleLinear().domain([sMin, sMax]).range([leafMin, leafMax]).nice();
   const scaleLog = d3.scaleLog().domain([Math.max(sMin, Number.MIN_VALUE), sMax]).range([leafMin, leafMax]);
 
-  function sigmaExtra(val){
+  function extraForSigma(val){
     let v = +val;
     if(!Number.isFinite(v) || v <= 0) v = def;
     return useLog ? scaleLog(v) : scaleLin(v);
   }
 
-  // Place leaves with guaranteed headroom:
-  const leafBase = 4 * baseEdge;              // base radius of the formula ring
-  const maxExtra = Math.max(8, (R - margin) - leafBase);  // usable span for σ
+  // Avoid flattening at R: map σ-extra so leaves don't hit R
+  const leafBase = 4 * baseEdge;
+  const margin = 12;
+  const maxExtra = Math.max(8, (R - margin) - leafBase);
   const rescaleExtra = d3.scaleLinear().domain([leafMin, leafMax]).range([leafMin, maxExtra]);
 
-  H.each(n => {
-    if (!n.children) {
-      const extra = rescaleExtra(sigmaExtra(n.data.sigma));
-      n.y = leafBase + extra; // *will* be < R - margin
+  // Apply σ-based length to leaves (no clamping)
+  H.each(n=>{ 
+    if(!n.children){
+      const extra = rescaleExtra(extraForSigma(n.data.sigma));
+      n.y = leafBase + extra;
     }
   });
 
-  // Slight sibling spread for readability
+  // Spread leaf angles so labels have room
   const spread = leafSpreadPx;
   if (spread > 0) {
     H.descendants().filter(d => d.depth === 3).forEach(parent => {
       const kids = (parent.children || []).filter(c => !c.children);
-      const n = kids.length; if (n <= 1) return;
+      const n = kids.length;
+      if (n <= 1) return;
       kids.sort((a,b)=> a.x - b.x);
       kids.forEach((c, idx) => {
         const r = Math.max(c.y, 1);
-        const delta = (idx - (n - 1)/2) * (spread / r); // px/r → radians
+        const delta = (idx - (n - 1)/2) * (spread / r); // px/r -> radians
         c.x += delta;
       });
     });
   }
 
-  // Links
+  // Links & nodes
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
   svg.append('g').attr('fill','none').attr('stroke','var(--link)').attr('stroke-width',1)
     .selectAll('path').data(H.links()).join('path').attr('d',d=> link({source:d.source, target:d.target}));
 
-  // Nodes
-  const gNodes = svg.append('g').selectAll('g.node')
-    .data(H.descendants())
-    .join('g')
+  const nodeG = svg.append('g').selectAll('g.node').data(H.descendants()).join('g')
     .attr('class','node')
     .attr('transform',d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`);
 
-  gNodes.append('circle')
+  nodeG.append('circle')
     .attr('r',d=>d.children?2.2:1.8)
     .attr('fill',d=> d.ancestors().find(a=>a.depth===1)?.data?.color || '#9aa5b1')
     .attr('stroke','var(--node-stroke)')
     .attr('stroke-width',0.8)
     .attr('stroke-dasharray', d => (!d.children && d.data?.isDefault) ? '3,2' : null)
     .on('mousemove',(e,d)=>showTip(e,d)).on('mouseleave',hideTip)
+    // NEW: click Ion node to zoom
     .on('click', (e,d)=> { if (d.depth === 1) setFocusIon(d.data.name); });
 
-  // Labels (each layer rebuilt every draw; Formula toggle respected)
+  // Labels (structure shows RAW type at depth 2)
   const wantIon     = document.getElementById('showIonLbl').checked;
   const wantStruct  = document.getElementById('showStructLbl').checked;
   const wantDoping  = document.getElementById('showDopingLbl').checked;
   const wantFormula = document.getElementById('showFormulaLbl').checked;
 
   const layers = [
-    {depth:1, show:wantIon,     cls:'lbl-ion',     fs:13, weight:'700', gapDeg:0, off:8, clickZoom:true,  text:(d)=>d.data?.name??''},
+    {depth:1, show:wantIon,     cls:'lbl-ion',     fs:13, weight:'700', gapDeg:0, off:8, text:(d)=>d.data?.name??'', clickZoom:true},
     {depth:2, show:wantStruct,  cls:'lbl-struct',  fs:fsStruct, weight:'500', gapDeg:+document.getElementById('gapStruct').value,  off:6, text:(d)=>d.data?.structureLabel ?? d.data?.name ?? ''},
     {depth:3, show:wantDoping,  cls:'lbl-doping',  fs:fsDoping, weight:'400', gapDeg:+document.getElementById('gapDoping').value,  off:5, text:(d)=>d.data?.name??''},
     {depth:4, show:wantFormula, cls:'lbl-formula', fs:fsFormula,weight:'400', gapDeg:+document.getElementById('gapFormula').value, off:0, text:(d)=>d.data?.name??''}
@@ -318,9 +301,9 @@ function drawTree(rows){
     if(!L.show) continue;
     const nodes = H.descendants().filter(d=>d.depth===L.depth);
 
-    // declutter by minimum angular gap where configured
+    // declutter by min angular gap where configured (for depths 2/3/4)
     let renderNodes = nodes;
-    if (L.gapDeg && L.gapDeg > 0) {
+    if (L.gapDeg && L.gapDeg > 0 && L.depth !== 1) {
       const minGap = L.gapDeg*Math.PI/180;
       const kept=[],sorted=nodes.slice().sort((a,b)=>a.x-b.x);
       for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=minGap) kept.push(d); }
@@ -337,12 +320,13 @@ function drawTree(rows){
       })
       .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
       .text(L.text)
-      .style('cursor', L.clickZoom ? 'pointer' : null)
+      .style('cursor', (L.clickZoom ? 'pointer' : null))
+      // NEW: click Ion label to zoom
       .on('click', (e,d)=> { if (L.clickZoom && d.depth===1) setFocusIon(d.data.name); });
   }
 
   // Bottom caption
-  const caption = "Ion → Structure Group (Canonical) → Doping → Formula • leaf length ∝ σ • RAW labels • dashed = default σ • click Ion to zoom";
+  const caption = "Ion → Structure Group (Canonical) → Doping → Formula • leaf length ∝ σ • RAW structure label • dashed = default σ • click Ion to zoom";
   const bottomMargin = 12;
   svg.selectAll("text.viz-caption")
     .data([caption])
@@ -351,12 +335,10 @@ function drawTree(rows){
     .attr("y", HEIGHT/2 - bottomMargin)
     .text(d => d);
 
-  // Diagnostics (verify fit & variability)
+  // Diag (helps verify)
   const maxY = d3.max(H.leaves().map(d => d.y));
   const atWall = H.leaves().filter(d => (R - d.y) < 1).length;
-  const defaultsCount = H.leaves().filter(l => !!l.data?.isDefault).length;
-  const pctDef = Math.round(100 * defaultsCount / Math.max(H.leaves().length,1));
-  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length} • σ in view: ${sMin.toExponential(2)}→${sMax.toExponential(2)} • baseEdge=${Math.round(baseEdge)} • leafBase=${Math.round(4*baseEdge)} • usableExtra≈${Math.round(maxExtra)} • maxY=${Math.round(maxY)} • capped=${atWall} • defaults=${pctDef}%`);
+  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length} • σ domain: ${sMin.toExponential(2)}→${sMax.toExponential(2)} • maxY=${Math.round(maxY)} • capped=${atWall}`);
 }
 
 function showTip(e,d){
@@ -367,7 +349,7 @@ function showTip(e,d){
   let html=`<b>${ion}</b> → ${structure} → ${doping}`;
 
   if(!d.children){
-    const v = +d.data?.sigma;
+    const v = Number(d.data?.sigma);
     html += `<br><b>${d.data?.name}</b>`;
     if(Number.isFinite(v) && v>0) {
       const tag = d.data?.isDefault ? " (default σ)" : "";
@@ -381,24 +363,20 @@ function showTip(e,d){
 }
 function hideTip(){ tip.style('opacity',0); }
 
-// Zoom helpers
+// ---- Zoom helpers (NEW) ----
 function setFocusIon(name){
   focusIon = name;
-  const sel = document.getElementById('ionSelect');
-  if (sel) for (const o of sel.options) o.selected = (o.value === name);
   resetBtn.style.display = '';
   drawTree(DATA);
 }
 function clearFocusIon(){
   focusIon = null;
-  const sel = document.getElementById('ionSelect');
-  if (sel) for (const o of sel.options) o.selected = true;
   resetBtn.style.display = 'none';
   drawTree(DATA);
 }
 resetBtn.addEventListener('click', clearFocusIon);
 
-// Auto-load CSV
+// ---- Auto-load from data.csv (no upload UI) ----
 const CSV_PATH = "data.csv";
 async function initFromCSV(){
   say("Loading data.csv...");
@@ -408,7 +386,7 @@ async function initFromCSV(){
 
     COLS = {
       ion:    "Ion Type (Normalized)",
-      struct: "Structure Group (Canonical)",
+      struct: "Structure Group (Canonical)",  // grouping
       doping: "Doping / and or GB Strategy",
       formula:"superionic conductor Formula (Chemical)",
       sigma:  "Conductivity σ (S·cm⁻¹)"
@@ -451,7 +429,7 @@ async function initFromCSV(){
   }
 }
 
-// Controls
+// Controls (unchanged)
 [
  "ionSelect","showIonLbl","showStructLbl","showDopingLbl","showFormulaLbl",
  "fsStruct","fsDoping","fsFormula",
