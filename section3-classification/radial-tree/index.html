@@ -2,25 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tidy Tree — Light Theme</title>
+<title>Radial Tidy Tree — Light Theme (Canonical Grouping)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
-  /* —— Light theme tokens —— */
   :root{
-    --bg:#ffffff;              /* page background */
-    --panel:#f6f7f9;           /* header/aside */
-    --grid:#e5e7eb;            /* lines/borders */
-    --text:#0b1220;            /* primary text */
-    --muted:#6b7280;           /* secondary text */
-    --chip:#ffffff;            /* legend chip bg */
-    --chip-border:#e5e7eb;     /* legend chip border */
-    --node-stroke:#ffffff;     /* node outline */
-    --link:#dde3ea;            /* tree link color */
-    --tip-bg:#ffffff;          /* tooltip bg */
-    --tip-border:#cbd5e1;      /* tooltip border */
+    --bg:#ffffff; --panel:#f6f7f9; --grid:#e5e7eb; --text:#0b1220; --muted:#6b7280;
+    --chip:#ffffff; --chip-border:#e5e7eb; --node-stroke:#ffffff; --link:#dde3ea;
+    --tip-bg:#ffffff; --tip-border:#cbd5e1;
   }
-
   body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);}
   header{
     display:flex;flex-wrap:wrap;gap:10px;align-items:center;
@@ -39,19 +29,15 @@
   }
   aside h3{margin:8px 0;font-size:13px;color:#374151;}
   select[multiple]{width:100%;min-height:120px;background:#fff;color:var(--text);}
-
   .legend{display:flex;flex-wrap:wrap;gap:6px;}
   .chip{display:flex;align-items:center;gap:6px;font-size:12px;background:var(--chip);border:1px solid var(--chip-border);
         padding:4px 6px;border-radius:999px;}
   .sw{width:10px;height:10px;border-radius:3px;border:1px solid #0002;}
-
   .tip{
     position:fixed;pointer-events:none;background:var(--tip-bg);color:var(--text);
     border:1px solid var(--tip-border);padding:6px 8px;border-radius:6px;font-size:12px;
     box-shadow:0 6px 24px rgba(0,0,0,.08);opacity:0;transition:opacity .15s;
   }
-
-  /* Label styling */
   .lbl-ion{fill:#111827;font-weight:700;}
   .lbl-struct{fill:#1f2937;font-weight:500;}
   .lbl-doping{fill:#374151;font-weight:400;}
@@ -60,8 +46,6 @@
 </head>
 <body>
 <header>
-  <button id="loadBtn">Load CSV</button>
-  <input type="file" id="fileInput" accept=".csv" />
   <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:90px;"></label>
   <label><input type="checkbox" id="useLog" checked> log₁₀(σ) for leaf length</label>
   <label>Base edge:
@@ -71,7 +55,7 @@
     <input type="range" id="leafMin" min="6" max="80" step="1" value="10"><span id="leafMinLbl">10</span> px
     <input type="range" id="leafMax" min="20" max="240" step="2" value="120"><span id="leafMaxLbl">120</span> px
   </label>
-  <div id="status">Ready</div>
+  <div id="status">Loading data.csv…</div>
 </header>
 
 <svg id="chart"></svg>
@@ -115,11 +99,10 @@
 const statusEl = document.getElementById('status');
 const svg = d3.select('#chart');
 const tip = d3.select('#tooltip');
-const IonPalette = d3.schemeTableau10.concat(d3.schemeSet3);
-const ionColorScale = d3.scaleOrdinal(IonPalette);
+const basePalette = d3.schemeTableau10.concat(d3.schemeSet3);
+const ionColorScale = d3.scaleOrdinal().range(basePalette);
 
 let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
-
 function say(t){ statusEl.textContent = t; }
 
 /* conductivity parser */
@@ -136,29 +119,34 @@ function parseSigma(v){
   return m ? Number(m[0]) : NaN;
 }
 
-function guessCol(headers, candidates){
-  const map = Object.fromEntries(headers.map(h=>[h.toLowerCase(), h]));
-  for(const nm of candidates){ if(map[nm.toLowerCase()]) return map[nm.toLowerCase()]; }
-  for(const h of headers){ const lc=h.toLowerCase(); if(candidates.some(n=>lc.includes(n.toLowerCase()))) return h; }
-  return null;
-}
-
+/* Build per-row leaf objects (group by canonical; display raw) */
 function buildLeaves(rows){
-  const {ion,struct,doping,formula,sigma} = COLS;
+  const {ion,struct,doping,formula,sigma} = COLS; // struct is canonical
   const leaves = [];
   const defaultSigma = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
   const sel = Array.from(document.getElementById('ionSelect').selectedOptions || []).map(o=>o.value);
   const ionFilter = sel.length ? new Set(sel) : null;
 
-  for(const r of rows){
+  for (const r of rows){
     const ionV = (r[ion]||'Other').toString().trim();
-    if(ionFilter && !ionFilter.has(ionV)) continue;
-    const structV = (r[struct]||'Other / Novel').toString().trim();
+    if (ionFilter && !ionFilter.has(ionV)) continue;
+
+    const structCanonical = (r[struct] || 'Other / Novel').toString().trim();
+    const structRaw = (r["Structure Type (raw)"] || structCanonical).toString().trim();
     const dopV = (r[doping]||'(none)').toString().trim();
     const formV = (r[formula]||'(formula)').toString().trim();
-    const raw = parseSigma(r[sigma]);
-    const sig = (Number.isFinite(raw) && raw>0) ? raw : defaultSigma;
-    leaves.push({ion:ionV, structure:structV, doping:dopV, formula:formV, sigma:sig});
+
+    const v = parseSigma(r[sigma]);
+    const sig = (Number.isFinite(v) && v>0) ? v : defaultSigma;
+
+    leaves.push({
+      ion: ionV,
+      structure: structCanonical,    // used for grouping
+      structureLabel: structRaw,     // used for labels
+      doping: dopV,
+      formula: formV,
+      sigma: sig
+    });
   }
   return leaves;
 }
@@ -187,13 +175,15 @@ function drawTree(rows){
 
   const leaves = buildLeaves(rows);
 
-  // Build nested: Ion → Structure → Doping → Formula
+  // Build nested: Ion → StructureGroup(Canonical) → Doping → Formula
   const root = { name:'root', children:[] };
   const grouped = d3.group(leaves, d=>d.ion, d=>d.structure, d=>d.doping);
+
   for(const [ion, g1] of grouped){
     const nIon = { name:ion, color:ionColorScale(ion), children:[] };
-    for(const [struct, g2] of g1){
-      const nStruct = { name:struct, children:[] };
+    for(const [structCanon, g2] of g1){
+      const structRawExample = g2[0]?.structureLabel || structCanon;
+      const nStruct = { name:structCanon, structureLabel:structRawExample, children:[] };
       for(const [dop, g3] of g2){
         const nDop = { name:dop, children:[] };
         for(const d of g3){ nDop.children.push({ name:d.formula, sigma:d.sigma, ion:d.ion }); }
@@ -256,7 +246,7 @@ function drawTree(rows){
     .attr('stroke','var(--node-stroke)').attr('stroke-width',0.8)
     .on('mousemove',(e,d)=>showTip(e,d)).on('mouseleave',hideTip);
 
-  // Labels (formula labels at leaf end)
+  // Labels (structure label shows RAW name, depth=2)
   const layers = [
     {depth:1, show:document.getElementById('showIonLbl').checked,     cls:'lbl-ion',     fs:13, weight:'700', gapDeg:0, off:8},
     {depth:2, show:document.getElementById('showStructLbl').checked,  cls:'lbl-struct',  fs:fsStruct, weight:'500', gapDeg:+document.getElementById('gapStruct').value, off:6},
@@ -288,6 +278,18 @@ function drawTree(rows){
         })
         .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
         .text(d=>d.data?.name??'');
+    } else if (L.depth===2) {
+      const kept=[],minGap=L.gapDeg*Math.PI/180,sorted=nodes.slice().sort((a,b)=>a.x-b.x);
+      for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=minGap) kept.push(d); }
+      svg.append('g').attr('font-size',L.fs).attr('font-weight',L.weight).attr('class',L.cls)
+        .selectAll('text').data(kept).join('text')
+        .attr('transform',d=>{
+          const a=d.x,r=d.y+L.off; const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
+          const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+          return `translate(${x},${y}) rotate(${rot+flip})`;
+        })
+        .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+        .text(d=> d.data?.structureLabel ?? d.data?.name ?? '' ); // RAW label here
     } else {
       const kept=[],minGap=L.gapDeg*Math.PI/180,sorted=nodes.slice().sort((a,b)=>a.x-b.x);
       for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=minGap) kept.push(d); }
@@ -303,91 +305,104 @@ function drawTree(rows){
     }
   }
 
-  // Title
   svg.append('text').attr('text-anchor','middle').attr('y',4)
     .style('fill', '#374151').style('font-size','12px')
-    .text('Ion → Structure → Doping → Formula • tidy rings; leaf length ∝ σ • leaf labels at branch end');
-
-  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length}`);
+    .text('Ion → Structure Group (Canonical) → Doping → Formula • leaf length ∝ σ • structure labels show RAW type');
 }
 
 function showTip(e,d){
   const anc=d.ancestors().reverse();
   const ion=anc[1]?.data?.name||'(ion)';
-  const structure=anc[2]?.data?.name||'(structure)';
+  const structure=anc[2]?.data?.structureLabel || anc[2]?.data?.name || '(structure)';
   const doping=anc[3]?.data?.name||'(doping)';
   let html=`<b>${ion}</b> → ${structure} → ${doping}`;
   if(!d.children){
-    const sigma=Number(d.data?.sigma);
+    const v = Number(d.data?.sigma);
     html += `<br><b>${d.data?.name}</b>`;
-    if(Number.isFinite(sigma)) html += `<br>σ: ${sigma.toExponential(3)} S·cm⁻¹`;
+    if(Number.isFinite(v) && v>0) {
+      html += `<br>σ: ${v.toExponential(3)} S·cm⁻¹`;
+    } else {
+      const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
+      html += `<br>σ: default ${def.toExponential(3)} S·cm⁻¹`;
+    }
   }
   tip.html(html).style('left',(e.clientX+12)+'px').style('top',(e.clientY+12)+'px').style('opacity',1);
 }
 function hideTip(){ tip.style('opacity',0); }
 
-// File & controls
-document.getElementById('loadBtn').onclick = () => document.getElementById('fileInput').click();
-document.getElementById('fileInput').addEventListener('change', async e=>{
-  const f=e.target.files[0]; if(!f) return; say('Loading '+f.name);
-  const text = await f.text();
-  const rows = d3.csvParse(text); if(!rows.length) return;
-  const headers = rows.columns;
-  COLS = {
-    ion:    guessCol(headers,["Ion Type (Normalized)","Ion Type","Ion"]),
-    struct: guessCol(headers,["Structure Group (Canonical)","Structure Family (Canonical)","Structure"]),
-    doping: guessCol(headers,["Doping / and or GB Strategy (Normalized)","Doping / and or GB Strategy","Doping","GB Strategy"]),
-    formula:guessCol(headers,["superionic conductor Formula (Chemical)","Formula","Chemical Formula"]),
-    sigma:  guessCol(headers,["Conductivity σ (S·cm⁻¹) [numeric]","Conductivity σ (S·cm⁻¹)","Conductivity σ (S/cm)","sigma","Conductivity"])
-  };
-  DATA = rows;
+// ---- Auto-load from data.csv (no upload UI) ----
+const CSV_PATH = "data.csv";
+async function initFromCSV(){
+  say("Loading data.csv...");
+  try {
+    const rows = await d3.csv(CSV_PATH);
+    if(!rows || !rows.length){ say("No rows found in data.csv"); return; }
 
-  const ions = [...new Set(rows.map(r => (r[COLS.ion]||'Other').toString().trim()))].sort((a,b)=>a.localeCompare(b));
-  const sel = document.getElementById('ionSelect');
-  if(sel.options.length===0){
-    ions.forEach(i=>{ const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); });
-    const leg = document.getElementById('ionLegend');
-    ions.forEach(i=>{
-      const chip=document.createElement('div'); chip.className='chip';
-      const sw=document.createElement('div'); sw.className='sw'; sw.style.background=ionColorScale(i);
-      chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); leg.appendChild(chip);
-    });
+    // Strict column mapping (canonical for grouping; raw used for label via buildLeaves):
+    COLS = {
+      ion:    "Ion Type (Normalized)",
+      struct: "Structure Group (Canonical)",          // ← grouping column
+      doping: "Doping / and or GB Strategy",
+      formula:"superionic conductor Formula (Chemical)",
+      sigma:  "Conductivity σ (S·cm⁻¹)"
+    };
+
+    // Guard: ensure required headers exist
+    const required = [
+      "Ion Type (Normalized)","Structure Type (raw)","Structure Group (Canonical)",
+      "Doping / and or GB Strategy","superionic conductor Formula (Chemical)","Conductivity σ (S·cm⁻¹)"
+    ];
+    const missing = required.filter(h => !rows.columns.includes(h));
+    if (missing.length) { say("Missing columns in data.csv: " + missing.join(", ")); return; }
+
+    DATA = rows;
+
+    // Ion selector & legend
+    const ions = [...new Set(rows.map(r => (r[COLS.ion]||'Other').toString().trim()))].sort((a,b)=>a.localeCompare(b));
+    const sel = document.getElementById('ionSelect');
+    if(sel && sel.options.length===0){
+      ions.forEach(i=>{ const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); });
+      const leg = document.getElementById('ionLegend');
+      ions.forEach(i=>{
+        const chip=document.createElement('div'); chip.className='chip';
+        const sw=document.createElement('div'); sw.className='sw'; sw.style.background=ionColorScale(i);
+        chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); leg.appendChild(chip);
+      });
+    }
+
+    drawTree(DATA);
+    say(`Loaded data.csv • rows: ${rows.length}`);
+  } catch (err){
+    console.error(err);
+    say("Failed to load data.csv (serve this folder via http).");
   }
-  drawTree(DATA);
-});
+}
 
+// Controls
 [
  "ionSelect","showIonLbl","showStructLbl","showDopingLbl","showFormulaLbl",
  "fsStruct","fsDoping","fsFormula",
  "gapStruct","gapDoping","gapFormula",
  "leafSpread","sigmaDefault","useLog","baseEdge","leafMin","leafMax"
-].forEach(id=> document.getElementById(id).addEventListener('input', ()=> { if(DATA) drawTree(DATA); }));
-
-document.getElementById('selectAllBtn').addEventListener('click', ()=>{
-  const sel=document.getElementById('ionSelect'); for(const o of sel.options){ o.selected=true; } if(DATA) drawTree(DATA);
-});
-document.getElementById('clearAllBtn').addEventListener('click', ()=>{
-  const sel=document.getElementById('ionSelect'); for(const o of sel.options){ o.selected=false; } if(DATA) drawTree(DATA);
+].forEach(id=> {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', ()=> { if(DATA) drawTree(DATA); });
 });
 
-// Sample preview
-const SAMPLE=`Ion Type (Normalized),Structure Group (Canonical),Doping / and or GB Strategy,superionic conductor Formula (Chemical),Conductivity σ (S·cm⁻¹)
-Li+,NASICON,Al-doped,Li1.3Al0.3Ti1.7(PO4)3,2e-3
-Na+,Garnet,(none),Na3Zr2Si2PO12,4e-4
-K+,Perovskite,(none),K0.5La0.5TiO3,8e-5
-Li+,Argyrodite,Li-excess,Li6PS5Cl,1.2×10^-2
-Na+,Halide,Cl,Na3YCl6,9×10^-2
-Li+,NASICON,Ga-doped,Li1.3Ga0.3Ti1.7(PO4)3,1.4e-3
-Na+,NASICON,(none),Na1.3Zr1.4Si0.6(PO4)3,7×10^-4`;
-DATA = d3.csvParse(SAMPLE);
-COLS = {
-  ion:"Ion Type (Normalized)",
-  struct:"Structure Group (Canonical)",
-  doping:"Doping / and or GB Strategy",
-  formula:"superionic conductor Formula (Chemical)",
-  sigma:"Conductivity σ (S·cm⁻¹)"
-};
-drawTree(DATA);
+document.getElementById('selectAllBtn')?.addEventListener('click', ()=>{
+  const sel=document.getElementById('ionSelect'); if(!sel) return;
+  for(const o of sel.options){ o.selected=true; } if(DATA) drawTree(DATA);
+});
+document.getElementById('clearAllBtn')?.addEventListener('click', ()=>{
+  const sel=document.getElementById('ionSelect'); if(!sel) return;
+  for(const o of sel.options){ o.selected=false; } if(DATA) drawTree(DATA);
+});
+
+// Redraw on resize
+window.addEventListener('resize', () => { if (DATA) drawTree(DATA); });
+
+// Kick off
+initFromCSV();
 </script>
 </body>
 </html>
