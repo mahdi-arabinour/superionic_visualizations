@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tidy Tree — Canonical Grouping (Zoomable, σ-driven)</title>
+<title>Radial Tidy Tree — Canonical Grouping (Zoomable, σ-driven, auto-fit)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -50,12 +50,12 @@
 <header>
   <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:90px;"></label>
   <label><input type="checkbox" id="useLog" checked> log₁₀(σ) for leaf length</label>
-  <label>Base edge:
-    <input type="range" id="baseEdge" min="30" max="120" step="2" value="60"><span id="baseEdgeLbl">60</span> px
+  <label>Base edge (target):
+    <input type="range" id="baseEdge" min="24" max="120" step="2" value="60"><span id="baseEdgeLbl">60</span> px
   </label>
-  <label>Leaf extra:
+  <label>Leaf extra (design span):
     <input type="range" id="leafMin" min="6" max="80" step="1" value="10"><span id="leafMinLbl">10</span> px
-    <input type="range" id="leafMax" min="20" max="240" step="2" value="120"><span id="leafMaxLbl">120</span> px
+    <input type="range" id="leafMax" min="20" max="260" step="2" value="140"><span id="leafMaxLbl">140</span> px
   </label>
   <button id="resetView" style="display:none">Reset View</button>
   <div id="status">Loading data.csv…</div>
@@ -199,8 +199,8 @@ function drawTree(rows){
   WIDTH = bb.width; HEIGHT = bb.height; R = Math.min(WIDTH, HEIGHT)/2 - 40;
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
 
-  const useLog  = document.getElementById('useLog').checked;
-  const baseEdge = +document.getElementById('baseEdge').value;
+  let useLog  = document.getElementById('useLog').checked;
+  let baseEdgeWanted = +document.getElementById('baseEdge').value; // user's target
   const leafMin  = +document.getElementById('leafMin').value;
   const leafMax  = +document.getElementById('leafMax').value;
   const fsStruct = +document.getElementById('fsStruct').value;
@@ -208,7 +208,18 @@ function drawTree(rows){
   const fsFormula= +document.getElementById('fsFormula').value;
   const leafSpreadPx = (+document.getElementById('leafSpread').value) + (focusIon ? 6 : 0);
 
-  document.getElementById('baseEdgeLbl').textContent = baseEdge;
+  // We will *fit* baseEdge so that leaves never crowd R:
+  // - keep at least margin outside
+  // - reserve room for formula extra (worst case)
+  const margin = 14;
+  const maxBaseEdge = Math.max(12, (R - margin - leafMax) / 4);
+  const baseEdge = Math.min(baseEdgeWanted, maxBaseEdge);
+  if (baseEdge !== baseEdgeWanted) {
+    // reflect the adjusted value in the UI label (slider stays where it is)
+    document.getElementById('baseEdgeLbl').textContent = Math.round(baseEdge);
+  } else {
+    document.getElementById('baseEdgeLbl').textContent = baseEdge;
+  }
   document.getElementById('leafMinLbl').textContent = leafMin;
   document.getElementById('leafMaxLbl').textContent = leafMax;
   document.getElementById('fsStructLbl').textContent = fsStruct;
@@ -219,49 +230,42 @@ function drawTree(rows){
   const leaves = buildLeaves(rows);
   const H = buildHierarchy(leaves);
 
-  // Layout
+  // Layout in angle
   d3.cluster().size([2*Math.PI, 1])(H);
 
-  // Base rings for non-leaves (they can clamp to R safely)
-  H.each(n=>{ if (n.children) n.y = Math.min(R, n.depth * baseEdge); });
+  // Base rings for non-leaves (safe)
+  H.each(n=>{ if (n.children) n.y = n.depth * baseEdge; });
 
   // --- σ domain built from POSITIVE numeric values only (current view) ---
   const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
   const rawSig = H.leaves().map(l => +l.data.sigma);
   const posSig = rawSig.filter(v => Number.isFinite(v) && v > 0);
-
   let sMin = posSig.length ? d3.min(posSig) : def;
   let sMax = posSig.length ? d3.max(posSig) : def * 10;
-  if (sMin === sMax) { sMin *= 0.9; sMax *= 1.1; } // keep domain valid for log
+  if (sMin === sMax) { sMin *= 0.9; sMax *= 1.1; }
 
   const scaleLin = d3.scaleLinear().domain([sMin, sMax]).range([leafMin, leafMax]).nice();
   const scaleLog = d3.scaleLog().domain([Math.max(sMin, Number.MIN_VALUE), sMax]).range([leafMin, leafMax]);
 
-  function extraForSigma(val){
-    let v = +val; // numeric already
+  function sigmaExtra(val){
+    let v = +val;
     if(!Number.isFinite(v) || v <= 0) v = def;
     return useLog ? scaleLog(v) : scaleLin(v);
   }
 
-  // --- prevent hitting the outer clamp ---
-  // leaves are depth 4 → base radius (without σ) is 4*baseEdge
-  const leafBase = 4 * baseEdge;
-  const maxExtra = Math.max(8, R - leafBase - 12); // 12px safety margin
+  // Place leaves with guaranteed headroom:
+  const leafBase = 4 * baseEdge;              // base radius of the formula ring
+  const maxExtra = Math.max(8, (R - margin) - leafBase);  // usable span for σ
+  const rescaleExtra = d3.scaleLinear().domain([leafMin, leafMax]).range([leafMin, maxExtra]);
 
-  // map the *output* of extraForSigma (in [leafMin, leafMax]) to [leafMin, maxExtra]
-  const rescaleExtra = d3.scaleLinear()
-    .domain([leafMin, leafMax])
-    .range([leafMin, maxExtra]);
-
-  // Apply σ-based radius to leaves WITHOUT Math.min(..., R)
   H.each(n => {
     if (!n.children) {
-      const extra = rescaleExtra(extraForSigma(n.data.sigma));
-      n.y = leafBase + extra; // guaranteed < R by construction
+      const extra = rescaleExtra(sigmaExtra(n.data.sigma));
+      n.y = leafBase + extra; // *will* be < R - margin
     }
   });
 
-  // Spread sibling leaves for readability
+  // Slight sibling spread for readability
   const spread = leafSpreadPx;
   if (spread > 0) {
     H.descendants().filter(d => d.depth === 3).forEach(parent => {
@@ -297,46 +301,44 @@ function drawTree(rows){
     .on('mousemove',(e,d)=>showTip(e,d)).on('mouseleave',hideTip)
     .on('click', (e,d)=> { if (d.depth === 1) setFocusIon(d.data.name); });
 
-  // Labels (click Ion label to zoom)
+  // Labels (each layer rebuilt every draw; Formula toggle respected)
+  const wantIon     = document.getElementById('showIonLbl').checked;
+  const wantStruct  = document.getElementById('showStructLbl').checked;
+  const wantDoping  = document.getElementById('showDopingLbl').checked;
+  const wantFormula = document.getElementById('showFormulaLbl').checked;
+
   const layers = [
-    {depth:1, show:document.getElementById('showIonLbl').checked,     cls:'lbl-ion',     fs:13, weight:'700', gapDeg:0, off:8, clickZoom:true},
-    {depth:2, show:document.getElementById('showStructLbl').checked,  cls:'lbl-struct',  fs:+document.getElementById('fsStruct').value, weight:'500', gapDeg:+document.getElementById('gapStruct').value, off:6},
-    {depth:3, show:document.getElementById('showDopingLbl').checked,  cls:'lbl-doping',  fs:+document.getElementById('fsDoping').value, weight:'400', gapDeg:+document.getElementById('gapDoping').value, off:5},
-    {depth:4, show:document.getElementById('showFormulaLbl').checked, cls:'lbl-formula', fs:+document.getElementById('fsFormula').value, weight:'400', gapDeg:+document.getElementById('gapFormula').value, off:0}
+    {depth:1, show:wantIon,     cls:'lbl-ion',     fs:13, weight:'700', gapDeg:0, off:8, clickZoom:true,  text:(d)=>d.data?.name??''},
+    {depth:2, show:wantStruct,  cls:'lbl-struct',  fs:fsStruct, weight:'500', gapDeg:+document.getElementById('gapStruct').value,  off:6, text:(d)=>d.data?.structureLabel ?? d.data?.name ?? ''},
+    {depth:3, show:wantDoping,  cls:'lbl-doping',  fs:fsDoping, weight:'400', gapDeg:+document.getElementById('gapDoping').value,  off:5, text:(d)=>d.data?.name??''},
+    {depth:4, show:wantFormula, cls:'lbl-formula', fs:fsFormula,weight:'400', gapDeg:+document.getElementById('gapFormula').value, off:0, text:(d)=>d.data?.name??''}
   ];
 
   for(const L of layers){
     if(!L.show) continue;
     const nodes = H.descendants().filter(d=>d.depth===L.depth);
 
-    const render = (nodesToRender, textAccessor) => {
-      svg.append('g').attr('font-size',L.fs).attr('font-weight',L.weight).attr('class',L.cls)
-        .selectAll('text').data(nodesToRender).join('text')
-        .attr('transform',d=>{
-          const a=d.x,r=(L.depth===4? d.y : d.y+L.off);
-          const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
-          const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
-          return `translate(${x},${y}) rotate(${rot+flip})`;
-        })
-        .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
-        .text(textAccessor)
-        .style('cursor', L.clickZoom ? 'pointer' : null)
-        .on('click', (e,d)=> { if (L.clickZoom && d.depth===1) setFocusIon(d.data.name); });
-    };
-
-    if (L.depth===1) {
-      render(nodes, d=>d.data?.name ?? '');
-    } else if (L.depth===2) {
-      const kept=[],minGap=L.gapDeg*Math.PI/180,sorted=nodes.slice().sort((a,b)=>a.x-b.x);
+    // declutter by minimum angular gap where configured
+    let renderNodes = nodes;
+    if (L.gapDeg && L.gapDeg > 0) {
+      const minGap = L.gapDeg*Math.PI/180;
+      const kept=[],sorted=nodes.slice().sort((a,b)=>a.x-b.x);
       for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=minGap) kept.push(d); }
-      render(kept, d=> d.data?.structureLabel ?? d.data?.name ?? '');
-    } else if (L.depth===4) {
-      render(nodes, d=> d.data?.name ?? '');
-    } else {
-      const kept=[],minGap=L.gapDeg*Math.PI/180,sorted=nodes.slice().sort((a,b)=>a.x-b.x);
-      for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=minGap) kept.push(d); }
-      render(kept, d=> d.data?.name ?? '');
+      renderNodes = kept;
     }
+
+    svg.append('g').attr('font-size',L.fs).attr('font-weight',L.weight).attr('class',L.cls)
+      .selectAll('text').data(renderNodes).join('text')
+      .attr('transform',d=>{
+        const a=d.x,r=(L.depth===4? d.y : d.y+L.off);
+        const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
+        const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+        return `translate(${x},${y}) rotate(${rot+flip})`;
+      })
+      .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+      .text(L.text)
+      .style('cursor', L.clickZoom ? 'pointer' : null)
+      .on('click', (e,d)=> { if (L.clickZoom && d.depth===1) setFocusIon(d.data.name); });
   }
 
   // Bottom caption
@@ -349,12 +351,12 @@ function drawTree(rows){
     .attr("y", HEIGHT/2 - bottomMargin)
     .text(d => d);
 
-  // Diagnostics (helps verify variability & no clamp)
+  // Diagnostics (verify fit & variability)
   const maxY = d3.max(H.leaves().map(d => d.y));
-  const atWall = H.leaves().filter(d => Math.abs(d.y - R) < 1).length;
+  const atWall = H.leaves().filter(d => (R - d.y) < 1).length;
   const defaultsCount = H.leaves().filter(l => !!l.data?.isDefault).length;
   const pctDef = Math.round(100 * defaultsCount / Math.max(H.leaves().length,1));
-  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length} • σ in view: ${sMin.toExponential(2)}→${sMax.toExponential(2)} • max y=${Math.round(maxY)} • capped=${atWall} • defaults=${pctDef}%`);
+  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length} • σ in view: ${sMin.toExponential(2)}→${sMax.toExponential(2)} • baseEdge=${Math.round(baseEdge)} • leafBase=${Math.round(4*baseEdge)} • usableExtra≈${Math.round(maxExtra)} • maxY=${Math.round(maxY)} • capped=${atWall} • defaults=${pctDef}%`);
 }
 
 function showTip(e,d){
