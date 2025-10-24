@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sunburst — Zoom-Aware Multi-Level Labels (D3 v7)</title>
+<title>Sunburst — Always-Show Labels (D3 v7)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   :root { color-scheme: dark; }
@@ -49,7 +49,6 @@
   fieldset { border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
   .levelRow { display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:center; }
   .levelRow input[type="range"] { width:100%; }
-  .muted { opacity:.45; }
 
   .tooltip {
     position:fixed; pointer-events:none; background:rgba(0,0,0,.9);
@@ -100,26 +99,26 @@
               <label class="lvlLabel" for="showIon">
                 <input type="checkbox" id="showIon" checked> Ion
               </label>
-              <input id="fsIon" type="range" min="8" max="22" step="1" value="13">
+              <input id="fsIon" type="range" min="8" max="24" step="1" value="13">
             </div>
 
             <div class="levelRow">
               <label class="lvlLabel" for="showStruct">
                 <input type="checkbox" id="showStruct" checked> Structure
               </label>
-              <input id="fsStruct" type="range" min="8" max="22" step="1" value="12">
+              <input id="fsStruct" type="range" min="8" max="24" step="1" value="12">
             </div>
 
             <div class="levelRow">
               <label class="lvlLabel" for="showStrat">
-                <input type="checkbox" id="showStrat"> Strategy
+                <input type="checkbox" id="showStrat" checked> Doping strategy
               </label>
               <input id="fsStrat" type="range" min="8" max="22" step="1" value="11">
             </div>
 
             <div class="levelRow">
               <label class="lvlLabel" for="showFormula">
-                <input type="checkbox" id="showFormula"> Formula
+                <input type="checkbox" id="showFormula" checked> Formula
               </label>
               <input id="fsFormula" type="range" min="7" max="20" step="1" value="10">
             </div>
@@ -139,16 +138,6 @@
   const RING_SCALE = [1.0, 1.32, 1.52];  // root, ion, structure+
   const LEAF_SCALE = [1.0, 1.45, 1.6];
 
-  // Label placement
-  const ANG_PAD_PX = 2;
-  const FONT_TRY_STEPS = [1.0, 0.9, 0.8, 0.7, 0.6];
-  const MIN_FONT_PX = 6;
-  const FORCE_SHOW_IF_FAILS = true;
-
-  // Anti-overlap tweaks
-  const ANG_GUTTER_RAD = 0.006; // ~0.34° gap between labels on a ring
-  const SEAM_BIAS = 0.01;       // shift away from 0/2π seam if straddling
-
   // Ring captions
   const CAP_ARC_DEG = 90;
 
@@ -156,11 +145,9 @@
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
   let colorIon, maxRGlobal=0, labelsVisible=true;
   let _nodesCache=null, _outerR=null, _defs=null, _g=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
-  let _lastPartitionRoot = null;
-  let _capLayers = null;
 
-  // checkboxes + fonts
-  let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=false, SHOW_FORM=false;
+  // checkboxes + fonts (all enabled by default)
+  let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=true, SHOW_FORM=true;
   let FS_ION=13, FS_STRUCT=12, FS_STRAT=11, FS_FORM=10;
 
   // UI refs
@@ -260,15 +247,6 @@
              children: node.children?.map(c=>cloneData(c)) };
   }
 
-  // ---------------- Allowed-levels helper (single source of truth) ----------------
-  function allowedLevelsForDepth(depth){
-    // depth in the ORIGINAL tree: 0=root, 1=ion, 2=structure, 3=strategy, 4=formula
-    if (depth === 0) return new Set(['ion','struct']);
-    if (depth === 1) return new Set(['struct','strat']);
-    if (depth === 2) return new Set(['strat','formula']);
-    return new Set(['formula']); // depth >= 3
-  }
-
   // ---------------- Draw ----------------
   function draw(){
     const chartEl=document.getElementById('chart');
@@ -280,7 +258,6 @@
     const side=Math.min(Math.max(560, rect.width), Math.max(560, rect.height));
 
     const root = makeFocusRoot();
-    _lastPartitionRoot = root;
     _focusDepth = (focusNode?.depth ?? 0);
 
     // size scales by zoom
@@ -340,7 +317,7 @@
       tt.style.left=(evt.clientX+10)+'px'; tt.style.top=(evt.clientY+10)+'px';
     }).on('mouseleave',()=>{ tt.style.display='none'; });
 
-    // zoom click
+    // zoom click (clicking the same focus goes back one level)
     paths.on('click',(evt,d)=>{
       const full = idMap.get(d.data._uid);
       if (focusNode && full === focusNode) { focusNode = focusNode.parent || null; }
@@ -360,10 +337,10 @@
       .style('font-size','12px').style('fill','#dfe6f3')
       .text(focusNode ? focusNode.data.name : 'All ions');
 
-    // labels for selected levels
+    // labels for selected levels (ALWAYS show when checked)
     layoutLabels();
 
-    // ring captions (layered, static vs checkboxes)
+    // ring captions (layered, static)
     renderRingCaptions(root);
 
     // stats + crumbs + legend
@@ -372,7 +349,6 @@
     renderCrumbs();
     buildLegend(legendEl, root);
 
-    updateCheckboxesForZoom();
     applyLabelVisibility();
   }
 
@@ -418,17 +394,15 @@
     return od===1 ? 'ion' : od===2 ? 'struct' : od===3 ? 'strat' : 'formula';
   }
 
-  // ---------------- Labels (multi-select, zoom-aware) ----------------
+  // ---------------- Labels (multi-select; NO hiding for overlaps) ----------------
   function layoutLabels(){
     _g.selectAll('.labels').remove();
     const layer = _g.append('g').attr('class','labels');
 
-    const allow = allowedLevelsForDepth(_focusDepth);
-
-    const wantIon     = SHOW_ION     && allow.has('ion');
-    const wantStruct  = SHOW_STRUCT  && allow.has('struct');
-    const wantStrat   = SHOW_STRAT   && allow.has('strat');
-    const wantFormula = SHOW_FORM    && allow.has('formula');
+    const wantIon     = SHOW_ION;
+    const wantStruct  = SHOW_STRUCT;
+    const wantStrat   = SHOW_STRAT;
+    const wantFormula = SHOW_FORM;
 
     let data = [];
     if (wantIon)     data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='ion'));
@@ -454,104 +428,46 @@
       })
       .style('fill', d=> levelOf(d)==='ion' ? '#fff' : '#e7eaf2');
 
+    // Place without any hiding logic
     placeRadial(sel);
   }
 
-  // ---------------- Placement (upright radial + anti-overlap; no early return) ----------------
+  // ---------------- Placement (upright radial, ALWAYS show) ----------------
   function placeRadial(selection){
-    const occByRing = new Map(); // per-radius occupancy intervals (radians)
-
     selection.each(function(d){
       const el = d3.select(this);
       const lv = levelOf(d);
-      const basePx = lv==='ion' ? FS_ION
-                   : lv==='struct' ? FS_STRUCT
-                   : lv==='strat' ? FS_STRAT
-                   : FS_FORM;
 
-      // Inter-ring padding: more room for non-leaf labels
-      const rMidBase = (d.y0 + (lv==='formula' ? _outerR(d) : d.y1))/2;
+      // font from sliders
+      const fs = lv==='ion' ? FS_ION
+               : lv==='struct' ? FS_STRUCT
+               : lv==='strat' ? FS_STRAT
+               : FS_FORM;
+      el.style('font-size', fs + 'px');
+
+      // radius: middle of the ring; slight outward padding for non-leaf labels
+      const rMidBase = (d.y0 + (lv==='formula' ? _outerR(d) : d.y1)) / 2;
       const rMid = rMidBase + (lv==='formula' ? 0 : 4);
-      const key  = Math.round(rMid);
 
-      let a0 = d.x0, a1 = d.x1, amid = (a0+a1)/2;
+      // center angle; bias away from the 0/2π seam a hair
+      let amid = (d.x0 + d.x1) / 2;
+      if (d.x0 < 0 && d.x1 > 0) amid += 0.01;
 
-      // Heuristic min-angle, but DO NOT early return; allow force-show later
-      const minAngleBase = (basePx * 2.2) / Math.max(1, rMid);
-      const minAngle = (lv === 'ion') ? 0 : minAngleBase; // ions always allowed
-      const sliceSpan = (a1 - a0);
-      const sliceIsNarrow = sliceSpan < minAngle;
-
-      // Seam bias: if label would straddle 0/2π, bias slightly
-      if (a0 < 0 && a1 > 0) { amid += SEAM_BIAS; }
-
+      const deg = amid * 180 / Math.PI;
       const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
-      if (!occByRing.has(key)) occByRing.set(key, []);
 
-      let placed = false;
-      for (const s of FONT_TRY_STEPS){
-        const fs = Math.max(MIN_FONT_PX, basePx * s);
-        el.style('font-size', fs + 'px').style('display', null);
-
-        const w = this.getComputedTextLength ? this.getComputedTextLength()
-                                             : fs * (this.textContent.length * 0.56);
-        const need = (w + ANG_PAD_PX) / Math.max(1, rMid); // radians needed
-        const needWithGutter = need + ANG_GUTTER_RAD;
-
-        // If slice is narrow, don't pre-reject — try to place, else force-show
-        if (!sliceIsNarrow && sliceSpan < needWithGutter * 0.92) { el.style('display','none'); continue; }
-
-        const occ = occByRing.get(key);
-        const t0 = amid - needWithGutter/2, t1 = amid + needWithGutter/2;
-        const ok = occ.every(([o0,o1]) => t1 <= o0 || t0 >= o1);
-        if (!ok) { el.style('display','none'); continue; }
-
-        // Reserve & place
-        occ.push([t0,t1]); occ.sort((x,y)=>x[0]-y[0]);
-        const deg = amid * 180/Math.PI;
-        el.attr('dy','0.32em')
-          .attr('text-anchor','middle')
-          .attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`)
-          .style('display', null);
-        placed = true;
-        break;
-      }
-
-      // Last resort: force-show so checkboxes always have effect
-      if (!placed && FORCE_SHOW_IF_FAILS){
-        const fs = MIN_FONT_PX;
-        el.style('font-size', fs + 'px').style('display', null).style('opacity', 0.98);
-        const deg = amid * 180/Math.PI;
-        el.attr('dy','0.32em')
-          .attr('text-anchor','middle')
-          .attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`);
-      }
+      el.attr('dy','0.32em')
+        .attr('text-anchor','middle')
+        .attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`)
+        .style('opacity', 1)
+        .style('display', null);
     });
-  }
-
-  // ---------------- Zoom-aware checkbox enabling (uses the same helper) ----------------
-  function updateCheckboxesForZoom(){
-    const allow = allowedLevelsForDepth(_focusDepth);
-
-    function setEn(id){
-      const cb = ui[id];
-      const row = cb.closest('.levelRow');
-      const key = id.replace('show','').toLowerCase(); // ion|struct|strat|formula
-      const ok = allow.has(key);
-      cb.disabled = !ok;
-      row.classList.toggle('muted', !ok);
-    }
-    setEn('showIon'); setEn('showStruct'); setEn('showStrat'); setEn('showFormula');
-
-    // Redraw labels for whatever is currently checked (layout filters by 'allow')
-    layoutLabels();
-    applyLabelVisibility();
   }
 
   // ---------------- Caption layers ----------------
   function ensureCaptionLayers(){
-    if (!_capLayers){
-      _capLayers = {
+    if (!window._capLayers){
+      window._capLayers = {
         ion:     _g.append('g').attr('class','cap cap-ion'),
         struct:  _g.append('g').attr('class','cap cap-struct'),
         strat:   _g.append('g').attr('class','cap cap-strat'),
@@ -564,9 +480,9 @@
     _capLayers.formula.selectAll('*').remove();
   }
 
-  // ---------------- Ring captions (curved, layered, static vs checkboxes) ----------------
   function renderRingCaptions(partitionRoot){
     ensureCaptionLayers();
+    if (!_defs) return;
     _defs.selectAll('path.ringArc').remove();
 
     const a0 = (-90 - CAP_ARC_DEG/2) * Math.PI/180;
@@ -589,8 +505,8 @@
                            { key:'formula', text:'Formula',          r:rFormula     },
     ].filter(Boolean);
 
-    items.forEach((it,i)=>{
-      const id = `ringcap-${_focusDepth}-${it.key}-${Math.floor(it.r)}`;
+    items.forEach((it)=>{
+      const id = `ringcap-${Math.floor(it.r)}-${it.key}`;
       const d = arcPath(it.r, a0, a1);
       _defs.append('path').attr('id',id).attr('d',d);
       const layer = _capLayers[it.key];
@@ -602,7 +518,6 @@
         .text(it.text);
     });
 
-    // keep layers on top
     _capLayers.ion.raise();
     _capLayers.struct.raise();
     _capLayers.strat.raise();
