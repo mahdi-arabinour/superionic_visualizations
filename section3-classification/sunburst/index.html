@@ -19,7 +19,7 @@
   }
   #wrap { flex:1; display:flex; padding:10px 12px; gap:12px; min-height:0; }
   #chartCard {
-    flex:1; display:grid; grid-template-columns:minmax(640px,1.6fr) 320px 300px;
+    flex:1; display:grid; grid-template-columns:minmax(640px,1.7fr) 360px;
     gap:12px; align-items:start; min-height:0;
   }
   .chartBody {
@@ -28,10 +28,11 @@
   }
   svg { width:100%; height:100%; display:block; }
 
-  /* Legend */
+  /* Legend + controls embedded */
   .legend {
     background:#0f141f; border:1px solid #2a3240; border-radius:12px;
     padding:10px; overflow:auto; max-height:calc(100vh - 150px);
+    display:flex; flex-direction:column; gap:10px;
   }
   .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
   .legendGroup { display:flex; flex-direction:column; gap:6px; }
@@ -42,20 +43,15 @@
   .ionRow:hover { background:#0f1726; }
   .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(255,255,255,.35); }
 
-  /* Controls panel */
-  .controls {
-    background:#0f141f; border:1px solid #2a3240; border-radius:12px;
-    padding:12px; display:flex; flex-direction:column; gap:12px;
-    max-height:calc(100vh - 150px); overflow:auto;
-  }
-  .controls h4 { margin:0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
-  .toggleRow { display:flex; align-items:center; gap:8px; }
+  /* Embedded controls at bottom of legend */
+  .controls { border-top:1px solid #2a3240; padding-top:8px; display:flex; flex-direction:column; gap:10px; }
+  .controls h4 { margin:4px 0 0 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
+  .toggleRow { display:flex; align-items:center; gap:8px; font-size:13px; }
+  fieldset { border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
   .levelRow { display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:center; }
   .levelRow input[type="range"] { width:100%; }
-  fieldset { border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
   .muted { opacity:.45; }
 
-  /* Tooltip + labels */
   .tooltip {
     position:fixed; pointer-events:none; background:rgba(0,0,0,.9);
     color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3;
@@ -80,7 +76,7 @@
 <body>
   <header>
     <strong>Sunburst</strong>
-    <label style="font-size:13px;" class="toggleRow">
+    <label class="toggleRow">
       <input type="checkbox" id="toggleAll" checked>
       Show labels
     </label>
@@ -95,40 +91,40 @@
       <div class="legend">
         <h4>Legend</h4>
         <div class="legendGroup"></div>
-      </div>
 
-      <!-- Controls panel -->
-      <div class="controls">
-        <h4>Label controls</h4>
-        <fieldset id="levelsFs">
-          <div class="levelRow">
-            <label class="lvlLabel" for="showIon">
-              <input type="checkbox" id="showIon" checked> Ion
-            </label>
-            <input id="fsIon" type="range" min="8" max="22" step="1" value="13">
-          </div>
+        <!-- Controls embedded at bottom of legend -->
+        <div class="controls">
+          <h4>Label controls</h4>
+          <fieldset id="levelsFs">
+            <div class="levelRow">
+              <label class="lvlLabel" for="showIon">
+                <input type="checkbox" id="showIon" checked> Ion
+              </label>
+              <input id="fsIon" type="range" min="8" max="22" step="1" value="13">
+            </div>
 
-          <div class="levelRow">
-            <label class="lvlLabel" for="showStruct">
-              <input type="checkbox" id="showStruct" checked> Structure
-            </label>
-            <input id="fsStruct" type="range" min="8" max="22" step="1" value="12">
-          </div>
+            <div class="levelRow">
+              <label class="lvlLabel" for="showStruct">
+                <input type="checkbox" id="showStruct" checked> Structure
+              </label>
+              <input id="fsStruct" type="range" min="8" max="22" step="1" value="12">
+            </div>
 
-          <div class="levelRow">
-            <label class="lvlLabel" for="showStrat">
-              <input type="checkbox" id="showStrat"> Strategy
-            </label>
-            <input id="fsStrat" type="range" min="8" max="22" step="1" value="11">
-          </div>
+            <div class="levelRow">
+              <label class="lvlLabel" for="showStrat">
+                <input type="checkbox" id="showStrat"> Strategy
+              </label>
+              <input id="fsStrat" type="range" min="8" max="22" step="1" value="11">
+            </div>
 
-          <div class="levelRow">
-            <label class="lvlLabel" for="showFormula">
-              <input type="checkbox" id="showFormula"> Formula
-            </label>
-            <input id="fsFormula" type="range" min="7" max="20" step="1" value="10">
-          </div>
-        </fieldset>
+            <div class="levelRow">
+              <label class="lvlLabel" for="showFormula">
+                <input type="checkbox" id="showFormula"> Formula
+              </label>
+              <input id="fsFormula" type="range" min="7" max="20" step="1" value="10">
+            </div>
+          </fieldset>
+        </div>
       </div>
     </div>
   </div>
@@ -156,6 +152,7 @@
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
   let colorIon, maxRGlobal=0, labelsVisible=true;
   let _nodesCache=null, _outerR=null, _defs=null, _g=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
+  let _lastPartitionRoot = null; // track current partition root for relayouts
 
   // checkbox + fonts
   let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=false, SHOW_FORM=false;
@@ -181,12 +178,12 @@
     // Handlers
     ui.toggleAll.onchange = ()=>{ labelsVisible = ui.toggleAll.checked; applyLabelVisibility(); };
 
-    ui.showIon.onchange     = ()=>{ SHOW_ION     = ui.showIon.checked;     layoutLabels(); };
-    ui.showStruct.onchange  = ()=>{ SHOW_STRUCT  = ui.showStruct.checked;  layoutLabels(); };
-    ui.showStrat.onchange   = ()=>{ SHOW_STRAT   = ui.showStrat.checked;   layoutLabels(); };
-    ui.showFormula.onchange = ()=>{ SHOW_FORM    = ui.showFormula.checked; layoutLabels(); };
+    ui.showIon.onchange     = ()=>{ SHOW_ION     = ui.showIon.checked;     layoutLabels(); renderRingCaptions(_lastPartitionRoot); };
+    ui.showStruct.onchange  = ()=>{ SHOW_STRUCT  = ui.showStruct.checked;  layoutLabels(); renderRingCaptions(_lastPartitionRoot); };
+    ui.showStrat.onchange   = ()=>{ SHOW_STRAT   = ui.showStrat.checked;   layoutLabels(); renderRingCaptions(_lastPartitionRoot); };
+    ui.showFormula.onchange = ()=>{ SHOW_FORM    = ui.showFormula.checked; layoutLabels(); renderRingCaptions(_lastPartitionRoot); };
 
-    // Font sliders — live update
+    // Font sliders — live update (labels only; captions unaffected)
     ui.fsIon.oninput     = ()=>{ FS_ION   = +ui.fsIon.value;     layoutLabels(true); };
     ui.fsStruct.oninput  = ()=>{ FS_STRUCT= +ui.fsStruct.value;  layoutLabels(true); };
     ui.fsStrat.oninput   = ()=>{ FS_STRAT = +ui.fsStrat.value;   layoutLabels(true); };
@@ -269,6 +266,7 @@
     const side=Math.min(Math.max(560, rect.width), Math.max(560, rect.height));
 
     const root = makeFocusRoot();
+    _lastPartitionRoot = root;  // remember for relayouts
     _focusDepth = (focusNode?.depth ?? 0); // 0=root, 1=ion, 2=structure, 3=strategy, 4=formula (leaf)
 
     // size scales by zoom
@@ -348,10 +346,10 @@
       .style('font-size','12px').style('fill','#dfe6f3')
       .text(focusNode ? focusNode.data.name : 'All ions');
 
-    // labels for the selected level(s)
+    // labels for selected levels (respect zoom-allowed levels)
     layoutLabels();
 
-    // ring captions (static meaning of rings)
+    // ring captions (respect zoom + checkboxes)
     renderRingCaptions(root);
 
     // stats + crumbs + legend
@@ -360,22 +358,63 @@
     renderCrumbs();
     buildLegend(legendEl, root);
 
-    // enable/disable checkboxes based on zoom
+    // enable/disable checkboxes per zoom, then refresh labels/captions/visibility
     updateCheckboxesForZoom();
 
-    // apply visibility toggle
     applyLabelVisibility();
   }
 
-  // ---------------- Label layout (multi-select) ----------------
+  // ---------------- Legend + interactions ----------------
+  function buildLegend(container, subtreeRoot){
+    container.innerHTML='';
+    (subtreeRoot.children||[]).forEach(node=>{
+      const row=document.createElement('div'); row.className='ionRow';
+      const sw=document.createElement('div'); sw.className='swatch';
+      let full = idMap.get(node.data._uid); while(full && full.depth>1) full=full.parent;
+      sw.style.background = d3.color(colorIon(full?.data?.name || node.data.name)).formatRgb();
+      const nm=document.createElement('div'); nm.textContent=node.data.name;
+      row.append(sw, nm);
+      row.onclick=()=>{ const full=idMap.get(node.data._uid); focusNode=full; draw(); };
+      container.appendChild(row);
+    });
+  }
+
+  // ---------------- Breadcrumbs ----------------
+  function renderCrumbs(){
+    const el=document.getElementById('crumbs');
+    if (!focusNode || focusNode.depth===0){
+      el.innerHTML='<a data-ix="root">All ions</a>';
+      el.querySelector('a').onclick=()=>{ focusNode=null; draw(); };
+      return;
+    }
+    const chain=focusNode.ancestors().reverse().slice(1);
+    el.innerHTML=['<a data-ix="root">All ions</a>',
+      ...chain.map((n,i)=>` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
+    el.querySelectorAll('a').forEach(a=>{
+      a.onclick=()=>{
+        const ix=a.getAttribute('data-ix');
+        focusNode = (ix==='root') ? null : chain[Number(ix)];
+        draw();
+      };
+    });
+  }
+
+  // ---------------- Labels (multi-select, zoom-aware) ----------------
   function layoutLabels(){
     _g.selectAll('.labels').remove();
     const layer = _g.append('g').attr('class','labels');
 
-    const wantIon     = SHOW_ION;
-    const wantStruct  = SHOW_STRUCT;
-    const wantStrat   = SHOW_STRAT;
-    const wantFormula = SHOW_FORM;
+    // allowed at this zoom
+    const allow = new Set();
+    if (_focusDepth===0) { allow.add('ion'); allow.add('struct'); }
+    else if (_focusDepth===1) { allow.add('struct'); allow.add('strat'); }
+    else if (_focusDepth===2) { allow.add('strat'); allow.add('formula'); }
+    else { allow.add('formula'); }
+
+    const wantIon     = SHOW_ION     && allow.has('ion');
+    const wantStruct  = SHOW_STRUCT  && allow.has('struct');
+    const wantStrat   = SHOW_STRAT   && allow.has('strat');
+    const wantFormula = SHOW_FORM    && allow.has('formula');
 
     let data = [];
     if (wantIon)     data = data.concat(_nodesCache.filter(d => d.children && d.depth===1));
@@ -398,7 +437,7 @@
     placeRadial(sel);
   }
 
-  // ---------------- Upright radial placement with graceful fallback ----------------
+  // ---------------- Placement (upright radial with graceful fallback) ----------------
   function placeRadial(selection){
     const occByRing = new Map(); // per-radius occupancy intervals (radians)
 
@@ -467,46 +506,41 @@
     else if (_focusDepth===2) { allow.add('strat'); allow.add('formula'); }
     else { allow.add('formula'); }
 
-    // Enable/disable UI + sync flags
-    function setEn(id, flagName){
+    function setEn(id){
       const cb = ui[id];
       const row = cb.closest('.levelRow');
-      const ok = allow.has(id.replace('show','').toLowerCase());
+      const key = id.replace('show','').toLowerCase(); // ion|struct|strat|formula
+      const ok = allow.has(key);
       cb.disabled = !ok;
       row.classList.toggle('muted', !ok);
-      // If disabled, it won't render even if checked because layout reads flags + allow set
     }
+    setEn('showIon'); setEn('showStruct'); setEn('showStrat'); setEn('showFormula');
 
-    setEn('showIon','SHOW_ION');
-    setEn('showStruct','SHOW_STRUCT');
-    setEn('showStrat','SHOW_STRAT');
-    setEn('showFormula','SHOW_FORM');
-
-    // If none of the enabled boxes are checked, auto-check the first allowed
-    const enabledCbs = [
-      {id:'showIon', key:'ion', getter:()=>SHOW_ION, setter:v=>{ SHOW_ION=v; ui.showIon.checked=v; }},
-      {id:'showStruct', key:'struct', getter:()=>SHOW_STRUCT, setter:v=>{ SHOW_STRUCT=v; ui.showStruct.checked=v; }},
-      {id:'showStrat', key:'strat', getter:()=>SHOW_STRAT, setter:v=>{ SHOW_STRAT=v; ui.showStrat.checked=v; }},
-      {id:'showFormula', key:'formula', getter:()=>SHOW_FORM, setter:v=>{ SHOW_FORM=v; ui.showFormula.checked=v; }},
-    ].filter(x => allow.has(x.key));
-
-    const anyEnabledChecked = enabledCbs.some(x => x.getter());
-    if (!anyEnabledChecked && enabledCbs.length){
-      enabledCbs[0].setter(true);
-    }
-
-    // Redraw labels to reflect any auto-changes
+    // Redraw labels/captions for whatever is currently checked.
     layoutLabels();
+    renderRingCaptions(_lastPartitionRoot);
+    applyLabelVisibility();
   }
 
-  // ---------------- Ring captions ----------------
+  // ---------------- Ring captions (curved, respect zoom + checkboxes) ----------------
   function renderRingCaptions(partitionRoot){
     _g.selectAll('.ringGuides').remove();
+    _defs.selectAll('path.ringArc').remove(); // cleanup old defs
+
     const guides = _g.append('g').attr('class','ringGuides');
+
+    // allowed at this zoom
+    const allow = new Set();
+    if (_focusDepth===0) { allow.add('ion'); allow.add('struct'); }
+    else if (_focusDepth===1) { allow.add('struct'); allow.add('strat'); }
+    else if (_focusDepth===2) { allow.add('strat'); allow.add('formula'); }
+    else { allow.add('formula'); }
+
+    // currently checked
+    const want = { ion: SHOW_ION, struct: SHOW_STRUCT, strat: SHOW_STRAT, formula: SHOW_FORM };
 
     const a0 = (-90 - CAP_ARC_DEG/2) * Math.PI/180;
     const a1 = (-90 + CAP_ARC_DEG/2) * Math.PI/180;
-
     function arcPath(r, a0, a1){
       const x0 = r * Math.cos(a0), y0 = r * Math.sin(a0);
       const x1 = r * Math.cos(a1), y1 = r * Math.sin(a1);
@@ -519,13 +553,13 @@
     const rFormula = (bandCount * _ringThickness) + (_leafBase * 0.65);
 
     const items=[];
-    if (bandMids[0]!=null) items.push({text:'Ion', r:bandMids[0]});
-    if (bandMids[1]!=null) items.push({text:'Structure', r:bandMids[1]});
-    if (bandMids[2]!=null) items.push({text:'Doping strategy', r:bandMids[2]});
-    items.push({text:'Formula', r:rFormula});
+    if (bandMids[0]!=null && allow.has('ion')     && want.ion)     items.push({text:'Ion',             r:bandMids[0]});
+    if (bandMids[1]!=null && allow.has('struct')  && want.struct)  items.push({text:'Structure',       r:bandMids[1]});
+    if (bandMids[2]!=null && allow.has('strat')   && want.strat)   items.push({text:'Doping strategy', r:bandMids[2]});
+    if (allow.has('formula') && want.formula)                        items.push({text:'Formula',         r:rFormula});
 
     items.forEach((it,i)=>{
-      const id = `ringcap-${i}-${Math.floor(it.r)}`;
+      const id = `ringcap-${_focusDepth}-${i}-${Math.floor(it.r)}`;
       const d = arcPath(it.r, a0, a1);
       _defs.append('path').attr('class','ringArc').attr('id',id).attr('d',d);
       guides.append('text').attr('class','ringCaption')
@@ -534,40 +568,6 @@
         .attr('startOffset','50%')
         .attr('text-anchor','middle')
         .text(it.text);
-    });
-  }
-
-  // ---------------- Legend + crumbs ----------------
-  function buildLegend(container, subtreeRoot){
-    container.innerHTML='';
-    (subtreeRoot.children||[]).forEach(node=>{
-      const row=document.createElement('div'); row.className='ionRow';
-      const sw=document.createElement('div'); sw.className='swatch';
-      let full = idMap.get(node.data._uid); while(full && full.depth>1) full=full.parent;
-      sw.style.background = d3.color(colorIon(full?.data?.name || node.data.name)).formatRgb();
-      const nm=document.createElement('div'); nm.textContent=node.data.name;
-      row.append(sw, nm);
-      row.onclick=()=>{ const full=idMap.get(node.data._uid); focusNode=full; draw(); };
-      container.appendChild(row);
-    });
-  }
-
-  function renderCrumbs(){
-    const el=document.getElementById('crumbs');
-    if (!focusNode || focusNode.depth===0){
-      el.innerHTML='<a data-ix="root">All ions</a>';
-      el.querySelector('a').onclick=()=>{ focusNode=null; draw(); };
-      return;
-    }
-    const chain=focusNode.ancestors().reverse().slice(1);
-    el.innerHTML=['<a data-ix="root">All ions</a>',
-      ...chain.map((n,i)=>` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
-    el.querySelectorAll('a').forEach(a=>{
-      a.onclick=()=>{
-        const ix=a.getAttribute('data-ix');
-        focusNode = (ix==='root') ? null : chain[Number(ix)];
-        draw();
-      };
     });
   }
 
