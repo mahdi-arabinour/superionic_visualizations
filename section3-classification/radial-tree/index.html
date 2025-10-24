@@ -156,7 +156,7 @@ function buildLeaves(rows){
     leaves.push({
       ion: ionV,
       structure: structCanon,     // for grouping
-      structureLabel: structRaw,  // for label display
+      structureLabel: structRaw,  // for label display (RAW)
       doping: dopV,
       formula: formV,
       sigma: pv,                  // NUMERIC σ (key!)
@@ -222,8 +222,8 @@ function drawTree(rows){
   // Layout
   d3.cluster().size([2*Math.PI, 1])(H);
 
-  // Base rings
-  H.each(n=>{ n.y = Math.min(R, n.depth * baseEdge); });
+  // Base rings for non-leaves (they can clamp to R safely)
+  H.each(n=>{ if (n.children) n.y = Math.min(R, n.depth * baseEdge); });
 
   // --- σ domain built from POSITIVE numeric values only (current view) ---
   const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
@@ -232,9 +232,7 @@ function drawTree(rows){
 
   let sMin = posSig.length ? d3.min(posSig) : def;
   let sMax = posSig.length ? d3.max(posSig) : def * 10;
-
-  // Ensure valid domain for log scale even if all σ equal in view
-  if (sMin === sMax) { sMin = sMin * 0.9; sMax = sMax * 1.1; }
+  if (sMin === sMax) { sMin *= 0.9; sMax *= 1.1; } // keep domain valid for log
 
   const scaleLin = d3.scaleLinear().domain([sMin, sMax]).range([leafMin, leafMax]).nice();
   const scaleLog = d3.scaleLog().domain([Math.max(sMin, Number.MIN_VALUE), sMax]).range([leafMin, leafMax]);
@@ -245,10 +243,25 @@ function drawTree(rows){
     return useLog ? scaleLog(v) : scaleLin(v);
   }
 
-  // Apply σ-based extra radius to leaves
-  H.each(n=>{ if(!n.children){ n.y = Math.min(R, n.depth*baseEdge + extraForSigma(n.data.sigma)); } });
+  // --- prevent hitting the outer clamp ---
+  // leaves are depth 4 → base radius (without σ) is 4*baseEdge
+  const leafBase = 4 * baseEdge;
+  const maxExtra = Math.max(8, R - leafBase - 12); // 12px safety margin
 
-  // Spread sibling leaves slightly for readability
+  // map the *output* of extraForSigma (in [leafMin, leafMax]) to [leafMin, maxExtra]
+  const rescaleExtra = d3.scaleLinear()
+    .domain([leafMin, leafMax])
+    .range([leafMin, maxExtra]);
+
+  // Apply σ-based radius to leaves WITHOUT Math.min(..., R)
+  H.each(n => {
+    if (!n.children) {
+      const extra = rescaleExtra(extraForSigma(n.data.sigma));
+      n.y = leafBase + extra; // guaranteed < R by construction
+    }
+  });
+
+  // Spread sibling leaves for readability
   const spread = leafSpreadPx;
   if (spread > 0) {
     H.descendants().filter(d => d.depth === 3).forEach(parent => {
@@ -336,10 +349,12 @@ function drawTree(rows){
     .attr("y", HEIGHT/2 - bottomMargin)
     .text(d => d);
 
-  // Diagnostics (helpful while tuning)
+  // Diagnostics (helps verify variability & no clamp)
+  const maxY = d3.max(H.leaves().map(d => d.y));
+  const atWall = H.leaves().filter(d => Math.abs(d.y - R) < 1).length;
   const defaultsCount = H.leaves().filter(l => !!l.data?.isDefault).length;
   const pctDef = Math.round(100 * defaultsCount / Math.max(H.leaves().length,1));
-  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length} • σ in view: ${sMin.toExponential(2)} → ${sMax.toExponential(2)} • defaults: ${pctDef}%`);
+  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length} • σ in view: ${sMin.toExponential(2)}→${sMax.toExponential(2)} • max y=${Math.round(maxY)} • capped=${atWall} • defaults=${pctDef}%`);
 }
 
 function showTip(e,d){
