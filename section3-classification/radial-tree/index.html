@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tidy Tree — Canonical Grouping (Zoomable, σ-correct)</title>
+<title>Radial Tidy Tree — Canonical Grouping (Zoomable, σ-driven)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -48,7 +48,6 @@
 </head>
 <body>
 <header>
-  <!-- Reads ./data.csv (no upload UI) -->
   <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:90px;"></label>
   <label><input type="checkbox" id="useLog" checked> log₁₀(σ) for leaf length</label>
   <label>Base edge:
@@ -112,12 +111,12 @@ let focusIon = null; // null = all ions
 
 function say(t){ statusEl.textContent = t; }
 
-// Parse σ into number (S/cm); used only for ingest/defaulting
+// Parse σ into number (S/cm) for ingestion/defaulting only
 function parseSigma(v){
   if (v == null) return NaN;
   let s = String(v).trim();
   if (!s) return NaN;
-  s = s.replace(/[,\s]/g, '').replace(/[−–—-]/g, '-');
+  s = s.replace(/[,\s]/g, '').replace(/[−–—-]/g, '-').replace('·','/');
   const sup = { '⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁺':'+','⁻':'-' };
   s = [...s].map(ch => sup[ch] ?? ch).join('');
   s = s.replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i, '$1e$2');
@@ -126,14 +125,14 @@ function parseSigma(v){
   return m ? Number(m[0]) : NaN;
 }
 
-/* Build per-row leaf objects (group by canonical; display raw)
-   Apply default σ if missing/invalid; store numeric σ and isDefault flag. */
+/* Build per-row leaf objects (group by canonical; display raw).
+   Default σ if missing/invalid; store numeric σ and isDefault flag. */
 function buildLeaves(rows){
   const {ion,struct,doping,formula,sigma} = COLS;
   const leaves = [];
   const defSigma = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
 
-  // If focused, force that ion regardless of multiselect; otherwise use multiselect
+  // If focused, force that ion regardless of multiselect; else use multiselect
   const uiSel = Array.from(document.getElementById('ionSelect').selectedOptions || []).map(o=>o.value);
   const selectedSet = focusIon ? new Set([focusIon]) : (uiSel.length ? new Set(uiSel) : null);
 
@@ -146,28 +145,28 @@ function buildLeaves(rows){
     const dopV = (r[doping]||'(none)').toString().trim();
     const formV = (r[formula]||'(formula)').toString().trim();
 
-    // σ defaulting
+    // σ defaulting (store numeric σ; flag defaults)
     let pv = parseSigma(r[sigma]);
     const isDefault = !(Number.isFinite(pv) && pv > 0);
     if (isDefault) {
       pv = defSigma;
-      r[sigma] = defSigma.toExponential(3); // keep tooltips consistent
+      r[sigma] = defSigma.toExponential(3); // for consistent tooltips if ever read again
     }
 
     leaves.push({
       ion: ionV,
       structure: structCanon,     // for grouping
-      structureLabel: structRaw,  // for label
+      structureLabel: structRaw,  // for label display
       doping: dopV,
       formula: formV,
-      sigma: pv,                  // NUMERIC σ stored here
+      sigma: pv,                  // NUMERIC σ (key!)
       isDefault
     });
   }
   return leaves;
 }
 
-/* Build hierarchy from leaves; if focusIon set, include only that ion */
+/* Build hierarchy; if focusIon set, include only that ion */
 function buildHierarchy(leaves){
   const root = { name:'root', children:[] };
   const grouped = d3.group(leaves, d=>d.ion, d=>d.structure, d=>d.doping);
@@ -223,32 +222,33 @@ function drawTree(rows){
   // Layout
   d3.cluster().size([2*Math.PI, 1])(H);
 
-  // Rings
+  // Base rings
   H.each(n=>{ n.y = Math.min(R, n.depth * baseEdge); });
 
-  // σ → extra radial length (USE NUMERIC σ; don't re-parse strings)
+  // --- σ domain built from POSITIVE numeric values only (current view) ---
   const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
-  const sigVals = H.leaves().map(l => {
-    const v = +l.data.sigma; // numeric
-    return (Number.isFinite(v) && v > 0) ? v : def;
-  });
-  let sMin = Math.min(...sigVals), sMax = Math.max(...sigVals);
-  const collapsed = !(isFinite(sMin) && isFinite(sMax)) || sMin<=0 || sMin===sMax;
-  if (!isFinite(sMin)||!isFinite(sMax)){ sMin=def; sMax=def*10; }
+  const rawSig = H.leaves().map(l => +l.data.sigma);
+  const posSig = rawSig.filter(v => Number.isFinite(v) && v > 0);
+
+  let sMin = posSig.length ? d3.min(posSig) : def;
+  let sMax = posSig.length ? d3.max(posSig) : def * 10;
+
+  // Ensure valid domain for log scale even if all σ equal in view
+  if (sMin === sMax) { sMin = sMin * 0.9; sMax = sMax * 1.1; }
 
   const scaleLin = d3.scaleLinear().domain([sMin, sMax]).range([leafMin, leafMax]).nice();
   const scaleLog = d3.scaleLog().domain([Math.max(sMin, Number.MIN_VALUE), sMax]).range([leafMin, leafMax]);
 
   function extraForSigma(val){
-    let v = +val; // already numeric
+    let v = +val; // numeric already
     if(!Number.isFinite(v) || v <= 0) v = def;
-    if(collapsed) return (leafMin+leafMax)/2;
     return useLog ? scaleLog(v) : scaleLin(v);
   }
 
+  // Apply σ-based extra radius to leaves
   H.each(n=>{ if(!n.children){ n.y = Math.min(R, n.depth*baseEdge + extraForSigma(n.data.sigma)); } });
 
-  // Spread leaf angles for readability
+  // Spread sibling leaves slightly for readability
   const spread = leafSpreadPx;
   if (spread > 0) {
     H.descendants().filter(d => d.depth === 3).forEach(parent => {
@@ -336,10 +336,10 @@ function drawTree(rows){
     .attr("y", HEIGHT/2 - bottomMargin)
     .text(d => d);
 
-  // Diagnostics (range + defaults)
+  // Diagnostics (helpful while tuning)
   const defaultsCount = H.leaves().filter(l => !!l.data?.isDefault).length;
   const pctDef = Math.round(100 * defaultsCount / Math.max(H.leaves().length,1));
-  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length} • σ range: ${sMin.toExponential(2)} → ${sMax.toExponential(2)} • defaults: ${pctDef}%`);
+  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length} • σ in view: ${sMin.toExponential(2)} → ${sMax.toExponential(2)} • defaults: ${pctDef}%`);
 }
 
 function showTip(e,d){
