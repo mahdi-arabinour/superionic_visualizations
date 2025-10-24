@@ -178,10 +178,11 @@
     // Handlers
     ui.toggleAll.onchange = ()=>{ labelsVisible = ui.toggleAll.checked; applyLabelVisibility(); };
 
-    ui.showIon.onchange     = ()=>{ SHOW_ION     = ui.showIon.checked;     layoutLabels(); renderRingCaptions(_lastPartitionRoot); };
-    ui.showStruct.onchange  = ()=>{ SHOW_STRUCT  = ui.showStruct.checked;  layoutLabels(); renderRingCaptions(_lastPartitionRoot); };
-    ui.showStrat.onchange   = ()=>{ SHOW_STRAT   = ui.showStrat.checked;   layoutLabels(); renderRingCaptions(_lastPartitionRoot); };
-    ui.showFormula.onchange = ()=>{ SHOW_FORM    = ui.showFormula.checked; layoutLabels(); renderRingCaptions(_lastPartitionRoot); };
+    // Slice labels react to checkboxes; captions do NOT
+    ui.showIon.onchange     = ()=>{ SHOW_ION     = ui.showIon.checked;     layoutLabels(); };
+    ui.showStruct.onchange  = ()=>{ SHOW_STRUCT  = ui.showStruct.checked;  layoutLabels(); };
+    ui.showStrat.onchange   = ()=>{ SHOW_STRAT   = ui.showStrat.checked;   layoutLabels(); };
+    ui.showFormula.onchange = ()=>{ SHOW_FORM    = ui.showFormula.checked; layoutLabels(); };
 
     // Font sliders — live update (labels only; captions unaffected)
     ui.fsIon.oninput     = ()=>{ FS_ION   = +ui.fsIon.value;     layoutLabels(true); };
@@ -271,10 +272,9 @@
 
     // size scales by zoom
     const ringScale=RING_SCALE[Math.min(_focusDepth, RING_SCALE.length-1)];
-    const leafScale=LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
     _ringThickness=Math.max(44, side*0.085)*ringScale;
     _leafBase=Math.max(12, side*0.03);
-    const extraLeafMax=Math.max(90, side*0.22)*leafScale;
+    const extraLeafMax=Math.max(90, side*0.22)*LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
 
     d3.partition().size([2*Math.PI, (root.height + 1) * _ringThickness])(root);
 
@@ -349,7 +349,7 @@
     // labels for selected levels (respect zoom-allowed levels)
     layoutLabels();
 
-    // ring captions (respect zoom + checkboxes)
+    // ring captions (STATIC: depend only on zoom)
     renderRingCaptions(root);
 
     // stats + crumbs + legend
@@ -358,7 +358,7 @@
     renderCrumbs();
     buildLegend(legendEl, root);
 
-    // enable/disable checkboxes per zoom, then refresh labels/captions/visibility
+    // enable/disable checkboxes per zoom, then refresh labels/visibility
     updateCheckboxesForZoom();
 
     applyLabelVisibility();
@@ -399,6 +399,13 @@
     });
   }
 
+  // ---------------- Absolute level mapping (works at any zoom) ----------------
+  function levelOf(d){
+    const orig = idMap.get(d.data._uid);
+    const od = orig?.depth ?? 0; // 0=root, 1=ion, 2=structure, 3=strategy, 4=formula
+    return od===1 ? 'ion' : od===2 ? 'struct' : od===3 ? 'strat' : 'formula';
+  }
+
   // ---------------- Labels (multi-select, zoom-aware) ----------------
   function layoutLabels(){
     _g.selectAll('.labels').remove();
@@ -417,22 +424,28 @@
     const wantFormula = SHOW_FORM    && allow.has('formula');
 
     let data = [];
-    if (wantIon)     data = data.concat(_nodesCache.filter(d => d.children && d.depth===1));
-    if (wantStruct)  data = data.concat(_nodesCache.filter(d => d.children && d.depth===2));
-    if (wantStrat)   data = data.concat(_nodesCache.filter(d => d.children && d.depth===3));
-    if (wantFormula) data = data.concat(_nodesCache.filter(d => !d.children));
+    if (wantIon)     data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='ion'));
+    if (wantStruct)  data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='struct'));
+    if (wantStrat)   data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='strat'));
+    if (wantFormula) data = data.concat(_nodesCache.filter(n => levelOf(n)==='formula'));
 
     const sel = layer.selectAll('text.levelLabel')
-      .data(data, d=>`${d.data._uid}-${d.depth}`)
+      .data(data, d=>`${d.data._uid}-${levelOf(d)}`)
       .join('text')
-      .attr('class', d=> (!d.children ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'))
-      .text(d=>d.data.name)
+      .attr('class', d=> (levelOf(d)==='formula' ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'))
+      .text(d=> d.data.name) // <-- Strategy shows names (not values)
       .style('font-size', d=>{
-        if (!d.children) return FS_FORM+'px';
-        return d.depth===1 ? FS_ION+'px' : d.depth===2 ? FS_STRUCT+'px' : FS_STRAT+'px';
+        const lv = levelOf(d);
+        return lv==='ion' ? (FS_ION+'px')
+             : lv==='struct' ? (FS_STRUCT+'px')
+             : lv==='strat' ? (FS_STRAT+'px')
+             : (FS_FORM+'px');
       })
-      .style('font-weight', d=> d.children ? (d.depth===1?700: d.depth===2?600:500) : 400)
-      .style('fill', d=> d.children && d.depth===1 ? '#fff' : '#e7eaf2');
+      .style('font-weight', d=>{
+        const lv = levelOf(d);
+        return lv==='ion' ? 700 : lv==='struct' ? 600 : lv==='strat' ? 500 : 400;
+      })
+      .style('fill', d=> levelOf(d)==='ion' ? '#fff' : '#e7eaf2');
 
     placeRadial(sel);
   }
@@ -443,12 +456,13 @@
 
     selection.each(function(d){
       const el = d3.select(this);
-      const basePx = (!d.children) ? FS_FORM
-                     : d.depth===1 ? FS_ION
-                     : d.depth===2 ? FS_STRUCT
-                     : FS_STRAT;
+      const lv = levelOf(d);
+      const basePx = lv==='ion' ? FS_ION
+                   : lv==='struct' ? FS_STRUCT
+                   : lv==='strat' ? FS_STRAT
+                   : FS_FORM;
 
-      const rMid = (d.y0 + (d.children ? d.y1 : _outerR(d)))/2;
+      const rMid = (d.y0 + (lv==='formula' ? _outerR(d) : d.y1))/2;
       const key  = Math.round(rMid);
       const a0   = d.x0, a1 = d.x1, amid = (a0+a1)/2;
       const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
@@ -516,28 +530,17 @@
     }
     setEn('showIon'); setEn('showStruct'); setEn('showStrat'); setEn('showFormula');
 
-    // Redraw labels/captions for whatever is currently checked.
+    // Redraw labels for whatever is currently checked (layout filters by 'allow')
     layoutLabels();
-    renderRingCaptions(_lastPartitionRoot);
     applyLabelVisibility();
   }
 
-  // ---------------- Ring captions (curved, respect zoom + checkboxes) ----------------
+  // ---------------- Ring captions (curved, STATIC w.r.t. checkboxes) ----------------
   function renderRingCaptions(partitionRoot){
     _g.selectAll('.ringGuides').remove();
     _defs.selectAll('path.ringArc').remove(); // cleanup old defs
 
     const guides = _g.append('g').attr('class','ringGuides');
-
-    // allowed at this zoom
-    const allow = new Set();
-    if (_focusDepth===0) { allow.add('ion'); allow.add('struct'); }
-    else if (_focusDepth===1) { allow.add('struct'); allow.add('strat'); }
-    else if (_focusDepth===2) { allow.add('strat'); allow.add('formula'); }
-    else { allow.add('formula'); }
-
-    // currently checked
-    const want = { ion: SHOW_ION, struct: SHOW_STRUCT, strat: SHOW_STRAT, formula: SHOW_FORM };
 
     const a0 = (-90 - CAP_ARC_DEG/2) * Math.PI/180;
     const a1 = (-90 + CAP_ARC_DEG/2) * Math.PI/180;
@@ -548,15 +551,17 @@
       return `M ${x0.toFixed(3)} ${y0.toFixed(3)} A ${r.toFixed(3)} ${r.toFixed(3)} 0 ${largeArc} 1 ${x1.toFixed(3)} ${y1.toFixed(3)}`;
     }
 
-    const bandCount = partitionRoot.height;
+    // Mid-radii for available bands in the current partition
+    const bandCount = partitionRoot.height; // number of inner (non-leaf) bands
     const bandMids = Array.from({length: bandCount}, (_,i)=> (i+0.5) * _ringThickness);
-    const rFormula = (bandCount * _ringThickness) + (_leafBase * 0.65);
+    const rFormula = (bandCount * _ringThickness) + (_leafBase * 0.65); // formula "leaf" band
 
-    const items=[];
-    if (bandMids[0]!=null && allow.has('ion')     && want.ion)     items.push({text:'Ion',             r:bandMids[0]});
-    if (bandMids[1]!=null && allow.has('struct')  && want.struct)  items.push({text:'Structure',       r:bandMids[1]});
-    if (bandMids[2]!=null && allow.has('strat')   && want.strat)   items.push({text:'Doping strategy', r:bandMids[2]});
-    if (allow.has('formula') && want.formula)                        items.push({text:'Formula',         r:rFormula});
+    // Build static captions for rings that actually exist at this zoom.
+    const items = [];
+    if (bandMids[0] != null) items.push({text:'Ion',              r:bandMids[0]});
+    if (bandMids[1] != null) items.push({text:'Structure',        r:bandMids[1]});
+    if (bandMids[2] != null) items.push({text:'Doping strategy',  r:bandMids[2]});
+    items.push({text:'Formula', r:rFormula});
 
     items.forEach((it,i)=>{
       const id = `ringcap-${_focusDepth}-${i}-${Math.floor(it.r)}`;
