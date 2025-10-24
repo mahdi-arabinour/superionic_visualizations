@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Radial Tidy Tree — Canonical Grouping (Zoomable)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#f6f7f9; --grid:#e5e7eb; --text:#0b1220; --muted:#6b7280;
+    --chip:#ffffff; --chip-border:#e5e7eb; --node-stroke:#ffffff; --link:#dde3ea;
+    --tip-bg:#ffffff; --tip-border:#cbd5e1;
+  }
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);}
+  header{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding:10px 12px;background:var(--panel);border-bottom:1px solid var(--grid);
+    position:sticky;top:0;z-index:10;
+  }
+  label{font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text);}
+  input[type="number"],input[type="range"],select,button{
+    background:#fff;color:var(--text);border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;cursor:pointer;
+  }
+  button{font-size:13px}
+  #status{margin-left:auto;font-size:12px;color:var(--muted);}
+  #chart{width:100%;height:90vh;}
+  aside{
+    position:absolute;top:60px;right:0;width:330px;height:calc(100% - 60px);overflow:auto;
+    background:var(--panel);border-left:1px solid var(--grid);padding:10px;
+  }
+  aside h3{margin:8px 0;font-size:13px;color:#374151;}
+  select[multiple]{width:100%;min-height:120px;background:#fff;color:var(--text);}
+  .legend{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{display:flex;align-items:center;gap:6px;font-size:12px;background:var(--chip);border:1px solid var(--chip-border);
+        padding:4px 6px;border-radius:999px;}
+  .sw{width:10px;height:10px;border-radius:3px;border:1px solid #0002;}
+  .tip{
+    position:fixed;pointer-events:none;background:var(--tip-bg);color:var(--text);
+    border:1px solid var(--tip-border);padding:6px 8px;border-radius:6px;font-size:12px;
+    box-shadow:0 6px 24px rgba(0,0,0,.08);opacity:0;transition:opacity .15s;
+  }
+  .lbl-ion{fill:#111827;font-weight:700;}
+  .lbl-struct{fill:#1f2937;font-weight:500;}
+  .lbl-doping{fill:#374151;font-weight:400;}
+  .lbl-formula{fill:#4b5563;font-weight:400;}
+  .viz-caption{font-size:12px;fill:#374151;text-anchor:middle;}
+</style>
+</head>
+<body>
+<header>
+  <!-- No upload UI — reads ./data.csv -->
+  <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:90px;"></label>
+  <label><input type="checkbox" id="useLog" checked> log₁₀(σ) for leaf length</label>
+  <label>Base edge:
+    <input type="range" id="baseEdge" min="30" max="120" step="2" value="60"><span id="baseEdgeLbl">60</span> px
+  </label>
+  <label>Leaf extra:
+    <input type="range" id="leafMin" min="6" max="80" step="1" value="10"><span id="leafMinLbl">10</span> px
+    <input type="range" id="leafMax" min="20" max="240" step="2" value="120"><span id="leafMaxLbl">120</span> px
+  </label>
+  <button id="resetView" style="display:none">Reset View</button>
+  <div id="status">Loading data.csv…</div>
+</header>
+
+<svg id="chart"></svg>
+
+<aside>
+  <h3>Filter ions</h3>
+  <div style="display:flex;gap:8px;margin-bottom:6px;">
+    <button id="selectAllBtn">Select All</button>
+    <button id="clearAllBtn">Clear</button>
+  </div>
+  <select id="ionSelect" multiple></select>
+
+  <h3>Labels</h3>
+  <label><input type="checkbox" id="showIonLbl" checked> Ion</label>
+  <label><input type="checkbox" id="showStructLbl" checked> Structure</label>
+  <label><input type="checkbox" id="showDopingLbl" checked> Doping</label>
+  <label><input type="checkbox" id="showFormulaLbl"> Formula</label>
+
+  <h3>Label sizes</h3>
+  <label>Structure <input type="range" id="fsStruct" min="8" max="14" step="1" value="10"><span id="fsStructLbl">10</span> px</label>
+  <label>Doping <input type="range" id="fsDoping" min="7" max="13" step="1" value="9"><span id="fsDopingLbl">9</span> px</label>
+  <label>Formula <input type="range" id="fsFormula" min="6" max="12" step="1" value="8"><span id="fsFormulaLbl">8</span> px</label>
+
+  <h3>Declutter (min angle gap, °)</h3>
+  <label>Structure <input type="number" id="gapStruct" value="3" step="1" style="width:64px;"></label>
+  <label>Doping <input type="number" id="gapDoping" value="2" step="1" style="width:64px;"></label>
+  <label>Formula <input type="number" id="gapFormula" value="1" step="1" style="width:64px;"></label>
+
+  <h3>Leaf spacing</h3>
+  <label>Formula leaf spread (px along arc)
+    <input type="range" id="leafSpread" min="0" max="40" step="1" value="12"><span id="leafSpreadLbl">12</span>
+  </label>
+
+  <h3>Ion colors</h3>
+  <div id="ionLegend" class="legend"></div>
+</aside>
+
+<div class="tip" id="tooltip"></div>
+
+<script>
+const statusEl = document.getElementById('status');
+const resetBtn = document.getElementById('resetView');
+const svg = d3.select('#chart');
+const tip = d3.select('#tooltip');
+const basePalette = d3.schemeTableau10.concat(d3.schemeSet3);
+const ionColorScale = d3.scaleOrdinal().range(basePalette);
+
+let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
+let focusIon = null; // ← current zoom target (null = all ions)
+
+function say(t){ statusEl.textContent = t; }
+
+// conductivity parser → numeric S/cm
+function parseSigma(v){
+  if (v == null) return NaN;
+  let s = String(v).trim();
+  if (!s) return NaN;
+  s = s.replace(/[,\s]/g, '').replace(/[−–—-]/g, '-');
+  const sup = { '⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','⁺':'+','⁻':'-' };
+  s = [...s].map(ch => sup[ch] ?? ch).join('');
+  s = s.replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i, '$1e$2');
+  let n = Number(s); if (Number.isFinite(n)) return n;
+  const m = s.match(/^[+\-]?\d*\.?\d+(?:e[+\-]?\d+)?/i);
+  return m ? Number(m[0]) : NaN;
+}
+
+/* Build per-row leaf objects (group by canonical; display raw)
+   Also: apply default σ if missing/invalid, store back, and flag isDefault. */
+function buildLeaves(rows){
+  const {ion,struct,doping,formula,sigma} = COLS; // struct = canonical
+  const leaves = [];
+  const defSigma = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
+
+  // If focused, we'll filter by that ion *regardless* of the multiselect
+  const uiSel = Array.from(document.getElementById('ionSelect').selectedOptions || []).map(o=>o.value);
+  const selectedSet = focusIon ? new Set([focusIon]) : (uiSel.length ? new Set(uiSel) : null);
+
+  for (const r of rows){
+    const ionV = (r[ion]||'Other').toString().trim();
+    if (selectedSet && !selectedSet.has(ionV)) continue;
+
+    const structCanon = (r[struct] || 'Other / Novel').toString().trim();
+    const structRaw   = (r["Structure Type (raw)"] || structCanon).toString().trim();
+    const dopV = (r[doping]||'(none)').toString().trim();
+    const formV = (r[formula]||'(formula)').toString().trim();
+
+    // --- apply default σ if missing/invalid & remember it's defaulted ---
+    let pv = parseSigma(r[sigma]);
+    const isDefault = !(Number.isFinite(pv) && pv > 0);
+    if (isDefault) {
+      pv = defSigma;
+      r[sigma] = defSigma.toExponential(3); // store back for consistency in tooltips
+    }
+
+    leaves.push({
+      ion: ionV,
+      structure: structCanon,     // used for grouping
+      structureLabel: structRaw,  // shown on labels
+      doping: dopV,
+      formula: formV,
+      sigma: pv,                  // numeric value used downstream
+      isDefault                   // flag for styling & tooltip
+    });
+  }
+  return leaves;
+}
+
+/* Build hierarchy; if focusIon set, only that ion appears and uses full 360° */
+function buildHierarchy(leaves){
+  const root = { name:'root', children:[] };
+
+  const grouped = d3.group(leaves, d=>d.ion, d=>d.structure, d=>d.doping);
+  const ions = focusIon ? [focusIon] : Array.from(grouped.keys());
+
+  for(const ion of ions){
+    const g1 = grouped.get(ion);
+    if (!g1) continue;
+    const nIon = { name:ion, color:ionColorScale(ion), children:[] };
+    for(const [structCanon, g2] of g1){
+      const structRawExample = g2[0]?.structureLabel || structCanon;
+      const nStruct = { name:structCanon, structureLabel:structRawExample, children:[] };
+      const gDop = d3.group(g2, d=>d.doping);
+      for(const [dop, g3] of gDop){
+        const nDop = { name:dop, children:[] };
+        for(const d of g3){ nDop.children.push({ name:d.formula, sigma:d.sigma, ion:d.ion, isDefault:d.isDefault }); }
+        nStruct.children.push(nDop);
+      }
+      nIon.children.push(nStruct);
+    }
+    root.children.push(nIon);
+  }
+  return d3.hierarchy(root).sort((a,b)=> d3.ascending(a.data.name, b.data.name));
+}
+
+function drawTree(rows){
+  const bb = document.getElementById('chart').getBoundingClientRect();
+  WIDTH = bb.width; HEIGHT = bb.height; R = Math.min(WIDTH, HEIGHT)/2 - 40;
+  svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
+
+  const useLog  = document.getElementById('useLog').checked;
+  const baseEdge = +document.getElementById('baseEdge').value;
+  const leafMin  = +document.getElementById('leafMin').value;
+  const leafMax  = +document.getElementById('leafMax').value;
+  const fsStruct = +document.getElementById('fsStruct').value;
+  const fsDoping = +document.getElementById('fsDoping').value;
+  const fsFormula= +document.getElementById('fsFormula').value;
+  // Give focused view a bit more spacing by default:
+  const leafSpreadPx = (+document.getElementById('leafSpread').value) + (focusIon ? 6 : 0);
+
+  document.getElementById('baseEdgeLbl').textContent = baseEdge;
+  document.getElementById('leafMinLbl').textContent = leafMin;
+  document.getElementById('leafMaxLbl').textContent = leafMax;
+  document.getElementById('fsStructLbl').textContent = fsStruct;
+  document.getElementById('fsDopingLbl').textContent = fsDoping;
+  document.getElementById('fsFormulaLbl').textContent = fsFormula;
+  document.getElementById('leafSpreadLbl').textContent = leafSpreadPx;
+
+  const leaves = buildLeaves(rows);
+  const H = buildHierarchy(leaves);
+
+  // Layout
+  d3.cluster().size([2*Math.PI, 1])(H);
+
+  // Tidy rings
+  H.each(n=>{ n.y = Math.min(R, n.depth * baseEdge); });
+
+  // Leaf extra from σ
+  const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
+  const sigVals = H.leaves().map(l => parseSigma(l.data.sigma)).map(v => (Number.isFinite(v)&&v>0?v:def));
+  let sMin = Math.min(...sigVals), sMax = Math.max(...sigVals);
+  const collapsed = !(isFinite(sMin) && isFinite(sMax)) || sMin<=0 || sMin===sMax;
+  if (!isFinite(sMin)||!isFinite(sMax)){ sMin=def; sMax=def*10; }
+
+  const scaleLin = d3.scaleLinear().domain([sMin, sMax]).range([leafMin, leafMax]).nice();
+  const scaleLog = d3.scaleLog().domain([Math.max(sMin, Number.MIN_VALUE), sMax]).range([leafMin, leafMax]);
+  function extraForSigma(val){
+    let v = parseSigma(val);
+    if(!Number.isFinite(v)||v<=0) v = def;
+    if(collapsed) return (leafMin+leafMax)/2;
+    return document.getElementById('useLog').checked ? scaleLog(v) : scaleLin(v);
+  }
+  H.each(n=>{ if(!n.children){ n.y = Math.min(R, n.depth*baseEdge + extraForSigma(n.data.sigma)); } });
+
+  // Optional: spread sibling leaves for readability
+  const spread = leafSpreadPx;
+  if (spread > 0) {
+    H.descendants().filter(d => d.depth === 3).forEach(parent => {
+      const kids = (parent.children || []).filter(c => !c.children);
+      const n = kids.length;
+      if (n <= 1) return;
+      kids.sort((a,b)=> a.x - b.x);
+      kids.forEach((c, idx) => {
+        const r = Math.max(c.y, 1);
+        const delta = (idx - (n - 1)/2) * (spread / r); // px/r -> radians
+        c.x += delta;
+      });
+    });
+  }
+
+  // Links & nodes
+  const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
+  svg.append('g').attr('fill','none').attr('stroke','var(--link)').attr('stroke-width',1)
+    .selectAll('path').data(H.links()).join('path').attr('d',d=> link({source:d.source, target:d.target}));
+
+  const gNodes = svg.append('g').selectAll('g.node')
+    .data(H.descendants())
+    .join('g')
+    .attr('class','node')
+    .attr('transform',d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`);
+
+  gNodes.append('circle')
+    .attr('r',d=>d.children?2.2:1.8)
+    .attr('fill',d=> d.ancestors().find(a=>a.depth===1)?.data?.color || '#9aa5b1')
+    .attr('stroke','var(--node-stroke)')
+    .attr('stroke-width',0.8)
+    .attr('stroke-dasharray', d => (!d.children && d.data?.isDefault) ? '3,2' : null)
+    .on('mousemove',(e,d)=>showTip(e,d)).on('mouseleave',hideTip)
+    .on('click', (e,d)=> {
+      // Zoom when clicking an ION (depth 1). Clicking the center root does nothing.
+      if (d.depth === 1) setFocusIon(d.data.name);
+    });
+
+  // Labels
+  const layers = [
+    {depth:1, show:document.getElementById('showIonLbl').checked,     cls:'lbl-ion',     fs:13, weight:'700', gapDeg:0, off:8, clickZoom:true},
+    {depth:2, show:document.getElementById('showStructLbl').checked,  cls:'lbl-struct',  fs: +document.getElementById('fsStruct').value, weight:'500', gapDeg:+document.getElementById('gapStruct').value, off:6},
+    {depth:3, show:document.getElementById('showDopingLbl').checked,  cls:'lbl-doping',  fs: +document.getElementById('fsDoping').value, weight:'400', gapDeg:+document.getElementById('gapDoping').value, off:5},
+    {depth:4, show:document.getElementById('showFormulaLbl').checked, cls:'lbl-formula', fs: +document.getElementById('fsFormula').value, weight:'400', gapDeg:+document.getElementById('gapFormula').value, off:0}
+  ];
+
+  for(const L of layers){
+    if(!L.show) continue;
+    const nodes = H.descendants().filter(d=>d.depth===L.depth);
+
+    const render = (nodesToRender, textAccessor) => {
+      svg.append('g').attr('font-size',L.fs).attr('font-weight',L.weight).attr('class',L.cls)
+        .selectAll('text').data(nodesToRender).join('text')
+        .attr('transform',d=>{
+          const a=d.x,r=(L.depth===4? d.y : d.y+L.off);
+          const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
+          const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
+          return `translate(${x},${y}) rotate(${rot+flip})`;
+        })
+        .attr('text-anchor',d=>d.x>=Math.PI?'end':'start')
+        .text(textAccessor)
+        .style('cursor', L.clickZoom ? 'pointer' : null)
+        .on('click', (e,d)=> { if (L.clickZoom && d.depth===1) setFocusIon(d.data.name); });
+    };
+
+    if (L.depth===1) {
+      render(nodes, d=>d.data?.name ?? '');
+    } else if (L.depth===2) {
+      const kept=[],minGap=L.gapDeg*Math.PI/180,sorted=nodes.slice().sort((a,b)=>a.x-b.x);
+      for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=minGap) kept.push(d); }
+      render(kept, d=> d.data?.structureLabel ?? d.data?.name ?? '');
+    } else if (L.depth===4) {
+      render(nodes, d=> d.data?.name ?? '');
+    } else {
+      const kept=[],minGap=L.gapDeg*Math.PI/180,sorted=nodes.slice().sort((a,b)=>a.x-b.x);
+      for(const d of sorted){ if(!kept.length||Math.abs(d.x-kept[kept.length-1].x)>=minGap) kept.push(d); }
+      render(kept, d=> d.data?.name ?? '');
+    }
+  }
+
+  // --- Bottom caption (responsive) ---
+  const caption = "Ion → Structure Group (Canonical) → Doping → Formula • leaf length ∝ σ • structure labels show RAW type • dashed = default σ • click Ion to zoom";
+  const bottomMargin = 12;
+  svg.selectAll("text.viz-caption")
+    .data([caption])
+    .join(enter => enter.append("text").attr("class","viz-caption"))
+    .attr("x", 0)
+    .attr("y", HEIGHT/2 - bottomMargin)
+    .text(d => d);
+
+  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length}`);
+}
+
+function showTip(e,d){
+  const anc=d.ancestors().reverse();
+  const ion=anc[1]?.data?.name||'(ion)';
+  const structure=anc[2]?.data?.structureLabel || anc[2]?.data?.name || '(structure)';
+  const doping=anc[3]?.data?.name||'(doping)';
+  let html=`<b>${ion}</b> → ${structure} → ${doping}`;
+
+  if(!d.children){
+    const v = Number(d.data?.sigma);
+    html += `<br><b>${d.data?.name}</b>`;
+    if(Number.isFinite(v) && v>0) {
+      const tag = d.data?.isDefault ? " (default σ)" : "";
+      html += `<br>σ: ${v.toExponential(3)} S·cm⁻¹${tag}`;
+    } else {
+      const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
+      html += `<br>σ: default ${def.toExponential(3)} S·cm⁻¹ (fallback)`;
+    }
+  }
+  tip.html(html).style('left',(e.clientX+12)+'px').style('top',(e.clientY+12)+'px').style('opacity',1);
+}
+function hideTip(){ tip.style('opacity',0); }
+
+// ---- Focusing helpers ----
+function setFocusIon(name){
+  focusIon = name;
+  // programmatically select only that ion in the multiselect for clarity
+  const sel = document.getElementById('ionSelect');
+  if (sel) {
+    for (const o of sel.options) o.selected = (o.value === name);
+  }
+  resetBtn.style.display = '';
+  drawTree(DATA);
+}
+function clearFocusIon(){
+  focusIon = null;
+  // (Optional) select all ions after reset for a full view
+  const sel = document.getElementById('ionSelect');
+  if (sel) { for (const o of sel.options) o.selected = true; }
+  resetBtn.style.display = 'none';
+  drawTree(DATA);
+}
+resetBtn.addEventListener('click', clearFocusIon);
+
+// ---- Auto-load from data.csv (no upload UI) ----
+const CSV_PATH = "data.csv";
+async function initFromCSV(){
+  say("Loading data.csv...");
+  try {
+    const rows = await d3.csv(CSV_PATH);
+    if(!rows || !rows.length){ say("No rows found in data.csv"); return; }
+
+    COLS = {
+      ion:    "Ion Type (Normalized)",
+      struct: "Structure Group (Canonical)",  // grouping
+      doping: "Doping / and or GB Strategy",
+      formula:"superionic conductor Formula (Chemical)",
+      sigma:  "Conductivity σ (S·cm⁻¹)"
+    };
+
+    // Guard headers
+    const required = [
+      "Ion Type (Normalized)","Structure Type (raw)","Structure Group (Canonical)",
+      "Doping / and or GB Strategy","superionic conductor Formula (Chemical)","Conductivity σ (S·cm⁻¹)"
+    ];
+    const missing = required.filter(h => !rows.columns.includes(h));
+    if (missing.length) { say("Missing columns in data.csv: " + missing.join(", ")); return; }
+
+    DATA = rows;
+
+    // Ion selector & legend
+    const ions = [...new Set(rows.map(r => (r[COLS.ion]||'Other').toString().trim()))].sort((a,b)=>a.localeCompare(b));
+    const sel = document.getElementById('ionSelect');
+    if(sel && sel.options.length===0){
+      ions.forEach(i=>{ const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); });
+      const leg = document.getElementById('ionLegend');
+      ions.forEach(i=>{
+        const chip=document.createElement('div'); chip.className='chip';
+        const sw=document.createElement('div'); sw.className='sw'; sw.style.background=ionColorScale(i);
+        chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); leg.appendChild(chip);
+      });
+      // Legend note for default σ mark
+      const note = document.createElement('div');
+      note.style.marginTop = '6px';
+      note.style.fontSize = '12px';
+      note.style.color = '#6b7280';
+      note.textContent = 'Dashed outline = default σ used • Click an Ion label or dot to zoom';
+      leg.appendChild(note);
+    }
+
+    // Default: select all ions initially
+    if (sel && sel.options.length) {
+      for (const o of sel.options) o.selected = true;
+    }
+
+    drawTree(DATA);
+    say(`Loaded data.csv • rows: ${rows.length}`);
+  } catch (err){
+    console.error(err);
+    say("Failed to load data.csv (serve this folder via http).");
+  }
+}
+
+// Controls
+[
+ "ionSelect","showIonLbl","showStructLbl","showDopingLbl","showFormulaLbl",
+ "fsStruct","fsDoping","fsFormula",
+ "gapStruct","gapDoping","gapFormula",
+ "leafSpread","sigmaDefault","useLog","baseEdge","leafMin","leafMax"
+].forEach(id=> {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', ()=> { if(DATA) drawTree(DATA); });
+});
+
+document.getElementById('selectAllBtn')?.addEventListener('click', ()=>{
+  const sel=document.getElementById('ionSelect'); if(!sel) return;
+  for(const o of sel.options){ o.selected=true; } if(DATA) drawTree(DATA);
+});
+document.getElementById('clearAllBtn')?.addEventListener('click', ()=>{
+  const sel=document.getElementById('ionSelect'); if(!sel) return;
+  for(const o of sel.options){ o.selected=false; } if(DATA) drawTree(DATA);
+});
+
+// Redraw on resize
+window.addEventListener('resize', () => { if (DATA) drawTree(DATA); });
+
+// Kick off
+initFromCSV();
+</script>
+</body>
+</html>
