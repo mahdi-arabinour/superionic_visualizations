@@ -2,470 +2,329 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Superionic Conductors — Ea≤0.8 · Ea vs σ (log Y)</title>
+<title>Superionic Conductors — Ea vs σ (log Y) • Cycle Filter</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  :root { --bg:#ffffff; --panel:#171a20; --grid:#dcdcdc; --text:#111111; --muted:#93c5fd; --accent:#60a5fa; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-  header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--grid); position:sticky; top:0; z-index:10; }
-  .wrap { display:grid; grid-template-columns: 1fr 220px 160px; gap:8px; padding:8px; }
-  #chart { width:100%; height:90vh; border:1px solid var(--grid); border-radius:8px; background:#ffffff; }
-  .badge { font-size:11px; color:var(--muted); }
-  label { display:flex; align-items:center; gap:6px; font-size:12px; }
-  input[type="checkbox"] { transform: translateY(1px); }
-  .slider-container { display:flex; align-items:center; gap:6px; font-size:12px; }
-  input[type="range"] { width:150px; }
-
-  /* Side panels */
-  aside { background:var(--panel); border:1px solid var(--grid); border-radius:8px; padding:8px; min-height:100px; font-size:11px; }
-  aside h3 { margin:0 0 4px 0; font-size:12px; color:#cbd5e1; }
-
-  /* Structure accordion legend */
-  .acc-item { border-radius:8px; border:1px solid #dcdcdc; margin-bottom:6px; overflow:hidden; }
-  .acc-head { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 6px; cursor:pointer; user-select:none; }
-  .acc-left { display:flex; align-items:center; gap:6px; }
-  .color-chip { width:10px; height:10px; border-radius:3px; border:1px solid #0007; }
-  .acc-head .count { font-size:10px; color:#94a3b8; }
-  .acc-body { display:none; padding:6px 8px; border-top:1px dashed #dcdcdc; font-size:11px; color:#cbd5e1; max-height:120px; overflow:auto; }
-  .acc-item.active .acc-body { display:block; }
-  .acc-item.active .acc-head { background:#1c212b; }
-  .acc-actions { display:flex; gap:4px; }
-  .acc-btn { font-size:10px; padding:2px 4px; border:1px solid #dcdcdc; border-radius:5px; background:#ffffff; color:#cbd5e1; cursor:pointer; }
-  .acc-btn:hover { background:#141923; }
-
-  /* Size legend (Cycle) */
-  .size-row { display:flex; align-items:center; gap:6px; margin:2px 0; cursor:pointer; }
-  .size-row.active { outline:1px solid #dcdcdc; border-radius:8px; background:#1c212b; }
-  .size-dot { border-radius:50%; background:#93c5fd22; border:1px solid #93c5fd88; }
-  .size-dot.missing { background:#ef444422; border-color:#ef4444aa; }
-  .size-label { font-size:11px; color:#cbd5e1; }
-
-  /* Error banner */
-  #error { display:none; margin:8px 12px; padding:8px 12px; background:#2b1111; color:#fecaca; border:1px solid #7f1d1d; border-radius:8px; white-space:pre-wrap; }
+  :root{
+    --bg:#ffffff; --panel:#ffffff; --grid:#dcdcdc; --zero:#cccccc; --text:#111111; --muted:#6b7280;
+    --chip-bg:#f6f7fb; --chip-br:#e2e8f0; --chip-on:#111111; --chip-off:#6b7280;
+    --chip-active-bg:#e8eef7; --chip-active-br:#cdd8f0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  header{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding:10px 12px;border-bottom:1px solid var(--grid);position:sticky;top:0;background:var(--panel);z-index:10;
+  }
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .label{font-size:12px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .btn{
+    border:1px solid var(--chip-br);background:var(--chip-bg);color:var(--chip-off);
+    border-radius:999px;padding:6px 10px;font-size:12px;cursor:pointer;user-select:none;
+  }
+  .btn.active{background:var(--chip-active-bg);color:var(--chip-on);border-color:var(--chip-active-br)}
+  #chart{width:100vw;height:calc(100vh - 74px);}
+  #status{margin-left:auto;font-size:12px;color:var(--muted)}
+  .sep{width:1px;height:22px;background:var(--grid);margin:0 6px}
 </style>
 </head>
 <body>
-  <header>
-    <label title="(Data are filtered to Ea ≤ 0.8)">
-      <input type="checkbox" id="clampX" /> Clamp Ea axis to [0.05, 1.0]
-    </label>
-    <label><input type="checkbox" id="hiOut" /> Highlight Ea &gt; 0.7 eV</label>
-
-    <div class="slider-container" title="Marker size scale">
-      <label for="sizeScale">Size:</label>
-      <input type="range" id="sizeScale" min="0.5" max="5" value="1.2" step="0.1">
-      <span id="scaleVal">1.2×</span>
-    </div>
-    <div class="slider-container" title="Spread horizontally (Ea)">
-      <label for="jx">X spread:</label>
-      <input type="range" id="jx" min="0" max="0.05" value="0.02" step="0.001">
-      <span id="jxVal">0.020 eV</span>
-    </div>
-    <div class="slider-container" title="Spread vertically (σ, % of value)">
-      <label for="jy">Y spread:</label>
-      <input type="range" id="jy" min="0" max="15" value="8" step="0.5">
-      <span id="jyVal">8%</span>
-    </div>
-
-    <span class="badge" id="status">Loading data.csv…</span>
-  </header>
-
-  <div id="error"></div>
-
-  <div class="wrap">
-    <div id="chart"></div>
-
-    <aside>
-      <h3>Structure (color) — click to isolate</h3>
-      <div id="structureAccordion"></div>
-    </aside>
-
-    <aside>
-      <h3>Size (Cycle Life) — click to filter</h3>
-      <div id="sizeLegend"></div>
-      <div style="margin-top:4px; font-size:10.5px; color:#9aa4b2;">
-        Area ~ log<sub>10</sub>(cycles+1) × scale · Missing cycles → fixed size
-      </div>
-    </aside>
+<header>
+  <span class="label">Cycle range:</span>
+  <div class="chips" id="cycleBar">
+    <!-- chips injected by JS -->
   </div>
 
+  <div class="sep"></div>
+
+  <div class="row">
+    <span class="label">X tick step:</span>
+    <div class="chips" id="xTickBar">
+      <button class="btn" data-step="0.10">0.10</button>
+      <button class="btn active" data-step="0.05">0.05</button>
+      <button class="btn" data-step="0.025">0.025</button>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="row">
+    <label class="label"><input type="checkbox" id="clampX"> Clamp Ea to [0.05, 1.0]</label>
+    <label class="label"><input type="checkbox" id="hiOut"> Highlight Ea &gt; 0.7 eV</label>
+  </div>
+
+  <div id="status">Loading data.csv…</div>
+</header>
+
+<div id="chart"></div>
+
 <script>
-/* ---------- status & error ---------- */
-const statusEl = document.getElementById("status");
-const errorEl  = document.getElementById("error");
-function say(msg){ statusEl.textContent = msg; }
-function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
-
-/* ---------- palettes & encodings ---------- */
-const structColors = {
-  "Antiperovskite":"#e15759", "Perovskite":"#f28e2b", "Garnet":"#59a14f",
-  "LISICON":"#4e79a7", "NASICON":"#76b7b2", "Argyrodite":"#af7aa1",
-  "Halide":"#edc949", "Sulfide":"#ff9da7", "Closo-carbaborate":"#9c755f",
-  "Nitride":"#b07aa1", "Phosphate":"#86bc86", "Silicide":"#a0cbe8",
-  "Polymer composite":"#8cd17d", "Other / Novel":"#9e9e9e"
-};
-const ionSymbols = {
-  "Li+":"circle", "Na+":"square", "K+":"diamond", "Mg2+":"triangle-up",
-  "Ca2+":"triangle-down", "H+":"x", "Ag+":"star", "Zn2+":"cross",
-  "Other":"circle-open"
+/* ===========================
+   Config & helpers
+   =========================== */
+const COLS = {
+  ion:      ["Ion Type (Normalized)","Ion Type","Ion"],
+  struct:   ["Structure Group (Canonical)","Structure Family (Canonical)","Structure Group","Structure"],
+  ea:       ["Activation Energy Ea (eV)","Activation Energy Ea (eV)  [smart parsed]","Activation Energy (eV)","Ea","Activation Energy Ea (eV) "],
+  sigma:    ["Conductivity σ (S·cm⁻¹)","σ (S·cm⁻¹)","Conductivity (S·cm⁻¹)","Conductivity σ (S/cm) [numeric]"],
+  cycles:   ["Cycle Life (raw)","Cycle Life","Cycle","Cycle Life (numeric)"]
 };
 
-/* ---------- columns ---------- */
-const C = {
-  ion:["Ion Type (Normalized)","Ion Type","Ion"],
-  structFam:["Structure Family (Canonical)","Structure Group (Canonical)","Structure"],
-  structRaw:["Structure Type","Structure (raw)","Raw Structure","Structure Label","Structure"],
-  ea:["Activation Energy Ea (eV)  [smart parsed]","Activation Energy Ea (eV)","Ea"],
-  sigma:["Conductivity σ (S/cm) [numeric]","Conductivity σ (S·cm⁻¹) [numeric]","Conductivity","sigma"],
-  cycles:["Cycle Life (numeric)","Cycle Life (raw)","Cycles"],
-  formula:["superionic conductor Formula (Chemical)","Formula"]
-};
-function guessCol(cols, candidates){
-  const map = Object.fromEntries(cols.map(c=>[c.toLowerCase(), c]));
-  for(const name of candidates){ if(map[name.toLowerCase()]) return map[name.toLowerCase()]; }
-  for(const c of cols){ const lc=c.toLowerCase(); if(candidates.some(n=>lc.includes(n.toLowerCase()))) return c; }
-  return null;
+function pick(row, keys){
+  for (const k of keys){ if (k in row) return row[k]; }
+  return undefined;
 }
+
 function toNum(v){
-  if(typeof v==="number") return v;
-  if(!v) return NaN;
-  const s=String(v).trim();
-  if(s==="–"||s==="—"||s.toLowerCase()==="na"||s.toLowerCase()==="n/a") return NaN;
-  const n=Number(s.replace(/,/g,""));
-  if(Number.isFinite(n)) return n;
-  const m=s.match(/([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/);
-  return m?Number(m[1]):NaN;
+  if (typeof v === "number") return v;
+  if (v == null) return NaN;
+  const s = String(v).trim();
+  if (!s) return NaN;
+  const n = Number(s.replace(/,/g,''));
+  if (Number.isFinite(n)) return n;
+  const m = s.match(/([+\-]?\d*\.?\d+(?:[eE][+\-]?\d+)?)/);
+  return m ? Number(m[1]) : NaN;
 }
 
-/* ---------- size mapping & cycle buckets ---------- */
-let sizeScaleFactor=1.2;
-const MISSING_CYCLE_BASE = 15;
-function cycleSize(cycles){
-  const cyc = toNum(cycles);
-  if(!Number.isFinite(cyc) || cyc <= 0) return MISSING_CYCLE_BASE * sizeScaleFactor;
-  return Math.max(15, Math.min(95, Math.log10(cyc + 1) * 13.5 * sizeScaleFactor));
-}
-function parseCycle(raw){
+function parseCycles(raw){
   if (raw == null) return null;
   const s = String(raw);
   const m = s.match(/(\d[\d,]*)/);
   if (!m) return null;
   return Number(m[1].replace(/,/g,''));
 }
-function cycleBucket(raw){
-  const n = parseCycle(raw);
+
+/* ===========================
+   Cycle buckets (more granular)
+   =========================== */
+const cycleBreaks = [0,100,500,1000,1500,2000,2500,3000,4000,5000,7500,10000]; // bounds
+function bucketLabel(i){
+  if (i === "ALL") return "All";
+  if (i === "NA") return "N/A";
+  if (i === "GT") return "> 10000";
+  const a = cycleBreaks[i], b = cycleBreaks[i+1];
+  if (a === 0) return "0–100";
+  return `${a+1}–${b}`;
+}
+function bucketCode(i){
+  if (i === "ALL" || i === "NA" || i === "GT") return i;
+  return `B${i}`; // B0, B1, ...
+}
+function cycleToBucketCode(cycles){
+  const n = parseCycles(cycles);
   if (n == null || !Number.isFinite(n)) return "NA";
-  if (n <= 100) return "LE100";
-  if (n <= 500) return "R101_500";
-  if (n <= 1000) return "R501_1000";
-  return "GT1000";
-}
-function cycleBucketLabel(b){
-  return {NA:"N/A", LE100:"≤100", R101_500:"101–500", R501_1000:"501–1000", GT1000:">1000"}[b] || b;
-}
-function buildSizeLegend(maxCycles){
-  const wrap=document.getElementById("sizeLegend"); wrap.innerHTML="";
-
-  // Clickable row helper
-  function row(label, px, bucketCode){
-    const row=document.createElement("div");
-    row.className="size-row"; row.dataset.bucket = bucketCode;
-    const dot=document.createElement("div");
-    dot.className="size-dot" + (bucketCode==="NA" ? " missing": "");
-    dot.style.width=px+"px"; dot.style.height=px+"px";
-    const lab=document.createElement("div"); lab.className="size-label"; lab.textContent=label;
-    row.appendChild(dot); row.appendChild(lab);
-    row.addEventListener("click", ()=> { onCycleLegendClick(bucketCode); });
-    return row;
+  for (let i=0; i<cycleBreaks.length-1; i++){
+    const a = cycleBreaks[i], b = cycleBreaks[i+1];
+    if ((i===0 && n>=a && n<=b) || (i>0 && n>a && n<=b)) return bucketCode(i);
   }
-
-  // Missing cycles
-  const fixedPx = cycleSize(null);
-  wrap.appendChild(row("No cycle data (fixed size)", fixedPx, "NA"));
-
-  // Bucket examples
-  const buckets = [
-    {code:"LE100",   sample:  80, label:"≤ 100 cycles"},
-    {code:"R101_500", sample: 300, label:"101 – 500 cycles"},
-    {code:"R501_1000",sample: 800, label:"501 – 1000 cycles"},
-    {code:"GT1000",   sample: 2000, label:"≥ 1000 cycles"},
-  ];
-  buckets.forEach(b => wrap.appendChild(row(b.label, cycleSize(b.sample), b.code)));
-  highlightCycleLegendActive();
-}
-function highlightCycleLegendActive(){
-  const nodes = Array.from(document.querySelectorAll("#sizeLegend .size-row"));
-  nodes.forEach(n => n.classList.toggle("active", n.dataset.bucket === activeCycle));
+  return "GT";
 }
 
-/* ---------- jitter & utils ---------- */
+/* Build chips */
+const cycleBar = document.getElementById("cycleBar");
+const chipDefs = ["ALL","NA", ...Array.from({length:cycleBreaks.length-1}, (_,i)=>i), "GT"];
+chipDefs.forEach(def=>{
+  const btn = document.createElement("button");
+  btn.className = "btn" + (def==="ALL" ? " active" : "");
+  btn.dataset.range = def;
+  btn.textContent = bucketLabel(def);
+  cycleBar.appendChild(btn);
+});
+
+/* ===========================
+   Plot styling
+   =========================== */
+const structColors = {
+  "Antiperovskite":"#e15759", "Perovskite":"#f28e2b", "Garnet":"#59a14f",
+  "LISICON":"#4e79a7", "NASICON":"#76b7b2", "Argyrodite":"#af7aa1",
+  "Halide":"#edc949", "Sulfide":"#ff9da7", "Closo-carbaborate":"#9c755f",
+  "Nitride":"#b07aa1", "Phosphate":"#86bc86", "Silicide":"#a0cbe8",
+  "Polymer":"#8cd17d", "Polymer composite":"#8cd17d", "Glass":"#c8d6f0",
+  "Glass-Ceramic":"#c3b1e1", "Rock-Salt":"#e0b1b1", "Other / Novel":"#9e9e9e"
+};
+
+function symbolByIon(ion){
+  const symbols = ["circle","square","diamond","cross","x","triangle-up","triangle-down","triangle-left","triangle-right","star"];
+  let h = 0; for (let i=0;i<ion.length;i++) h = (h*31 + ion.charCodeAt(i)) >>> 0;
+  return symbols[h % symbols.length];
+}
+
+let X_DTICK = 0.05;   // dense x tick
+let X_TICK0 = 0.10;
+let DEFAULT_XR = [0,2];
+const statusEl = document.getElementById('status');
+function say(t){ statusEl.textContent = t; }
+
+/* jitter */
 function hashToUnit(str){ let h=0; for(let i=0;i<str.length;i++){ h=((h<<5)-h)+str.charCodeAt(i); h|=0; } return (Math.abs(h)%100000)/100000; }
 let JX = 0.02;      // eV
 let JY_FRAC = 0.08; // fraction
 function jitteredEa(ea, key){ const u=hashToUnit(key+"|x"); return ea + (u-0.5)*2*JX; }
 function jitteredSigma(sig, key){ const u=hashToUnit(key+"|y"); return sig * (1 + (u-0.5)*2*JY_FRAC); }
-function xRangeAuto(xs){ if(!xs.length) return [0.05,0.8]; const min=Math.min(...xs), max=Math.max(...xs); if(!isFinite(min)||!isFinite(max)||min===max) return [0.05,0.8]; const pad=(max-min)*0.10; return [Math.max(0,min-pad), max+pad]; }
+function xRangeAuto(xs){ if(!xs.length) return [0.05,0.8]; const min=Math.min(...xs), max=Math.max(...xs); if(!isFinite(min)||!isFinite(max)||min===max) return [0.05,0.8]; const pad=Math.max(0.02,(max-min)*0.10); return [Math.max(0,min-pad), max+pad]; }
 
-/* ---------- filtering / legends ---------- */
-let last = null;                // { rows, cols }
-let traceMeta = [];             // [{ion, fam, bucket}, ...]
-let activeFamily = null;        // isolated structure family via accordion
-let activeCycle  = null;        // cycle bucket filter via size legend (null = all)
+/* ===========================
+   Data & build
+   =========================== */
+let RAW = [];
+let ACTIVE_BUCKET = "ALL";
 
-function setFamilyLegendActive(family){
-  const container = document.getElementById("structureAccordion");
-  Array.from(container.children).forEach(child=>{
-    child.classList.toggle("active", child.dataset.family === family);
-    const head = child.querySelector(".acc-head");
-    if (head) head.style.outline = (child.dataset.family === family) ? "1px solid #dcdcdc" : "none";
-  });
-}
-function onFamilyClick(family){
-  activeFamily = (activeFamily === family) ? null : family;
-  setFamilyLegendActive(activeFamily);
-  applyCombinedFilter();
-}
-function onCycleLegendClick(bucket){
-  activeCycle = (activeCycle === bucket) ? null : bucket; // toggle
-  highlightCycleLegendActive();
-  applyCombinedFilter();
-}
-function applyCombinedFilter(){
-  if (!traceMeta.length) return;
-  const vis = traceMeta.map(meta=>{
-    const okFamily = activeFamily ? (meta.fam === activeFamily) : true;
-    const okCycle  = activeCycle  ? (meta.bucket === activeCycle) : true;
-    return (okFamily && okCycle) ? true : "legendonly";
-  });
-  Plotly.restyle("chart", {visible: vis});
-}
+function buildTraces(rangeCode){
+  // Group points by Ion trace; include only those in selected cycle bucket
+  const byIon = new Map();
+  let xs = [];
 
-/* ---------- build traces + accordion ---------- */
-function buildTraces(rows, cols, hiOut){
-  const traces=[]; const ionsSeen=new Set(); const allX=[]; const famSet=new Set();
-  traceMeta = [];
-  let stats={total:0,skippedEa:0,skippedSigma:0,plotted:0,missingCycles:0};
-  rows.forEach(r=>{
-    stats.total++;
-    const ion=(r[cols.ion]||"Other").toString().trim()||"Other";
-    const fam=(r[cols.structFam]||"Other / Novel").toString().trim()||"Other / Novel";
-    const ea_raw=toNum(r[cols.ea]); const sigma_raw=toNum(r[cols.sigma]); const cycRaw=r[cols.cycles];
-    const cyc=toNum(cycRaw);
-    if(!Number.isFinite(ea_raw) || ea_raw > 0.8){ stats.skippedEa++; return; }
-    if(!Number.isFinite(sigma_raw) || sigma_raw <= 0){ stats.skippedSigma++; return; }
-    if(!Number.isFinite(cyc) || cyc <= 0){ stats.missingCycles++; }
-    const key = `${ion}|${fam}|${r[cols.formula]||""}`;
-    const ea = jitteredEa(ea_raw, key);
-    const sigma = jitteredSigma(sigma_raw, key);
-    const bucket = cycleBucket(cycRaw);
-    stats.plotted++; allX.push(ea); famSet.add(fam);
-    traces.push({
-      x:[ea], y:[sigma], customdata:[sigma_raw], mode:"markers",
-      name: ion, legendgroup: ion, showlegend: !ionsSeen.has(ion),
-      marker:{
-        size:[cycleSize(cyc)],
-        color: structColors[fam] || structColors["Other / Novel"],  // color = structure
-        symbol: ionSymbols[ion] || ionSymbols["Other"],             // shape = ion
-        line:{ width:[(hiOut && ea_raw>0.7)? 2 : 0.7], color:[(hiOut && ea_raw>0.7)? "#ff4d4d" : "#222"] },
-        opacity:0.88
-      },
-      text:[`${r[cols.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}<br>Cycles: ${Number.isFinite(cyc)?cyc:"(missing)"} (${cycleBucketLabel(bucket)})`],
-      hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV (jittered)<br> σ: %{customdata:.3e} S/cm<extra></extra>",
-      visible: true
-    });
-    traceMeta.push({ion, fam, bucket}); ionsSeen.add(ion);
-  });
-  return {data:traces,allX,stats,families:Array.from(famSet).sort()};
-}
-function renderStructureAccordion(families, rows, cols){
-  const rawCol = cols.structRaw;
-  const map = new Map(); families.forEach(f=>map.set(f, new Set()));
-  rows.forEach(r=>{
-    const fam=(r[cols.structFam]||"Other / Novel").toString().trim()||"Other / Novel";
-    if(!map.has(fam)) map.set(fam,new Set());
-    const raw = rawCol ? (r[rawCol]||"—") : (r[cols.structFam]||"—");
-    map.get(fam).add(String(raw).trim()||"—");
-  });
-  const container = document.getElementById("structureAccordion");
-  container.innerHTML = "";
-  families.forEach(f=>{
-    const rawList = Array.from(map.get(f)||[]);
-    const item = document.createElement("div");
-    item.className = "acc-item";
-    item.dataset.family = f;
-    const head = document.createElement("div");
-    head.className = "acc-head";
-    head.style.borderLeft = `6px solid ${structColors[f] || structColors["Other / Novel"]}`;
-    const left = document.createElement("div");
-    left.className = "acc-left";
-    const chip = document.createElement("div");
-    chip.className = "color-chip";
-    chip.style.background = structColors[f] || structColors["Other / Novel"];
-    const title = document.createElement("div");
-    title.textContent = f;
-    left.appendChild(chip); left.appendChild(title);
-    const actions = document.createElement("div");
-    actions.className = "acc-actions";
-    const count = document.createElement("div");
-    count.className = "count";
-    count.textContent = `${rawList.length} raw`;
-    const isoBtn = document.createElement("button");
-    isoBtn.className = "acc-btn";
-    isoBtn.textContent = "Isolate";
-    isoBtn.addEventListener("click", (ev)=>{ ev.stopPropagation(); onFamilyClick(f); });
-    actions.appendChild(count); actions.appendChild(isoBtn);
-    head.appendChild(left); head.appendChild(actions);
-    const body = document.createElement("div");
-    body.className = "acc-body";
-    body.innerHTML = rawList.map(s=>`• ${s}`).join("<br>");
-    head.addEventListener("click", ()=>{ item.classList.toggle("active"); });
-    item.appendChild(head); item.appendChild(body);
-    container.appendChild(item);
-  });
-  setFamilyLegendActive(activeFamily);
+  for (const r of RAW){
+    const ion = (pick(r, COLS.ion) || "Other").toString().trim() || "Other";
+    const fam = (pick(r, COLS.struct) || "Other / Novel").toString().trim() || "Other / Novel";
+    const Ea  = toNum(pick(r, COLS.ea));
+    const sig = toNum(pick(r, COLS.sigma));
+    const cycRaw = pick(r, COLS.cycles);
+
+    if (!Number.isFinite(Ea) || !Number.isFinite(sig) || Ea > 0.8 || sig <= 0) continue;
+
+    // filter by cycle bucket (ALL passes, else must match)
+    const bc = cycleToBucketCode(cycRaw);
+    if (rangeCode !== "ALL" && bc !== rangeCode) continue;
+
+    if (!byIon.has(ion)){
+      byIon.set(ion, {
+        x:[], y:[], text:[], customdata:[],
+        mode:"markers", type:"scattergl",
+        name: ion, hovertemplate:
+          "<b>%{text}</b><br>" +
+          "Ea: %{x:.3f} eV<br>" +
+          "σ: %{customdata:.3e} S·cm⁻¹<extra>"+ion+"</extra>",
+        marker:{
+          size: 12,
+          symbol: symbolByIon(ion),
+          line:{width:0.6, color:"#888"},
+          opacity:0.88
+        }
+      });
+    }
+    const key = `${ion}|${fam}|${r["superionic conductor Formula (Chemical)"]||r["Formula"]||""}`;
+    const tr = byIon.get(ion);
+    const e = jitteredEa(Ea, key);
+    const s = jitteredSigma(sig, key);
+
+    tr.x.push(e);
+    tr.y.push(s);
+    tr.customdata.push(sig);
+    tr.text.push(`${fam} · ${cycRaw ? (parseCycles(cycRaw)) : "N/A"}`);
+
+    xs.push(e);
+  }
+
+  // update default x-range
+  if (xs.length){
+    DEFAULT_XR = document.getElementById("clampX").checked ? [0.05,1.0] : xRangeAuto(xs);
+  }
+  return Array.from(byIon.values());
 }
 
-/* ---------- draw ---------- */
-function draw(parsed){
-  const {rows,cols}=parsed;
-  const {data,allX,stats,families}=buildTraces(rows,cols,document.getElementById("hiOut").checked);
-  say(`(Ea≤0.8) Rows: ${stats.total} · Plotted: ${stats.plotted} · Missing cycles: ${stats.missingCycles} · Skipped Ea: ${stats.skippedEa} · Skipped σ: ${stats.skippedSigma}`);
-  renderStructureAccordion(families, rows, cols);
-  const numericCycles = rows.map(r=>toNum(r[cols.cycles])).filter(v=>Number.isFinite(v)&&v>0);
-  const maxCycles = numericCycles.length ? Math.max(...numericCycles) : 5000;
-  buildSizeLegend(maxCycles);
-  const xr = document.getElementById("clampX").checked ? [0.05, 1.0] : xRangeAuto(allX);
-
-  Plotly.newPlot("chart", data, {
-    paper_bgcolor:"#ffffff", plot_bgcolor:"#ffffff",
-    /* -------- DENSER X TICKS -------- */
+function layout(){
+  return {
+    paper_bgcolor:"#ffffff", plot_bgcolor:"#ffffff", font:{color:"#111111"},
     xaxis:{
       title:"Activation Energy Ea (eV)",
-      range:xr,
-      tickformat:".2f",
-      tickmode:"linear",
-      tick0:0.10,
-      dtick:0.05, /* 0.10, 0.15, 0.20, 0.25, ... */
-      gridcolor:"#dcdcdc",
-      zerolinecolor:"#dcdcdc",
-      titlefont:{size:12},
-      tickfont:{size:10}
+      tickmode:"linear", tick0:X_TICK0, dtick:X_DTICK,
+      range: DEFAULT_XR,
+      gridcolor:"#dcdcdc", zerolinecolor:"#cccccc",
+      titlefont:{size:12}, tickfont:{size:10}
     },
-    /* -------- DENSER Y (LOG) TICKS -------- */
     yaxis:{
-      title:"Conductivity σ (S·cm⁻¹)",
-      type:"log",
-      gridcolor:"#dcdcdc",
-      zerolinecolor:"#dcdcdc",
-      titlefont:{size:12},
-      tickfont:{size:10},
-      tickvals: [
-        1e-8,2e-8,5e-8,
-        1e-7,2e-7,5e-7,
-        1e-6,2e-6,5e-6,
-        1e-5,2e-5,5e-5,
-        1e-4,2e-4,5e-4,
-        1e-3,2e-3,5e-3,
-        1e-2,2e-2,5e-2,
-        1e-1,2e-1,5e-1,
-        1,2,5,10,20,50,100
+      title:"Conductivity σ (S·cm⁻¹)", type:"log",
+      tickvals:[
+        1e-8,2e-8,5e-8, 1e-7,2e-7,5e-7, 1e-6,2e-6,5e-6,
+        1e-5,2e-5,5e-5, 1e-4,2e-4,5e-4, 1e-3,2e-3,5e-3,
+        1e-2,2e-2,5e-2, 1e-1,2e-1,5e-1, 1,2,5,10,20,50,100
       ],
-      ticktext: [
-        "1e−8","2e−8","5e−8",
-        "1e−7","2e−7","5e−7",
-        "1e−6","2e−6","5e−6",
-        "1e−5","2e−5","5e−5",
-        "1e−4","2e−4","5e−4",
-        "1e−3","2e−3","5e−3",
-        "1e−2","2e−2","5e−2",
-        "1e−1","2e−1","5e−1",
-        "1","2","5","10","20","50","100"
-      ]
+      ticktext:[
+        "1e−8","2e−8","5e−8","1e−7","2e−7","5e−7","1e−6","2e−6","5e−6",
+        "1e−5","2e−5","5e−5","1e−4","2e−4","5e−4","1e−3","2e−3","5e−3",
+        "1e−2","2e−2","5e−2","1e−1","2e−1","5e−1","1","2","5","10","20","50","100"
+      ],
+      gridcolor:"#dcdcdc", zerolinecolor:"#cccccc",
+      titlefont:{size:12}, tickfont:{size:10}
     },
     legend:{
       title:{text:"Ion (shape)", font:{size:11, color:"#111111"}},
       font:{size:10, color:"#111111"},
-      itemclick:"toggleothers",
-      itemdoubleclick:"toggle"
+      itemclick:"toggleothers", itemdoubleclick:"toggle"
     },
-    margin:{t:40, r:16, b:54, l:64}
-  }, {
-    plot_bgcolor:"#ffffff",
-    paper_bgcolor:"#ffffff",
-    responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]
-  }).then(()=>{
-    applyCombinedFilter(); // respect current family/cycle filters
-
-    const gd = document.getElementById('chart');
-    gd.on('plotly_hover', (ev)=>{
-      const ntr = ev.points.map(p=>p.curveNumber);
-      const vis = traceMeta.map((_, i)=> ntr.includes(i) ? {opacity:0.95} : {opacity:0.15});
-      Plotly.restyle('chart', { 'marker.opacity': vis.map(v=>v.opacity) });
-    });
-    gd.on('plotly_unhover', ()=>{ Plotly.restyle('chart', { 'marker.opacity': traceMeta.map(()=>0.88) }); });
-  });
+    margin:{t:26, r:16, b:56, l:64}
+  };
 }
 
-/* ---------- parse helpers ---------- */
-function parseCsvTextAndDraw(csvText){
-  Papa.parse(csvText, {
-    header:true, dynamicTyping:false, skipEmptyLines:true,
-    complete:(res)=>{
-      if(!res.data || !res.data.length){ say("Parsed data.csv but found no rows."); return; }
-      const headers=res.meta.fields||[];
-      const cols={
-        ion:guessCol(headers,C.ion),
-        structFam:guessCol(headers,C.structFam),
-        structRaw:guessCol(headers,C.structRaw),
-        ea:guessCol(headers,C.ea),
-        sigma:guessCol(headers,C.sigma),
-        cycles:guessCol(headers,C.cycles),
-        formula:guessCol(headers,C.formula)
-      };
-      if(!cols.ion||!cols.structFam||!cols.ea||!cols.sigma){
-        say("Missing required columns: Ion, Structure Family (Canonical), Ea, σ."); console.warn("Detected:", cols, headers); return;
-      }
-      last={rows:res.data,cols}; activeFamily=null; activeCycle=null; draw(last);
-    },
-    error:(e)=>{ err("Parse error: " + e.message); }
-  });
+/* ===========================
+   Render & events
+   =========================== */
+function render(){
+  const data = buildTraces(ACTIVE_BUCKET);
+  Plotly.react("chart", data, layout(), {responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]});
+  const shown = data.reduce((s,t)=> s + (t.x?.length||0), 0);
+  say(`Rows: ${RAW.length} • Showing: ${shown} • Cycle: ${bucketLabel(ACTIVE_BUCKET)}`);
 }
 
-/* ---------- auto-load data.csv ---------- */
-function loadDataCsv(){
-  const dataUrl = new URL('data.csv', window.location.href).toString();
-  fetch(dataUrl, { cache: "no-store" })
-    .then(resp => {
-      if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
-      return resp.text();
+document.getElementById("cycleBar").addEventListener("click", (e)=>{
+  const b = e.target.closest("button.btn"); if(!b) return;
+  document.querySelectorAll("#cycleBar .btn").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  ACTIVE_BUCKET = b.dataset.range;
+  render(); // rebuild traces per-ion with only points inside the bucket
+});
+
+document.getElementById("xTickBar").addEventListener("click", (e)=>{
+  const b = e.target.closest("button.btn"); if(!b) return;
+  document.querySelectorAll("#xTickBar .btn").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  const step = parseFloat(b.getAttribute("data-step"));
+  X_DTICK = step;
+  X_TICK0 = 0.10; // keep aligned to 0.10 baseline
+  render();
+});
+
+document.getElementById("clampX").addEventListener("change", render);
+document.getElementById("hiOut").addEventListener("change", ()=>{
+  // optional: emphasize high Ea by thicker outlines
+  const on = document.getElementById("hiOut").checked;
+  const gd = document.getElementById("chart");
+  if (!gd || !gd.data) { render(); return; }
+  const lineW = on ? 2 : 0.6;
+  Plotly.restyle("chart", {"marker.line.width": lineW});
+});
+
+/* ===========================
+   Load CSV
+   =========================== */
+function loadCSV(){
+  fetch("data.csv", {cache:"no-store"})
+    .then(r=>{
+      if(!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+      return r.text();
     })
-    .then(csvText => { say("data.csv loaded ✓"); parseCsvTextAndDraw(csvText); })
-    .catch(e => {
-      const onGitHubViewer = location.hostname === 'github.com';
-      const hint = onGitHubViewer
-        ? "You're viewing this file on github.com, which blocks scripts.\nPublish via GitHub Pages (Settings → Pages) or open via a local server."
-        : "Ensure data.csv is in the same folder and the page is served over HTTP/HTTPS.";
-      err(`Could not load data.csv: ${e.message}\n\n${hint}`);
-    });
+    .then(txt=>{
+      Papa.parse(txt, {
+        header:true, skipEmptyLines:true,
+        complete:(res)=>{
+          RAW = res.data || [];
+          say(`Loaded data.csv • rows: ${RAW.length}`);
+          render();
+        },
+        error:(err)=>{ say("Parse error: " + err.message); }
+      });
+    })
+    .catch(err=>{ say("Failed to load data.csv ("+err.message+")"); });
 }
 
-/* ---------- controls ---------- */
-["clampX","hiOut"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(last){ activeFamily=null; activeCycle=null; draw(last);} }));
-document.getElementById("sizeScale").addEventListener("input",()=>{
-  sizeScaleFactor=parseFloat(sizeScale.value); document.getElementById("scaleVal").textContent=sizeScaleFactor.toFixed(1)+"×"; if(last){ draw(last); }
-});
-document.getElementById("jx").addEventListener("input", ()=>{
-  JX = parseFloat(jx.value)||0; document.getElementById("jxVal").textContent = JX.toFixed(3)+" eV"; if(last){ draw(last);}
-});
-document.getElementById("jy").addEventListener("input", ()=>{
-  JY_FRAC = (parseFloat(jy.value)||0)/100; document.getElementById("jyVal").textContent = (JY_FRAC*100).toFixed(1)+"%"; if(last){ draw(last);}
-});
+loadCSV();
 
-/* ---------- kick things off ---------- */
-loadDataCsv();
+/* Resize */
+window.addEventListener("resize", ()=> Plotly.Plots.resize("chart"));
 </script>
 </body>
 </html>
