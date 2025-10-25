@@ -7,12 +7,12 @@
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  :root { --bg:#0f1115; --panel:#171a20; --grid:#2a3240; --text:#e8e8ea; --muted:#93c5fd; --accent:#60a5fa; }
+  :root { --bg:#ffffff; --panel:#171a20; --grid:#dcdcdc; --text:#111111; --muted:#93c5fd; --accent:#60a5fa; }
   * { box-sizing: border-box; }
   body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
   header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--grid); position:sticky; top:0; z-index:10; }
   .wrap { display:grid; grid-template-columns: 1fr 220px 160px; gap:8px; padding:8px; }
-  #chart { width:100%; height:90vh; border:1px solid var(--grid); border-radius:8px; background:#0f1115; }
+  #chart { width:100%; height:90vh; border:1px solid var(--grid); border-radius:8px; background:#ffffff; }
   .badge { font-size:11px; color:var(--muted); }
   label { display:flex; align-items:center; gap:6px; font-size:12px; }
   input[type="checkbox"] { transform: translateY(1px); }
@@ -24,16 +24,16 @@
   aside h3 { margin:0 0 4px 0; font-size:12px; color:#cbd5e1; }
 
   /* Structure accordion legend */
-  .acc-item { border-radius:8px; border:1px solid #2a3240; margin-bottom:6px; overflow:hidden; }
+  .acc-item { border-radius:8px; border:1px solid #dcdcdc; margin-bottom:6px; overflow:hidden; }
   .acc-head { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 6px; cursor:pointer; user-select:none; }
   .acc-left { display:flex; align-items:center; gap:6px; }
   .color-chip { width:10px; height:10px; border-radius:3px; border:1px solid #0007; }
   .acc-head .count { font-size:10px; color:#94a3b8; }
-  .acc-body { display:none; padding:6px 8px; border-top:1px dashed #2a3240; font-size:11px; color:#cbd5e1; max-height:120px; overflow:auto; }
+  .acc-body { display:none; padding:6px 8px; border-top:1px dashed #dcdcdc; font-size:11px; color:#cbd5e1; max-height:120px; overflow:auto; }
   .acc-item.active .acc-body { display:block; }
   .acc-item.active .acc-head { background:#1c212b; }
   .acc-actions { display:flex; gap:4px; }
-  .acc-btn { font-size:10px; padding:2px 4px; border:1px solid #2a3240; border-radius:5px; background:#0f1115; color:#cbd5e1; cursor:pointer; }
+  .acc-btn { font-size:10px; padding:2px 4px; border:1px solid #dcdcdc; border-radius:5px; background:#ffffff; color:#cbd5e1; cursor:pointer; }
   .acc-btn:hover { background:#141923; }
 
   /* Size legend */
@@ -190,7 +190,7 @@ function setFamilyLegendActive(family){
   Array.from(container.children).forEach(child=>{
     child.classList.toggle("active", child.dataset.family === family);
     const head = child.querySelector(".acc-head");
-    if (head) head.style.outline = (child.dataset.family === family) ? "1px solid #2a3240" : "none";
+    if (head) head.style.outline = (child.dataset.family === family) ? "1px solid #dcdcdc" : "none";
   });
 }
 function onFamilyClick(family){
@@ -300,16 +300,18 @@ function draw(parsed){
   renderSizeLegend(maxCycles);
   const xr = document.getElementById("clampX").checked ? [0.05, 1.0] : xRangeAuto(allX);
   Plotly.newPlot("chart",data,{
-    paper_bgcolor:"#0f1115",plot_bgcolor:"#0f1115",
-    xaxis:{title:"Activation Energy Ea (eV)",range:xr,tickformat:".2f",gridcolor:"#2a3240",zerolinecolor:"#2a3240", titlefont:{size:12}, tickfont:{size:10},
+    paper_bgcolor:"#ffffff",plot_bgcolor:"#ffffff",
+    xaxis:{title:"Activation Energy Ea (eV)",range:xr,tickformat:".2f",gridcolor:"#dcdcdc",zerolinecolor:"#dcdcdc", titlefont:{size:12}, tickfont:{size:10},
       dtick: 0.25
     },
-    yaxis:{title:"Conductivity σ (S·cm⁻¹)",type:"log",gridcolor:"#2a3240",zerolinecolor:"#2a3240", titlefont:{size:12}, tickfont:{size:10},
+    yaxis:{title:"Conductivity σ (S·cm⁻¹)",type:"log",gridcolor:"#dcdcdc",zerolinecolor:"#dcdcdc", titlefont:{size:12}, tickfont:{size:10},
       tickvals: [1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,1,10,100]
     },
-    legend:{title:{text:"Ion (shape)", font:{size:11, color:"#e8e8ea"}},font:{size:10, color:"#e8e8ea"}, itemclick:"toggleothers", itemdoubleclick:"toggle"},
+    legend:{title:{text:"Ion (shape)", font:{size:11, color:"#111111"}},font:{size:10, color:"#111111"}, itemclick:"toggleothers", itemdoubleclick:"toggle"},
     margin:{t:40, r:16, b:54, l:64}
-  }, {responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]}).then(()=>{
+  }, {
+    plot_bgcolor:"#ffffff",
+    paper_bgcolor:"#ffffff",responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]}).then(()=>{
     applyFamilyFilter();
     const gd = document.getElementById('chart');
     gd.on('plotly_hover', (ev)=>{
