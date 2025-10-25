@@ -7,11 +7,32 @@
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
   :root{
-    --bg:#ffffff; --panel:#f6f7f9; --grid:#e5e7eb; --text:#0b1220; --muted:#6b7280;
-    --chip:#ffffff; --chip-border:#e5e7eb; --node-stroke:#ffffff; --link:#dde3ea;
-    --tip-bg:#ffffff; --tip-border:#cbd5e1;
+    /* Dark theme palette */
+    --bg:#0b1220;              /* page background */
+    --panel:#0f172a;           /* header & side panel background */
+    --grid:#243042;            /* borders & subtle lines */
+    --text:#e5e7eb;            /* primary text */
+    --muted:#94a3b8;           /* secondary text */
+    --chip:#111827;            /* legend chip background */
+    --chip-border:#334155;     /* legend chip border */
+    --node-stroke:#0b1220;     /* svg node outline (same as bg to “knock out”) */
+    --link:#334155;            /* radial link color */
+    --tip-bg:#0f172a;          /* tooltip background */
+    --tip-border:#334155;      /* tooltip border */
+    --input-bg:#0b1220;        /* inputs bg */
+    --input-border:#334155;    /* inputs border */
+    --pill-bg:#1f2937;         /* reset button background */
+    --pill-text:#e5e7eb;       /* reset button text */
   }
-  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);}
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:system-ui,Segoe UI,Roboto,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+
   header{
     display:flex;flex-wrap:wrap;gap:10px;align-items:center;
     padding:10px 12px;background:var(--panel);border-bottom:1px solid var(--grid);
@@ -19,33 +40,44 @@
   }
   label{font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text);}
   input[type="number"],input[type="range"],select{
-    background:#fff;color:var(--text);border:1px solid #d1d5db;border-radius:8px;padding:6px 8px;
+    background:var(--input-bg);color:var(--text);
+    border:1px solid var(--input-border);border-radius:8px;padding:6px 8px;
   }
+  input[type="range"]{ accent-color:#60a5fa; }
   #status{margin-left:auto;font-size:12px;color:var(--muted);}
-  #chart{width:100%;height:90vh;}
+  #chart{width:100%;height:90vh;background:transparent;}
+
   aside{
     position:absolute;top:60px;right:0;width:330px;height:calc(100% - 60px);overflow:auto;
     background:var(--panel);border-left:1px solid var(--grid);padding:10px;
   }
-  aside h3{margin:8px 0;font-size:13px;color:#374151;}
-  select[multiple]{width:100%;min-height:120px;background:#fff;color:var(--text);}
+  aside h3{margin:8px 0;font-size:13px;color:#cbd5e1;}
+  select[multiple]{width:100%;min-height:120px;background:var(--input-bg);color:var(--text);border:1px solid var(--input-border);}
+
   .legend{display:flex;flex-wrap:wrap;gap:6px;}
-  .chip{display:flex;align-items:center;gap:6px;font-size:12px;background:var(--chip);border:1px solid var(--chip-border);
-        padding:4px 6px;border-radius:999px;}
-  .sw{width:10px;height:10px;border-radius:3px;border:1px solid #0002;}
+  .chip{
+    display:flex;align-items:center;gap:6px;font-size:12px;background:var(--chip);border:1px solid var(--chip-border);
+    padding:4px 6px;border-radius:999px;color:var(--text);
+  }
+  .sw{width:10px;height:10px;border-radius:3px;border:1px solid #fff3;}
+
   .tip{
     position:fixed;pointer-events:none;background:var(--tip-bg);color:var(--text);
     border:1px solid var(--tip-border);padding:6px 8px;border-radius:6px;font-size:12px;
-    box-shadow:0 6px 24px rgba(0,0,0,.08);opacity:0;transition:opacity .15s;
+    box-shadow:0 10px 28px rgba(0,0,0,.35);opacity:0;transition:opacity .15s;
   }
-  .lbl-ion{fill:#111827;font-weight:700;}
-  .lbl-struct{fill:#1f2937;font-weight:500;}
-  .lbl-doping{fill:#374151;font-weight:400;}
-  .lbl-formula{fill:#4b5563;font-weight:400;}
-  .viz-caption{font-size:12px;fill:#374151;text-anchor:middle;}
+
+  /* Label colors tuned for dark */
+  .lbl-ion{fill:#e5e7eb;font-weight:700;}
+  .lbl-struct{fill:#cbd5e1;font-weight:500;}
+  .lbl-doping{fill:#aeb8c7;font-weight:400;}
+  .lbl-formula{fill:#94a3b8;font-weight:400;}
+
+  .viz-caption{font-size:12px;fill:#aeb8c7;text-anchor:middle;}
+
   /* Reset button style */
   .pill{
-    background:#111827;color:#fff;border:none;border-radius:999px;
+    background:var(--pill-bg);color:var(--pill-text);border:none;border-radius:999px;
     padding:8px 12px;font-size:13px;cursor:pointer;
   }
   .pill:hover{opacity:0.9}
@@ -72,8 +104,8 @@
 <aside>
   <h3>Filter ions</h3>
   <div style="display:flex;gap:8px;margin-bottom:6px;">
-    <button id="selectAllBtn">Select All</button>
-    <button id="clearAllBtn">Clear</button>
+    <button id="selectAllBtn" class="pill" style="padding:6px 10px;">Select All</button>
+    <button id="clearAllBtn" class="pill" style="padding:6px 10px;">Clear</button>
   </div>
   <select id="ionSelect" multiple></select>
 
@@ -270,7 +302,7 @@ function drawTree(rows){
     });
   }
 
-  // Links & nodes
+  // Links & nodes (colors use CSS vars set for dark theme)
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
   g.append('g').attr('fill','none').attr('stroke','var(--link)').attr('stroke-width',1)
     .selectAll('path').data(H.links()).join('path').attr('d',d=> link({source:d.source, target:d.target}));
@@ -327,7 +359,7 @@ function drawTree(rows){
       .on('click', (e,d)=> { if (L.clickZoom && d.depth===1) { setFocusIon(d.data.name); zoomToIon(d); } });
   }
 
-  // Bottom caption
+  // Bottom caption (you can move further down if needed by increasing the margin)
   const caption = "Ion → Structure Group (Canonical) → Doping → Formula • leaf length ∝ σ • RAW structure label • dashed = default σ • click Ion to zoom";
   const bottomMargin = 12;
   g.append("text")
@@ -445,7 +477,7 @@ async function initFromCSV(){
         chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); leg.appendChild(chip);
       });
       const note = document.createElement('div');
-      note.style.marginTop = '6px'; note.style.fontSize = '12px'; note.style.color = '#6b7280';
+      note.style.marginTop = '6px'; note.style.fontSize = '12px'; note.style.color = 'var(--muted)';
       note.textContent = 'Dashed outline = default σ used • Click an Ion to zoom • ↺ Reset Zoom to go back';
       leg.appendChild(note);
     }
