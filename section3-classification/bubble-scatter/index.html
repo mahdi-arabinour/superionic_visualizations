@@ -79,7 +79,7 @@ const structColors = {
   "Polymeric":"#fdbf6f", "Other":"#999999"
 };
 
-// A long palette of Plotly marker symbols. We'll auto-assign these per unique ion.
+// Marker symbol palette for auto-assigning unique shapes per ion
 const SHAPE_PALETTE = [
   "circle","square","diamond","triangle-up","triangle-down","triangle-left","triangle-right",
   "cross","x","star","hexagon","hexagon2","bowtie","hourglass","circle-open","square-open",
@@ -129,7 +129,7 @@ function buildTraces(filteredRows){
       name: ion, legendgroup: ion, showlegend: !ionsSeen.has(ion),
       marker:{
         size:[markerSizePx],           // fixed size
-        color: color,                  // color by Structure Group
+        color: color,                  // color by Structure Group (points)
         symbol: symbol,                // shape by Ion Type
         line:{ width:1.2, color:"#000" },
         opacity: 0.9
@@ -181,16 +181,16 @@ function renderStructureLegend(filteredRows){
 
     row.append(sw, name, count);
     row.onclick = ()=>{
-      // Toggle structure group; if clicking the active one, clear it (reset)
+      // Toggle: click selects; click again resets to "show all"
       activeStructGroup = (activeStructGroup === g) ? null : g;
 
-      // Mutual exclusivity: disable ion filter when structure toggled
+      // Mutual exclusivity: clear ion filter
       activeIon = null;
 
-      // Update sidebar row highlight
+      // Highlight active group
       Array.from(el.children).forEach(ch=>ch.classList.toggle("active", ch.dataset.group === (activeStructGroup||"")));
 
-      applyFilters(); // if both filters null, this shows all
+      applyFilters(); // if both null, show all
     };
     el.appendChild(row);
   });
@@ -200,7 +200,6 @@ function renderStructureLegend(filteredRows){
 function applyFilters(){
   if(!traceMeta.length) return;
 
-  // If both cleared (null), show all
   const showAll = !activeStructGroup && !activeIon;
 
   const vis = traceMeta.map(meta=>{
@@ -215,7 +214,7 @@ function applyFilters(){
 
 /* ---------------- Draw ---------------- */
 function draw(){
-  // filter by valid numeric values and Ea ≤ 0.6
+  // filter by valid numeric values and Ea ≤ 0.6 (and σ>0)
   const filtered = rowsGlobal.filter(r=>{
     const ea = toNum(r[COLS.ea]);
     const s  = toNum(r[COLS.sigma]);
@@ -253,7 +252,7 @@ function draw(){
       title:{text:"Ion Type (shape)", font:{size:11, color:"#111"}},
       font:{size:10, color:"#111"},
       orientation:"h",
-      x:0.5, xanchor:"center", y:1.08,     /* stays at the top */
+      x:0.5, xanchor:"center", y:1.08,     /* keep at the top */
       itemclick:"toggle",
       groupclick:"togglegroup",
       traceorder:"normal",
@@ -274,30 +273,12 @@ function draw(){
     });
     gd.on('plotly_unhover', ()=>{ Plotly.restyle('chart', { 'marker.opacity': traceMeta.map(()=>0.9) }); });
 
-    // MUTUAL EXCLUSIVITY + TOGGLE-TO-RESET on Plotly legend (Ion types)
+    // Ion legend click: mutual exclusivity + toggle-to-reset
     gd.on('plotly_legendclick', (ev)=>{
       const trace = gd.data[ev.curveNumber];
       const clickedIon = trace && trace.name ? String(trace.name) : null;
 
-      // Toggle: click selects; click again on same ion resets to "show all"
       activeIon = (activeIon === clickedIon) ? null : clickedIon;
-
-      // Mutual exclusivity: clear structure filter when ion is toggled
-      activeStructGroup = null;
-
-      // Clear any highlight on the sidebar legend
-      const el = document.getElementById("structureLegend");
-      if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
-
-      applyFilters();
-
-      // Prevent Plotly's default show/hide toggle since we control visibility
-      return false;
-    });
-
-    // Double-click legend to reset EVERYTHING to show all
-    gd.on('plotly_legenddoubleclick', ()=>{
-      activeIon = null;
       activeStructGroup = null;
 
       // Clear sidebar highlight
@@ -305,20 +286,34 @@ function draw(){
       if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
 
       applyFilters();
-      return false; // prevent default isolate behavior
+      return false; // block Plotly's default toggle
     });
 
-    // 🎨 Make ion legend markers hollow (outline only) so legend shows shape without color
-    const makeLegendHollow = ()=>{
-      const paths = document.querySelectorAll('.legendtoggle path');
-      paths.forEach(p => {
-        p.style.fill = '#fff';     // white/hollow fill
-        p.style.stroke = '#000';   // outline
-        p.style.strokeWidth = '1.2px';
+    // Legend double-click: reset everything
+    gd.on('plotly_legenddoubleclick', ()=>{
+      activeIon = null;
+      activeStructGroup = null;
+      const el = document.getElementById("structureLegend");
+      if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
+      applyFilters();
+      return false;
+    });
+
+    // ---- Make ion legend markers HOLLOW (shape only) ----
+    function makeLegendHollow(){
+      // Plotly uses path and/or rect for legend symbols
+      const legendRoot = gd.querySelector('.legend');
+      if (!legendRoot) return;
+      const targets = legendRoot.querySelectorAll('.legendtoggle path, .legendtoggle rect');
+      targets.forEach(el=>{
+        el.style.fill = 'white';
+        el.style.stroke = '#000';
+        el.style.strokeWidth = '1.5px';
+        el.style.opacity = '1';
       });
-    };
+    }
+    // Apply now and keep applying on DOM changes/redraws
     makeLegendHollow();
-    // Keep them hollow even on redraws / interactions
     new MutationObserver(makeLegendHollow).observe(gd, { childList: true, subtree: true });
 
     applyFilters();
@@ -344,7 +339,7 @@ function loadCsv(){
           activeStructGroup = null;
           activeIon = null;
 
-          // Build a unique shape per unique ion present in the data
+          // Auto-assign a unique symbol per ion present
           const uniqueIons = Array.from(new Set(rowsGlobal.map(r => (r[COLS.ion] || "Other").toString().trim() || "Other")));
           ionSymbolMap = {};
           let shapeIdx = 0;
