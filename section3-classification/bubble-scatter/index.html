@@ -2,66 +2,59 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Superionic Conductors — Ea≤0.8 · Ea vs σ (log Y)</title>
+<title>Ea vs σ — Color: Structure (CSV) • Shape: Ion</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  :root { --bg:#ffffff; --panel:#171a20; --grid:#dcdcdc; --text:#111111; --muted:#93c5fd; --accent:#60a5fa; }
+  :root { --bg:#0b0f16; --panel:#0e1521; --grid:#2a3342; --text:#e5ecf6; --muted:#8aa4c6; }
   * { box-sizing: border-box; }
   body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
   header { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--grid); position:sticky; top:0; z-index:10; }
-  .wrap { display:grid; grid-template-columns: 1fr 220px; gap:8px; padding:8px; }
-  #chart { width:100%; height:90vh; border:1px solid var(--grid); border-radius:8px; background:#ffffff; }
+  .wrap { display:grid; grid-template-columns: 1fr 300px; gap:8px; padding:8px; }
+  #chart { width:100%; height:90vh; border:1px solid var(--grid); border-radius:8px; background:#0c121c; }
   .badge { font-size:11px; color:var(--muted); }
-  label { display:flex; align-items:center; gap:6px; font-size:12px; }
+  label { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text); }
   input[type="checkbox"] { transform: translateY(1px); }
-  .slider-container { display:flex; align-items:center; gap:6px; font-size:12px; }
+  .slider-container { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text); }
   input[type="range"] { width:150px; }
 
-  /* Side panel */
-  aside { background:var(--panel); border:1px solid var(--grid); border-radius:8px; padding:8px; min-height:100px; font-size:11px; color:#cbd5e1; }
-  aside h3 { margin:0 0 4px 0; font-size:12px; color:#cbd5e1; }
+  aside { background:var(--panel); border:1px solid var(--grid); border-radius:8px; padding:8px; min-height:100px; font-size:11px; }
+  aside h3 { margin:0 0 6px 0; font-size:12px; color:#cfe0ff; }
 
-  /* Structure accordion legend */
-  .acc-item { border-radius:8px; border:1px solid #dcdcdc; margin-bottom:6px; overflow:hidden; }
-  .acc-head { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 6px; cursor:pointer; user-select:none; background:#1c212b; }
-  .acc-left { display:flex; align-items:center; gap:6px; }
-  .color-chip { width:10px; height:10px; border-radius:3px; border:1px solid #0007; }
-  .acc-head .count { font-size:10px; color:#94a3b8; }
-  .acc-body { display:none; padding:6px 8px; border-top:1px dashed #dcdcdc; font-size:11px; color:#cbd5e1; max-height:140px; overflow:auto; background:#0f141c; }
+  .acc-item { border-radius:8px; border:1px solid var(--grid); margin-bottom:6px; overflow:hidden; }
+  .acc-head { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px 8px; cursor:pointer; user-select:none; background:#0d1726; }
+  .acc-item.active .acc-head { background:#132033; }
+  .acc-body { display:none; padding:6px 8px; border-top:1px dashed var(--grid); font-size:11px; color:#b9c9e6; max-height:120px; overflow:auto; }
   .acc-item.active .acc-body { display:block; }
-  .acc-actions { display:flex; gap:4px; }
-  .acc-btn { font-size:10px; padding:2px 4px; border:1px solid #dcdcdc; border-radius:5px; background:#ffffff; color:#0b1220; cursor:pointer; }
-  .acc-btn:hover { background:#141923; color:#cbd5e1; }
+  .acc-left { display:flex; align-items:center; gap:10px; }
+  .acc-actions { display:flex; gap:6px; align-items:center; }
+  .acc-btn { font-size:10px; padding:2px 6px; border:1px solid var(--grid); border-radius:6px; background:#111a2a; color:#cfe0ff; cursor:pointer; }
+  .acc-btn:hover { background:#0b1423; }
+  .count { font-size:10px; color:#9fb3d7; }
 
-  /* Error banner */
+  .shape-swatch { width:16px; height:16px; display:inline-block; }
+  .note { margin-top:6px; font-size:10px; color:#8aa4c6; }
+
   #error { display:none; margin:8px 12px; padding:8px 12px; background:#2b1111; color:#fecaca; border:1px solid #7f1d1d; border-radius:8px; white-space:pre-wrap; }
 </style>
 </head>
 <body>
   <header>
-    <label title="(Data are filtered to Ea ≤ 0.8)">
-      <input type="checkbox" id="clampX" /> Clamp Ea axis to [0.05, 1.0]
-    </label>
+    <label><input type="checkbox" id="clampX" /> Clamp Ea to [0.05, 1.0]</label>
     <label><input type="checkbox" id="hiOut" /> Highlight Ea &gt; 0.7 eV</label>
-
-    <div class="slider-container" title="Marker size scale">
+    <div class="slider-container">
       <label for="sizeScale">Size:</label>
-      <input type="range" id="sizeScale" min="0.5" max="5" value="1.2" step="0.1">
-      <span id="scaleVal">1.2×</span>
+      <input type="range" id="sizeScale" min="0.5" max="5" value="1.2" step="0.1"><span id="scaleVal">1.2×</span>
     </div>
-    <div class="slider-container" title="Spread horizontally (Ea)">
+    <div class="slider-container">
       <label for="jx">X spread:</label>
-      <input type="range" id="jx" min="0" max="0.05" value="0.02" step="0.001">
-      <span id="jxVal">0.020 eV</span>
+      <input type="range" id="jx" min="0" max="0.05" value="0.02" step="0.001"><span id="jxVal">0.020 eV</span>
     </div>
-    <div class="slider-container" title="Spread vertically (σ, % of value)">
+    <div class="slider-container">
       <label for="jy">Y spread:</label>
-      <input type="range" id="jy" min="0" max="15" value="8" step="0.5">
-      <span id="jyVal">8%</span>
+      <input type="range" id="jy" min="0" max="15" value="8" step="0.5"><span id="jyVal">8%</span>
     </div>
-
     <span class="badge" id="status">Loading data.csv…</span>
   </header>
 
@@ -71,8 +64,9 @@
     <div id="chart"></div>
 
     <aside>
-      <h3>Structure (color) — click to isolate</h3>
-      <div id="structureAccordion"></div>
+      <h3>Ion (shape) — click to isolate</h3>
+      <div id="ionLegend"></div>
+      <div class="note">Color = <b>Structure Group (Canonical)</b> from CSV • Shape = <b>Ion Type (Normalized)</b></div>
     </aside>
   </div>
 
@@ -83,52 +77,33 @@ const errorEl  = document.getElementById("error");
 function say(msg){ statusEl.textContent = msg; }
 function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
 
-/* ---------- structure groups & colors (exactly your 7 + Other) ---------- */
-const STRUCT_GROUPS = [
-  "Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Other"
-];
-
+/* ---------- colors for STRUCTURE from CSV ---------- */
 const structColors = {
-  "Amorphous":"rgb(155,138,230)",
-  "Anti-perovskite":"#f28e2b",
-  "Argyrodite":"#af7aa1",
-  "Halide":"#edc949",
-  "NASICON":"#76b7b2",
-  "Spinel":"#59a14f",
-  "Polymeric":"#8cd17d",
-  "Other":"#9e9e9e"
+  "Amorphous":"#8886e8",
+  "Anti-perovskite":"#f4a259",
+  "Argyrodite":"#b58db6",
+  "Halide":"#e3c85a",
+  "NASICON":"#7fb6b1",
+  "Spinel":"#6aa06a",
+  "Polymeric":"#9ad084",
+  "Other":"#9ea4ad"
 };
 
+/* ---------- shapes for ION ---------- */
 const ionSymbols = {
   "Li+":"circle", "Na+":"square", "K+":"diamond", "Mg2+":"triangle-up",
   "Ca2+":"triangle-down", "H+":"x", "Ag+":"star", "Zn2+":"cross",
   "Other":"circle-open"
 };
 
-/* ---------- grouping helper ---------- */
-function groupStructure(s) {
-  const t = String(s || '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (/amorph|glass-?ceramic|glass/.test(t))               return "Amorphous";
-  if (/anti[\s-]?perovsk/.test(t))                         return "Anti-perovskite";
-  if (/argyrodit/.test(t))                                 return "Argyrodite";
-  if (/\bhalide\b|oxyhalide|chloride|fluoride|bromide|iodide/.test(t)) return "Halide";
-  if (/\bnasicon\b|\bna[\s-]?sicon\b/.test(t))             return "NASICON";
-  if (/\bspinel\b/.test(t))                                return "Spinel";
-  if (/polymer|polymeric/.test(t))                         return "Polymeric";
-  return "Other";
-}
-
 /* ---------- columns ---------- */
 const C = {
   ion:["Ion Type (Normalized)","Ion Type","Ion"],
-  structFam:["Structure Family (Canonical)","Structure Group (Canonical)","Structure"],
-  structRaw:["Structure Type","Structure (raw)","Raw Structure","Structure Label","Structure"],
-  ea:["Activation Energy Ea (eV)  [smart parsed]","Activation Energy Ea (eV)","Ea","Activation Energy Ea (eV) "],
-  sigma:["Conductivity σ (S/cm) [numeric]","Conductivity σ (S·cm⁻¹) [numeric]","Conductivity","sigma","Conductivity (S·cm⁻¹)"],
+  structFam:["Structure Group (Canonical)","Structure Family (Canonical)"],
+  structRaw:["Structure Type (raw)","Structure Type","Structure (raw)","Structure"],
+  ea:["Activation Energy Ea (eV)  [smart parsed]","Activation Energy Ea (eV)","Ea"],
+  sigma:["Conductivity σ (S/cm) [numeric]","Conductivity σ (S·cm⁻¹) [numeric]","Conductivity σ (S·cm⁻¹)","sigma","Conductivity (S·cm⁻¹)"],
+  cycles:["Cycle Life (numeric)","Cycle Life","Cycles"],
   formula:["superionic conductor Formula (Chemical)","Formula"]
 };
 function guessCol(cols, candidates){
@@ -148,11 +123,7 @@ function toNum(v){
   return m?Number(m[1]):NaN;
 }
 
-/* ---------- fixed marker size & jitter ---------- */
-let sizeScaleFactor=1.2;
-const BASE_MARKER_SIZE = 14;
-function fixedMarkerSize(){ return BASE_MARKER_SIZE * sizeScaleFactor; }
-
+/* ---------- jitter & utils ---------- */
 function hashToUnit(str){ let h=0; for(let i=0;i<str.length;i++){ h=((h<<5)-h)+str.charCodeAt(i); h|=0; } return (Math.abs(h)%100000)/100000; }
 let JX = 0.02;      // eV
 let JY_FRAC = 0.08; // fraction
@@ -162,287 +133,193 @@ function xRangeAuto(xs){ if(!xs.length) return [0.05,0.8]; const min=Math.min(..
 
 /* ---------- filtering / legends ---------- */
 let last = null;                // { rows, cols }
-let traceMeta = [];             // [{ion, fam}, ...]
-let activeFamily = null;        // isolated structure family via accordion
+let traceMeta = [];             // [{ion, fam, bucket}, ...]
+let activeIonLegend = null;     // isolation by ion from side legend
 
-function setFamilyLegendActive(family){
-  const container = document.getElementById("structureAccordion");
-  Array.from(container.children).forEach(child=>{
-    child.classList.toggle("active", child.dataset.family === family);
-    const head = child.querySelector(".acc-head");
-    if (head) head.style.outline = (child.dataset.family === family) ? "1px solid #dcdcdc" : "none";
+function applyCombinedFilter(){
+  if (!traceMeta.length) return;
+  const vis = traceMeta.map(meta=>{
+    const okIon = activeIonLegend ? (meta.ion === activeIonLegend) : true;
+    return okIon ? true : "legendonly";
+  });
+  Plotly.restyle("chart", {visible: vis});
+}
+
+/* tiny SVG swatch for a Plotly symbol name (neutral look) */
+function svgForSymbol(sym){
+  const fill = "#e5e7eb22", stroke = "#cbd5e1";
+  const s =
+    sym==="circle"        ? `<circle cx="8" cy="8" r="5" fill="${fill}" stroke="${stroke}" />` :
+    sym==="circle-open"   ? `<circle cx="8" cy="8" r="5" fill="none" stroke="${stroke}" />` :
+    sym==="square"        ? `<rect x="3" y="3" width="10" height="10" rx="2" fill="${fill}" stroke="${stroke}" />` :
+    sym==="diamond"       ? `<rect x="4" y="4" width="8" height="8" transform="rotate(45 8 8)" fill="${fill}" stroke="${stroke}" />` :
+    sym==="triangle-up"   ? `<polygon points="8,3 13,13 3,13" fill="${fill}" stroke="${stroke}" />` :
+    sym==="triangle-down" ? `<polygon points="3,3 13,3 8,13" fill="${fill}" stroke="${stroke}" />` :
+    sym==="star"          ? `<polygon points="8,2 9.9,6.5 15,6.5 10.7,9.7 12.5,14 8,11.2 3.5,14 5.3,9.7 1,6.5 6.1,6.5" fill="${fill}" stroke="${stroke}" />` :
+    sym==="cross"         ? `<g stroke="${stroke}" stroke-width="2"><line x1="3" y1="8" x2="13" y2="8"/><line x1="8" y1="3" x2="8" y2="13"/></g>` :
+    sym==="x"             ? `<g stroke="${stroke}" stroke-width="2"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></g>` :
+                            `<circle cx="8" cy="8" r="5" fill="${fill}" stroke="${stroke}" />`;
+  return `<svg class="shape-swatch" viewBox="0 0 16 16" aria-hidden="true">${s}</svg>`;
+}
+
+function setIonLegendActive(ion){
+  const box = document.getElementById("ionLegend");
+  Array.from(box.children).forEach(row=>{
+    const on = row.dataset.ion === ion;
+    row.style.outline = on ? "1px solid #cbd5e1" : "none";
+    row.style.background = on ? "#0f1c2f" : "transparent";
   });
 }
-function onFamilyClick(family){
-  activeFamily = (activeFamily === family) ? null : family;
-  setFamilyLegendActive(activeFamily);
-  applyFamilyFilter();
-}
-function applyFamilyFilter(){
-  if (!traceMeta.length) return;
-  const vis = traceMeta.map(meta => activeFamily ? (meta.fam === activeFamily) : true);
-  // offset by legend-only traces (STRUCT_GROUPS length)
-  const offset = STRUCT_GROUPS.length;
-  Plotly.restyle("chart", {visible: vis.map(v => v ? true : "legendonly")}, traceMeta.map((_,i)=>offset+i));
+function onIonLegendClick(ion){
+  activeIonLegend = (activeIonLegend === ion) ? null : ion;
+  setIonLegendActive(activeIonLegend);
+  applyCombinedFilter();
 }
 
-/* ---------- build traces + accordion ---------- */
+function renderIonShapeLegend(rows, cols){
+  const counts = {};
+  rows.forEach(r=>{
+    const ion = (r[cols.ion] || "Other").toString().trim() || "Other";
+    counts[ion] = (counts[ion]||0) + 1;
+  });
+  const ions = Object.keys(counts).sort((a,b)=>a.localeCompare(b));
+
+  const box = document.getElementById("ionLegend");
+  box.innerHTML = "";
+  ions.forEach(ion=>{
+    const row = document.createElement("div");
+    row.className = "acc-head";
+    row.dataset.ion = ion;
+
+    const left = document.createElement("div");
+    left.className = "acc-left";
+    const shape = document.createElement("div");
+    shape.innerHTML = svgForSymbol(ionSymbols[ion] || ionSymbols["Other"]);
+    const title = document.createElement("div");
+    title.textContent = ion;
+    left.appendChild(shape); left.appendChild(title);
+
+    const right = document.createElement("div");
+    right.className = "acc-actions";
+    const cnt = document.createElement("div");
+    cnt.className = "count";
+    cnt.textContent = `${counts[ion]} raw`;
+    const iso = document.createElement("button");
+    iso.className = "acc-btn"; iso.textContent = "Isolate";
+    iso.addEventListener("click", (ev)=>{ ev.stopPropagation(); onIonLegendClick(ion); });
+    right.appendChild(cnt); right.appendChild(iso);
+
+    row.appendChild(left); row.appendChild(right);
+    row.addEventListener("click", ()=> onIonLegendClick(ion));
+    box.appendChild(row);
+  });
+
+  setIonLegendActive(activeIonLegend);
+}
+
+/* ---------- size mapping (cycles -> area), optional ---------- */
+let sizeScaleFactor=1.2;
+const MISSING_CYCLE_BASE = 15;
+function cycleSize(cycles){
+  const n = toNum(cycles);
+  if(!Number.isFinite(n) || n <= 0) return MISSING_CYCLE_BASE * sizeScaleFactor;
+  return Math.max(15, Math.min(95, Math.log10(n + 1) * 13.5 * sizeScaleFactor));
+}
+
+/* ---------- traces ---------- */
 function buildTraces(rows, cols, hiOut){
-  const traces=[]; const ionsSeen=new Set(); const allX=[]; const famSet=new Set();
-  traceMeta = [];
+  const traces=[]; const ionsSeen=new Set(); const allX=[]; traceMeta=[];
   let stats={total:0,skippedEa:0,skippedSigma:0,plotted:0};
-
   rows.forEach(r=>{
     stats.total++;
     const ion=(r[cols.ion]||"Other").toString().trim()||"Other";
-    const famRaw = (r[cols.structFam] ?? r[cols.structRaw] ?? "");
-    const fam = groupStructure(famRaw);
-
-    const ea_raw=toNum(r[cols.ea]); const sigma_raw=toNum(r[cols.sigma]);
-    if(!Number.isFinite(ea_raw) || ea_raw > 0.8){ stats.skippedEa++; return; }
+    const fam=(r[cols.structFam]||"Other").toString().trim()||"Other"; // <- from CSV
+    const ea_raw=toNum(r[cols.ea]); const sigma_raw=toNum(r[cols.sigma]); const cycRaw=r[cols.cycles];
+    if(!Number.isFinite(ea_raw) || ea_raw > 1.0){ stats.skippedEa++; return; }
     if(!Number.isFinite(sigma_raw) || sigma_raw <= 0){ stats.skippedSigma++; return; }
 
     const key = `${ion}|${fam}|${r[cols.formula]||""}`;
     const ea = jitteredEa(ea_raw, key);
     const sigma = jitteredSigma(sigma_raw, key);
 
-    stats.plotted++; allX.push(ea); famSet.add(fam);
     traces.push({
       x:[ea], y:[sigma], customdata:[sigma_raw], mode:"markers",
-      name: ion, legendgroup: ion, showlegend: false, // hide data traces in legend
+      name: ion, legendgroup: ion, showlegend: !ionsSeen.has(ion),
       marker:{
-        size:[fixedMarkerSize()],                                  // fixed size points
-        color: structColors[fam] || structColors["Other"],          // color = grouped structure
-        symbol: ionSymbols[ion] || ionSymbols["Other"],             // shape = ion
-        line:{ width:[(hiOut && ea_raw>0.7)? 2 : 0.7], color:[(hiOut && ea_raw>0.7)? "#ff4d4d" : "#222"] },
-        opacity:0.88
+        size:[cycleSize(cycRaw)],
+        color: structColors[fam] || structColors["Other"],       // COLOR = STRUCTURE (CSV)
+        symbol: ionSymbols[ion] || ionSymbols["Other"],          // SHAPE = ION
+        line:{ width:[(hiOut && ea_raw>0.7)? 2 : 0.7], color:[(hiOut && ea_raw>0.7)? "#ff4d4d" : "#9fb3d7"] },
+        opacity:0.9
       },
       text:[`${r[cols.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}`],
-      hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV (jittered)<br> σ: %{customdata:.3e} S/cm<extra></extra>",
-      visible: true,
-      meta:{ fam } // tag for filtering by legend
+      hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV (jittered)<br> σ: %{customdata:.3e} S·cm⁻¹<extra></extra>",
+      visible:true
     });
-    traceMeta.push({ion, fam}); ionsSeen.add(ion);
+    traceMeta.push({ion,fam});
+    ionsSeen.add(ion); allX.push(ea);
   });
-  return {data:traces,allX,stats,families:Array.from(famSet).sort()};
-}
-function renderStructureAccordion(families, rows, cols){
-  const rawCol = cols.structRaw;
-  const map = new Map(); families.forEach(f=>map.set(f, new Set()));
-  rows.forEach(r=>{
-    const fam = groupStructure(r[cols.structFam] ?? r[cols.structRaw]);
-    if(!map.has(fam)) map.set(fam,new Set());
-    const raw = rawCol ? (r[rawCol]||"—") : (r[cols.structFam]||"—");
-    map.get(fam).add(String(raw).trim()||"—");
-  });
-  const container = document.getElementById("structureAccordion");
-  container.innerHTML = "";
-  STRUCT_GROUPS.forEach(f=>{
-    const rawList = Array.from(map.get(f)||[]);
-    const item = document.createElement("div");
-    item.className = "acc-item";
-    item.dataset.family = f;
-    const head = document.createElement("div");
-    head.className = "acc-head";
-    head.style.borderLeft = `6px solid ${structColors[f] || structColors["Other"]}`;
-    const left = document.createElement("div");
-    left.className = "acc-left";
-    const chip = document.createElement("div");
-    chip.className = "color-chip";
-    chip.style.background = structColors[f] || structColors["Other"];
-    const title = document.createElement("div");
-    title.textContent = f;
-    left.appendChild(chip); left.appendChild(title);
-    const actions = document.createElement("div");
-    actions.className = "acc-actions";
-    const count = document.createElement("div");
-    count.className = "count";
-    count.textContent = `${rawList.length} raw`;
-    const isoBtn = document.createElement("button");
-    isoBtn.className = "acc-btn";
-    isoBtn.textContent = "Isolate";
-    isoBtn.addEventListener("click", (ev)=>{ ev.stopPropagation(); onFamilyClick(f); });
-    actions.appendChild(count); actions.appendChild(isoBtn);
-    head.appendChild(left); head.appendChild(actions);
-    const body = document.createElement("div");
-    body.className = "acc-body";
-    body.innerHTML = rawList.map(s=>`• ${s}`).join("<br>");
-    head.addEventListener("click", ()=>{ item.classList.toggle("active"); });
-    item.appendChild(head); item.appendChild(body);
-    container.appendChild(item);
-  });
-  setFamilyLegendActive(activeFamily);
+  return {data:traces,allX,stats};
 }
 
 /* ---------- draw ---------- */
 function draw(parsed){
   const {rows,cols}=parsed;
-  const {data,allX,stats,families}=buildTraces(rows,cols,document.getElementById("hiOut").checked);
-  say(`(Ea≤0.8) Rows: ${stats.total} · Plotted: ${stats.plotted} · Skipped Ea: ${stats.skippedEa} · Skipped σ: ${stats.skippedSigma}`);
-  renderStructureAccordion(families, rows, cols);
-
-  // Build legend-only traces (one per structure group)
-  const legendTraces = STRUCT_GROUPS.map(g => ({
-    x:[NaN], y:[NaN], mode:"markers",
-    name:g,
-    marker:{ size:10, color: structColors[g] || structColors["Other"] },
-    hoverinfo:"skip",
-    showlegend:true,
-    legendgroup:g
-  }));
-
-  const plotData = legendTraces.concat(data);
+  const {data,allX,stats}=buildTraces(rows,cols,document.getElementById("hiOut").checked);
+  say(`Rows: ${stats.total} · Plotted: ${stats.total - stats.skippedEa - stats.skippedSigma} · Skipped Ea: ${stats.skippedEa} · Skipped σ: ${stats.skippedSigma}`);
+  renderIonShapeLegend(rows, cols);
   const xr = document.getElementById("clampX").checked ? [0.05, 1.0] : xRangeAuto(allX);
 
-  Plotly.newPlot("chart", plotData, {
-    paper_bgcolor:"#ffffff", plot_bgcolor:"#ffffff",
-    xaxis:{
-      title:"Activation Energy Ea (eV)",
-      range:xr,
-      tickformat:".2f",
-      tickmode:"linear",
-      tick0:0.10,
-      dtick:0.05,
-      gridcolor:"#dcdcdc",
-      zerolinecolor:"#dcdcdc",
-      titlefont:{size:12},
-      tickfont:{size:10}
-    },
-    yaxis:{
-      title:"Conductivity σ (S·cm⁻¹)",
-      type:"log",
-      gridcolor:"#dcdcdc",
-      zerolinecolor:"#dcdcdc",
-      titlefont:{size:12},
-      tickfont:{size:10},
-      tickvals: [
-        1e-8,2e-8,5e-8,
-        1e-7,2e-7,5e-7,
-        1e-6,2e-6,5e-6,
-        1e-5,2e-5,5e-5,
-        1e-4,2e-4,5e-4,
-        1e-3,2e-3,5e-3,
-        1e-2,2e-2,5e-2,
-        1e-1,2e-1,5e-1,
-        1,2,5,10,20,50,100
-      ],
-      ticktext: [
-        "1e−8","2e−8","5e−8",
-        "1e−7","2e−7","5e−7",
-        "1e−6","2e−6","5e−6",
-        "1e−5","2e−5","5e−5",
-        "1e−4","2e−4","5e−4",
-        "1e−3","2e−3","5e−3",
-        "1e−2","2e−2","5e−2",
-        "1e−1","2e−1","5e−1",
-        "1","2","5","10","20","50","100"
-      ]
-    },
-    legend:{
-      title:{text:"Structure (color)", font:{size:11, color:"#111111"}},
-      font:{size:10, color:"#111111"},
-      itemclick:"toggle", itemdoubleclick:"toggle"
-    },
-    margin:{t:40, r:16, b:54, l:64}
-  }, {
-    plot_bgcolor:"#ffffff",
-    paper_bgcolor:"#ffffff",
-    responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]
-  }).then(()=>{
-    // Apply current family filter (accordion)
-    applyFamilyFilter();
-
-    const gd = document.getElementById('chart');
-
-    // Hover fade
-    gd.on('plotly_hover', (ev)=>{
-      const ntr = ev.points.map(p=>p.curveNumber);
-      const offset = STRUCT_GROUPS.length;
-      const vis = traceMeta.map((_, i)=> ntr.includes(offset+i) ? {opacity:0.95} : {opacity:0.15});
-      Plotly.restyle('chart', { 'marker.opacity': vis.map(v=>v.opacity) }, traceMeta.map((_,i)=>offset+i));
-    });
-    gd.on('plotly_unhover', ()=>{
-      const offset = STRUCT_GROUPS.length;
-      Plotly.restyle('chart', { 'marker.opacity': traceMeta.map(()=>0.88) }, traceMeta.map((_,i)=>offset+i));
-    });
-
-    // Legend click: toggle entire structure group
-    gd.on('plotly_legendclick', (ev) => {
-      const curve = ev.curveNumber;
-      if (curve == null || curve >= STRUCT_GROUPS.length) return; // not a legend-only item
-      const groupName = gd.data[curve].name;
-      const offset = STRUCT_GROUPS.length;
-      const indices = traceMeta
-        .map((m,i) => ({i, fam:m.fam}))
-        .filter(o => o.fam === groupName)
-        .map(o => offset + o.i);
-
-      if (!indices.length) return false;
-
-      const currentlyVisible = gd.data[indices[0]]?.visible !== "legendonly";
-      const newVis = currentlyVisible ? "legendonly" : true;
-      Plotly.restyle('chart', { visible: Array(indices.length).fill(newVis) }, indices);
-
-      return false; // prevent default
-    });
-  });
+  Plotly.newPlot("chart", data, {
+    paper_bgcolor:"#0c121c", plot_bgcolor:"#0c121c",
+    xaxis:{ title:"Activation Energy Ea (eV)", range:xr, tickformat:".2f", tickmode:"linear", tick0:0.10, dtick:0.05, gridcolor:"#223048", zerolinecolor:"#223048", titlefont:{size:12,color:"#b9c9e6"}, tickfont:{size:10,color:"#c7d4ea"} },
+    yaxis:{ title:"Conductivity σ (S·cm⁻¹)", type:"log", gridcolor:"#223048", zerolinecolor:"#223048", titlefont:{size:12,color:"#b9c9e6"}, tickfont:{size:10,color:"#c7d4ea"} },
+    legend:{ title:{text:"Ion (shape)", font:{size:11,color:"#cfe0ff"}}, font:{size:10,color:"#cfe0ff"}, itemclick:"toggleothers", itemdoubleclick:"toggle" },
+    margin:{t:24, r:16, b:48, l:64}
+  }, {responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]})
+  .then(()=> applyCombinedFilter());
 }
 
-/* ---------- parse helpers ---------- */
+/* ---------- parse & load CSV (uses STRUCTURE GROUP from CSV) ---------- */
 function parseCsvTextAndDraw(csvText){
   Papa.parse(csvText, {
     header:true, dynamicTyping:false, skipEmptyLines:true,
     complete:(res)=>{
-      if(!res.data || !res.data.length){ say("Parsed data.csv but found no rows."); return; }
       const headers=res.meta.fields||[];
       const cols={
         ion:guessCol(headers,C.ion),
-        structFam:guessCol(headers,C.structFam),
+        structFam:guessCol(headers,C.structFam),       // <-- used as-is for color/counts
         structRaw:guessCol(headers,C.structRaw),
         ea:guessCol(headers,C.ea),
         sigma:guessCol(headers,C.sigma),
+        cycles:guessCol(headers,C.cycles),
         formula:guessCol(headers,C.formula)
       };
       if(!cols.ion||!cols.structFam||!cols.ea||!cols.sigma){
-        say("Missing required columns: Ion, Structure Group/Family, Ea, σ."); console.warn("Detected:", cols, headers); return;
+        say("Missing required columns: Ion, Structure Group (Canonical), Ea, σ."); console.warn("Detected:", cols, headers); return;
       }
-      last={rows:res.data,cols}; activeFamily=null; draw(last);
+      last={rows:res.data,cols}; draw(last);
     },
-    error:(e)=>{ err("Parse error: " + e.message); }
+    error:(e)=> err("Parse error: " + e.message)
   });
 }
 
-/* ---------- auto-load data.csv ---------- */
 function loadDataCsv(){
-  const dataUrl = new URL('data.csv', window.location.href).toString();
-  fetch(dataUrl, { cache: "no-store" })
-    .then(resp => {
-      if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
-      return resp.text();
-    })
-    .then(csvText => { say("data.csv loaded ✓"); parseCsvTextAndDraw(csvText); })
-    .catch(e => {
-      const onGitHubViewer = location.hostname === 'github.com';
-      const hint = onGitHubViewer
-        ? "You're viewing this file on github.com, which blocks scripts.\nPublish via GitHub Pages (Settings → Pages) or open via a local server."
-        : "Ensure data.csv is in the same folder and the page is served over HTTP/HTTPS.";
-      err(`Could not load data.csv: ${e.message}\n\n${hint}`);
-    });
+  fetch('data.csv', { cache: "no-store" })
+    .then(resp => { if(!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); })
+    .then(csv => { say("data.csv loaded ✓"); parseCsvTextAndDraw(csv); })
+    .catch(e => err(`Could not load data.csv: ${e.message}\nEnsure data.csv is in the same folder and served over HTTP.`));
 }
 
 /* ---------- controls ---------- */
-["clampX","hiOut"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(last){ activeFamily=null; draw(last);} }));
+["clampX","hiOut"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ if(last) draw(last); }));
 document.getElementById("sizeScale").addEventListener("input",()=>{
   sizeScaleFactor=parseFloat(sizeScale.value); document.getElementById("scaleVal").textContent=sizeScaleFactor.toFixed(1)+"×"; if(last){ draw(last); }
 });
-document.getElementById("jx").addEventListener("input", ()=>{
-  JX = parseFloat(jx.value)||0; document.getElementById("jxVal").textContent = JX.toFixed(3)+" eV"; if(last){ draw(last);}
-});
-document.getElementById("jy").addEventListener("input", ()=>{
-  JY_FRAC = (parseFloat(jy.value)||0)/100; document.getElementById("jyVal").textContent = (JY_FRAC*100).toFixed(1)+"%"; if(last){ draw(last);}
-});
+document.getElementById("jx").addEventListener("input", ()=>{ JX = parseFloat(jx.value)||0; document.getElementById("jxVal").textContent = JX.toFixed(3)+" eV"; if(last){ draw(last);} });
+document.getElementById("jy").addEventListener("input", ()=>{ JY_FRAC = (parseFloat(jy.value)||0)/100; document.getElementById("jyVal").textContent = (JY_FRAC*100).toFixed(1)+"%"; if(last){ draw(last);} });
 
-/* ---------- kick things off ---------- */
+/* ---------- kick off ---------- */
 loadDataCsv();
 </script>
 </body>
