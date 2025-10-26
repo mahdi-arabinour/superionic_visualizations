@@ -7,11 +7,8 @@
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  :root {
-    --bg:#ffffff; --panel:#f8f9fa; --grid:#dcdcdc; --text:#111;
-    --panel-border:#cccccc; --note:#555; --accent:#007aff;
-  }
-  * { box-sizing: border-box; }
+  :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#dcdcdc; --text:#111; --panel-border:#cccccc; --note:#555; --accent:#007aff; }
+  * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
 
   header {
@@ -55,7 +52,7 @@
       <input type="range" id="sizeScale" min="6" max="36" value="16" step="1">
       <span id="scaleVal">16 px</span>
     </div>
-    <span class="badge" id="status">data.csv</span>
+    <span class="badge" id="status">Loading data.csv…</span>
   </header>
 
   <div id="error"></div>
@@ -69,7 +66,7 @@
   </div>
 
 <script>
-/* ---------------- Status & error helpers ---------------- */
+/* ---------------- Status & error ---------------- */
 const statusEl = document.getElementById("status");
 const errorEl  = document.getElementById("error");
 function say(msg){ statusEl.textContent = msg; }
@@ -259,8 +256,7 @@ function draw(){
 
 /* ---------------- CSV load ---------------- */
 function loadCsv(){
-  const url = "data_cleaned_min_renamed.csv";
-  fetch(url, { cache:"no-store" })
+  fetch("data.csv", { cache:"no-store" })
     .then(resp => { if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`); return resp.text(); })
     .then(text=>{
       Papa.parse(text, {
@@ -283,7 +279,7 @@ function loadCsv(){
       const onGitHubViewer = location.hostname === 'github.com';
       const hint = onGitHubViewer
         ? "You’re viewing this on github.com (scripts blocked). Publish via GitHub Pages or open via a local server."
-        : "Ensure data_cleaned_min_renamed.csv is in the same folder and the page is served via http(s).";
+        : "Ensure data.csv is in the same folder and the page is served via http(s).";
       err(`Could not load CSV: ${e.message}\n\n${hint}`);
     });
 }
