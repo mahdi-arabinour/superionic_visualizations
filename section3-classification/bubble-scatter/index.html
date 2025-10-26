@@ -66,27 +66,28 @@
   </div>
 
 <script>
-/* ---------------- Status & error ---------------- */
+/* ---------- Status & error ---------- */
 const statusEl = document.getElementById("status");
 const errorEl  = document.getElementById("error");
 function say(msg){ statusEl.textContent = msg; }
 function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
 
-/* ---------------- Encodings ---------------- */
+/* ---------- Encodings ---------- */
+/* No greys/blacks so they don't clash with neutral ion legend */
 const structColors = {
   "Amorphous":"#a6cee3", "Anti-perovskite":"#1f78b4", "Argyrodite":"#b2df8a",
   "Halide":"#33a02c", "NASICON":"#fb9a99", "Spinel":"#e31a1c",
-  "Polymeric":"#fdbf6f", "Other":"#999999"
+  "Polymeric":"#fdbf6f", "Other":"#9467bd"    /* changed from grey to purple */
 };
 
-// Marker symbol palette for auto-assigning unique shapes per ion
+/* Marker symbol palette for auto-assigning unique shapes per ion */
 const SHAPE_PALETTE = [
   "circle","square","diamond","triangle-up","triangle-down","triangle-left","triangle-right",
   "cross","x","star","hexagon","hexagon2","bowtie","hourglass","circle-open","square-open",
   "diamond-open","triangle-up-open","triangle-down-open","cross-thin","x-thin","asterisk"
 ];
 
-/* ---------------- Fixed column names ---------------- */
+/* ---------- Fixed column names ---------- */
 const COLS = {
   ion: "Ion Type",
   structGrouped: "Structure Group",
@@ -95,15 +96,15 @@ const COLS = {
   formula: "Superionic Conductor Formula (Chemical)"
 };
 
-/* ---------------- State ---------------- */
+/* ---------- State ---------- */
 let rowsGlobal = [];
-let traceMeta = [];               // per-trace meta: {ion, fam}
+let traceMeta = [];               // per-data-trace meta: {ion, fam}
 let activeStructGroup = null;     // sidebar filter (mutually exclusive with activeIon)
 let activeIon = null;             // legend filter (mutually exclusive with activeStructGroup)
 let markerSizePx = 16;
 let ionSymbolMap = {};            // ion -> marker symbol
 
-/* ---------------- Utils ---------------- */
+/* ---------- Utils ---------- */
 function toNum(v){
   if (typeof v === "number") return v;
   if (v == null) return NaN;
@@ -113,25 +114,26 @@ function toNum(v){
   return Number.isFinite(n) ? n : NaN;
 }
 
-/* ---------------- Build traces (one per row) ---------------- */
-function buildTraces(filteredRows){
-  const traces=[], ionsSeen=new Set(); traceMeta=[];
+/* ---------- Build traces ---------- */
+/* DATA traces: one per row, colored by STRUCTURE, showlegend:false */
+function buildDataTraces(filteredRows){
+  const traces=[]; traceMeta=[];
   filteredRows.forEach(r=>{
     const ion = (r[COLS.ion]||"Other").toString().trim() || "Other";
     const fam = (r[COLS.structGrouped] || "Other").toString().trim() || "Other";
-    const ea_raw = toNum(r[COLS.ea]);
-    const sigma_raw = toNum(r[COLS.sigma]);
-    const color = structColors[fam] || structColors["Other"];
+    const ea  = toNum(r[COLS.ea]);
+    const sig = toNum(r[COLS.sigma]);
+    const color  = structColors[fam] || structColors["Other"];
     const symbol = ionSymbolMap[ion] || "circle-open";
 
     traces.push({
-      x:[ea_raw], y:[sigma_raw], mode:"markers",
-      name: ion, legendgroup: ion, showlegend: !ionsSeen.has(ion),
+      x:[ea], y:[sig], mode:"markers",
+      name: ion, legendgroup: ion, showlegend: false, // keep legend clean
       marker:{
-        size:[markerSizePx],           // fixed size
+        size:[markerSizePx],
         color: color,                  // color by Structure Group (points)
         symbol: symbol,                // shape by Ion Type
-        line:{ width:1.2, color:"#000" },
+        line:{ width:1.0, color:"#000" },
         opacity: 0.9
       },
       text:[`${r[COLS.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}`],
@@ -139,19 +141,34 @@ function buildTraces(filteredRows){
       visible: true
     });
     traceMeta.push({ ion, fam });
-    ionsSeen.add(ion);
   });
-
   return traces;
 }
 
-/* ---------------- Structure (right) legend ---------------- */
+/* ION LEGEND stubs: one per ion, NEUTRAL color (grey/black), legend-only */
+function buildIonLegendTraces(allIons){
+  const neutral = "#555555";   // pick "#000000" if you prefer pure black
+  return allIons.map(ion=>({
+    x:[NaN], y:[NaN], mode:"markers",
+    name: ion, legendgroup: ion, showlegend: true,
+    marker:{
+      size:[markerSizePx],
+      color: neutral,                             // neutral legend color
+      symbol: ionSymbolMap[ion] || "circle-open",
+      line:{ width:1.5, color:"#000" },          // outline for clarity
+      opacity: 1
+    },
+    hoverinfo:"skip",
+    visible:true
+  }));
+}
+
+/* ---------- Structure (right) legend ---------- */
 function renderStructureLegend(filteredRows){
   const el = document.getElementById("structureLegend");
   if(!el) return;
   el.innerHTML = "";
 
-  // counts per group
   const counts = {};
   filteredRows.forEach(r=>{
     const g = (r[COLS.structGrouped] || "Other").toString().trim() || "Other";
@@ -190,16 +207,16 @@ function renderStructureLegend(filteredRows){
       // Highlight active group
       Array.from(el.children).forEach(ch=>ch.classList.toggle("active", ch.dataset.group === (activeStructGroup||"")));
 
-      applyFilters(); // if both null, show all
+      applyFilters();
     };
     el.appendChild(row);
   });
 }
 
-/* ---------------- Apply filters (mutually exclusive) ---------------- */
+/* ---------- Apply filters (mutually exclusive) ---------- */
 function applyFilters(){
   if(!traceMeta.length) return;
-
+  const n = traceMeta.length;                   // number of DATA traces
   const showAll = !activeStructGroup && !activeIon;
 
   const vis = traceMeta.map(meta=>{
@@ -209,10 +226,11 @@ function applyFilters(){
     return true;
   });
 
-  Plotly.restyle("chart", { visible: vis.map(v => v ? true : "legendonly") });
+  const indices = Array.from({length:n}, (_,i)=>i);
+  Plotly.restyle("chart", { visible: vis.map(v=>v?true:"legendonly") }, indices);
 }
 
-/* ---------------- Draw ---------------- */
+/* ---------- Draw ---------- */
 function draw(){
   // filter by valid numeric values and Ea ≤ 0.6 (and σ>0)
   const filtered = rowsGlobal.filter(r=>{
@@ -223,8 +241,15 @@ function draw(){
 
   say(`Rows: ${rowsGlobal.length} · Ions: ${Object.keys(ionSymbolMap).length} · Plotted: ${filtered.length} (Ea ≤ 0.6, σ>0)`);
 
-  const traces = buildTraces(filtered);
+  // Build traces
+  const dataTraces = buildDataTraces(filtered);
   renderStructureLegend(filtered);
+
+  // Ion legend stubs (neutral color). Ensure ALL ions appear in legend.
+  const allIons = Object.keys(ionSymbolMap);
+  const ionLegendTraces = buildIonLegendTraces(allIons);
+
+  const traces = [...dataTraces, ...ionLegendTraces];
 
   Plotly.newPlot("chart", traces, {
     paper_bgcolor:"#fff", plot_bgcolor:"#fff",
@@ -266,30 +291,41 @@ function draw(){
   }).then(()=>{
     const gd = document.getElementById('chart');
 
-    // Hover fade QoL
+    /* Fast hover fade for DATA traces (single batched restyle) */
     gd.on('plotly_hover', (ev)=>{
-      const ntr = ev.points.map(p=>p.curveNumber);
-      Plotly.restyle('chart', { 'marker.opacity': traceMeta.map((_, i)=> ntr.includes(i) ? 0.95 : 0.15) });
+      const n = traceMeta.length;
+      const op = Array(n).fill(0.15);
+      ev.points.forEach(p=>{ if (p.curveNumber < n) op[p.curveNumber] = 0.95; });
+      const idx = Array.from({length:n}, (_,i)=>i);
+      Plotly.restyle('chart', { 'marker.opacity': op }, idx);
     });
-    gd.on('plotly_unhover', ()=>{ Plotly.restyle('chart', { 'marker.opacity': traceMeta.map(()=>0.9) }); });
+    gd.on('plotly_unhover', ()=>{
+      const n = traceMeta.length;
+      const idx = Array.from({length:n}, (_,i)=>i);
+      Plotly.restyle('chart', { 'marker.opacity': Array(n).fill(0.9) }, idx);
+    });
 
-    // Ion legend click: mutual exclusivity + toggle-to-reset
+    /* Ion legend click (clicking a stub): toggle ion filter; second click resets */
     gd.on('plotly_legendclick', (ev)=>{
-      const trace = gd.data[ev.curveNumber];
-      const clickedIon = trace && trace.name ? String(trace.name) : null;
+      const tr = gd.data[ev.curveNumber];
+      // Legend stubs have NaN x/y
+      const isLegendStub = Array.isArray(tr.x) && tr.x.length===1 && !Number.isFinite(tr.x[0]);
+      if (isLegendStub) {
+        const clickedIon = tr.name || null;
+        activeIon = (activeIon === clickedIon) ? null : clickedIon;
+        activeStructGroup = null;
 
-      activeIon = (activeIon === clickedIon) ? null : clickedIon;
-      activeStructGroup = null;
+        // Clear sidebar highlight
+        const el = document.getElementById("structureLegend");
+        if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
 
-      // Clear sidebar highlight
-      const el = document.getElementById("structureLegend");
-      if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
-
-      applyFilters();
-      return false; // block Plotly's default toggle
+        applyFilters();
+        return false; // prevent default legend hide
+      }
+      return true;
     });
 
-    // Legend double-click: reset everything
+    /* Legend double-click: reset everything */
     gd.on('plotly_legenddoubleclick', ()=>{
       activeIon = null;
       activeStructGroup = null;
@@ -299,28 +335,11 @@ function draw(){
       return false;
     });
 
-    // ---- Make ion legend markers HOLLOW (shape only) ----
-    function makeLegendHollow(){
-      // Plotly uses path and/or rect for legend symbols
-      const legendRoot = gd.querySelector('.legend');
-      if (!legendRoot) return;
-      const targets = legendRoot.querySelectorAll('.legendtoggle path, .legendtoggle rect');
-      targets.forEach(el=>{
-        el.style.fill = 'white';
-        el.style.stroke = '#000';
-        el.style.strokeWidth = '1.5px';
-        el.style.opacity = '1';
-      });
-    }
-    // Apply now and keep applying on DOM changes/redraws
-    makeLegendHollow();
-    new MutationObserver(makeLegendHollow).observe(gd, { childList: true, subtree: true });
-
     applyFilters();
   });
 }
 
-/* ---------------- CSV load ---------------- */
+/* ---------- CSV load ---------- */
 function loadCsv(){
   fetch("data.csv", { cache:"no-store" })
     .then(resp => { if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`); return resp.text(); })
@@ -333,7 +352,7 @@ function loadCsv(){
           const cols=res.meta.fields||[];
           const must=[COLS.ion,COLS.structGrouped,COLS.ea,COLS.sigma,COLS.formula];
           const missing=must.filter(m=>!cols.includes(m));
-          if(missing.length){ say("Missing required columns: "+missing.join(", ")); return; }
+          if(missing.length){ err("Missing required columns: "+missing.join(", ")); return; }
 
           rowsGlobal = res.data;
           activeStructGroup = null;
@@ -362,7 +381,7 @@ function loadCsv(){
     });
 }
 
-/* ---------------- Controls ---------------- */
+/* ---------- Controls ---------- */
 const sizeScaleEl = document.getElementById("sizeScale");
 sizeScaleEl.addEventListener("input", ()=>{
   markerSizePx = parseInt(sizeScaleEl.value, 10) || 16;
@@ -370,7 +389,7 @@ sizeScaleEl.addEventListener("input", ()=>{
   draw();
 });
 
-/* ---------------- Kick off ---------------- */
+/* ---------- Kick off ---------- */
 loadCsv();
 </script>
 </body>
