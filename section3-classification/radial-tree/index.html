@@ -457,7 +457,7 @@ async function initFromCSV(){
     };
 
     const required = [
-      "Ion Type","Structure Type","Structure Group",
+      "Ion Type","Structure Group",
       "Doping / and or GB Strategy","Superionic Conductor Formula (Chemical)","Conductivity σ (S/cm)"
     ];
     const missing = required.filter(h => !rows.columns.includes(h));
