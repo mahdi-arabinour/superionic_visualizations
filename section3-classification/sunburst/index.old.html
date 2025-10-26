@@ -647,10 +647,10 @@
     const rFormula = (lastBand?.y1 ?? ((maxDepth+1) * _ringThickness)) + (_leafBase * 0.55);
 
     const items = [
-      { key:'ion',     text:'Ion',              r:rIon    },
-      { key:'struct',  text:'Structure',        r:rStruct },
-      { key:'strat',   text:'Doping strategy',  r:rStrat  },
-      { key:'formula', text:'Formula',          r:rFormula},
+      { key:'ion',     text:'Ion Type',                              r:rIon    },
+      { key:'struct',  text:'Structure Group',                       r:rStruct },
+      { key:'strat',   text:'Doping / and or GB Strategy',           r:rStrat  },
+      { key:'formula', text:'Superionic Conductor Formula (Chemical)', r:rFormula},
     ];
 
     items.forEach((it)=>{
