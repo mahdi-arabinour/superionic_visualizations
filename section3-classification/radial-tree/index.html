@@ -449,16 +449,16 @@ async function initFromCSV(){
     if(!rows || !rows.length){ say("No rows found in data.csv"); return; }
 
     COLS = {
-      ion:    "Ion Type (Normalized)",
-      struct: "Structure Group (Canonical)",  // grouping
+      ion:    "Ion Type",
+      struct: "Structure Group",  // grouping
       doping: "Doping / and or GB Strategy",
-      formula:"superionic conductor Formula (Chemical)",
-      sigma:  "Conductivity σ (S·cm⁻¹)"
+      formula:"Superionic conductor Formula (Chemical)",
+      sigma:  "Conductivity σ (S/cm)"
     };
 
     const required = [
-      "Ion Type (Normalized)","Structure Type (raw)","Structure Group (Canonical)",
-      "Doping / and or GB Strategy","superionic conductor Formula (Chemical)","Conductivity σ (S·cm⁻¹)"
+      "Ion Type","Structure Type","Structure Group",
+      "Doping / and or GB Strategy","Superionic Conductor Formula (Chemical)","Conductivity σ (S/cm)"
     ];
     const missing = required.filter(h => !rows.columns.includes(h));
     if (missing.length) { say("Missing columns in data.csv: " + missing.join(", ")); return; }
