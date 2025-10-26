@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Superionic Conductors — Ea ≤ 0.6 · Ea vs σ (log Y)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#dcdcdc; --text:#111; --panel-border:#cccccc; --note:#555; --accent:#007aff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+
+  header {
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--panel-border);
+    position:sticky; top:0; z-index:10;
+  }
+  label { display:flex; align-items:center; gap:6px; font-size:12px; }
+  .slider-container { display:flex; align-items:center; gap:6px; font-size:12px; }
+  input[type="range"] { width:160px; }
+  .badge { font-size:11px; color:var(--note); margin-left:auto; }
+
+  .wrap { display:grid; grid-template-columns: 1fr 280px; gap:10px; padding:10px; }
+  #chart { width:100%; height:90vh; border:1px solid var(--grid); border-radius:8px; background:#fff; }
+
+  aside {
+    background:var(--panel); border:1px solid var(--panel-border);
+    border-radius:8px; padding:10px; font-size:12px;
+  }
+  aside h3 { margin:0 0 8px 0; font-size:13px; color:#000; }
+
+  /* Right legend (Structure Groups) */
+  #structureLegend .row{
+    display:flex; align-items:center; gap:8px;
+    padding:6px 8px; margin:5px 0; border-radius:8px;
+    background:#fff; border:1px solid #ddd; cursor:pointer;
+    user-select:none;
+  }
+  #structureLegend .row.active{ outline:2px solid var(--accent); }
+  #structureLegend .swatch{ width:12px; height:12px; border-radius:3px; border:1px solid #0002; }
+  #structureLegend .name{ color:#000; font-size:12px; }
+  #structureLegend .count{ margin-left:auto; color:#555; font-size:11px; }
+
+  /* Error banner */
+  #error { display:none; margin:8px 12px; padding:8px 12px; background:#fff3f3; color:#7f1d1d; border:1px solid #f5c2c2; border-radius:8px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="slider-container" title="Global marker size (fixed for all points)">
+      <label for="sizeScale">Marker size:</label>
+      <input type="range" id="sizeScale" min="6" max="36" value="16" step="1">
+      <span id="scaleVal">16 px</span>
+    </div>
+    <span class="badge" id="status">Loading data.csv…</span>
+  </header>
+
+  <div id="error"></div>
+
+  <div class="wrap">
+    <div id="chart"></div>
+    <aside>
+      <h3>Structure Group (color) — click to filter</h3>
+      <div id="structureLegend"></div>
+    </aside>
+  </div>
+
+<script>
+/* ---------------- Status & error ---------------- */
+const statusEl = document.getElementById("status");
+const errorEl  = document.getElementById("error");
+function say(msg){ statusEl.textContent = msg; }
+function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
+
+/* ---------------- Encodings ---------------- */
+const structColors = {
+  "Amorphous":"#a6cee3", "Anti-perovskite":"#1f78b4", "Argyrodite":"#b2df8a",
+  "Halide":"#33a02c", "NASICON":"#fb9a99", "Spinel":"#e31a1c",
+  "Polymeric":"#fdbf6f", "Other":"#999999"
+};
+
+// Palette of Plotly marker symbols to auto-assign per unique ion
+const SHAPE_PALETTE = [
+  "circle","square","diamond","triangle-up","triangle-down","triangle-left","triangle-right",
+  "cross","x","star","hexagon","hexagon2","bowtie","hourglass","circle-open","square-open",
+  "diamond-open","triangle-up-open","triangle-down-open","cross-thin","x-thin","asterisk"
+];
+
+/* ---------------- Fixed column names ---------------- */
+const COLS = {
+  ion: "Ion Type",
+  structGrouped: "Structure Group",
+  ea: "Activation Energy Ea (eV)",
+  sigma: "Conductivity σ (S/cm)",
+  formula: "Superionic Conductor Formula (Chemical)"
+};
+
+/* ---------------- State ---------------- */
+let rowsGlobal = [];
+let traceMeta = [];               // per-trace meta: {ion, fam}
+let activeStructGroup = null;     // sidebar filter (mutually exclusive with activeIon)
+let activeIon = null;             // bottom legend filter (mutually exclusive with activeStructGroup)
+let markerSizePx = 16;
+let ionSymbolMap = {};            // ion -> marker symbol
+
+/* ---------------- Utils ---------------- */
+function toNum(v){
+  if (typeof v === "number") return v;
+  if (v == null) return NaN;
+  const s = String(v).trim();
+  if (!s || s.toLowerCase()==="na" || s.toLowerCase()==="n/a" || s==="—" || s==="–") return NaN;
+  const n = Number(s.replace(/,/g,""));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/* ---------------- Build traces (one per row) ---------------- */
+function buildTraces(filteredRows){
+  const traces=[], ionsSeen=new Set(); traceMeta=[];
+  filteredRows.forEach(r=>{
+    const ion = (r[COLS.ion]||"Other").toString().trim() || "Other";
+    const fam = (r[COLS.structGrouped] || "Other").toString().trim() || "Other";
+    const ea_raw = toNum(r[COLS.ea]);
+    const sigma_raw = toNum(r[COLS.sigma]);
+    const color = structColors[fam] || structColors["Other"];
+    const symbol = ionSymbolMap[ion] || "circle-open";
+
+    traces.push({
+      x:[ea_raw], y:[sigma_raw], customdata:[sigma_raw], mode:"markers",
+      name: ion, legendgroup: ion, showlegend: !ionsSeen.has(ion),
+      marker:{
+        size:[markerSizePx],
+        color: color,                  // color indicates Structure Group
+        symbol: symbol,                // shape indicates Ion Type
+        line:{ width:0.7, color:"#222" },
+        opacity: 0.9
+      },
+      text:[`${r[COLS.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}`],
+      hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV<br> σ: %{customdata:.3e} S/cm<extra></extra>",
+      visible: true
+    });
+    traceMeta.push({ ion, fam });
+    ionsSeen.add(ion);
+  });
+  return traces;
+}
+
+/* ---------------- Structure (right) legend ---------------- */
+function renderStructureLegend(filteredRows){
+  const el = document.getElementById("structureLegend");
+  if(!el) return;
+  el.innerHTML = "";
+
+  // counts per group
+  const counts = {};
+  filteredRows.forEach(r=>{
+    const g = (r[COLS.structGrouped] || "Other").toString().trim() || "Other";
+    counts[g] = (counts[g] || 0) + 1;
+  });
+
+  const KNOWN = ["Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Other"];
+  const present = Object.keys(counts);
+  const order = [...KNOWN.filter(x=>present.includes(x)), ...present.filter(x=>!KNOWN.includes(x)).sort()];
+
+  order.forEach(g=>{
+    const row = document.createElement("div");
+    row.className = "row";
+    row.dataset.group = g;
+
+    const sw = document.createElement("div");
+    sw.className = "swatch";
+    sw.style.background = structColors[g] || "#999";
+
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = g;
+
+    const count = document.createElement("div");
+    count.className = "count";
+    count.textContent = counts[g] || 0;
+
+    row.append(sw, name, count);
+    row.onclick = ()=>{
+      // Toggle structure group; if clicking the active one, clear it (reset)
+      activeStructGroup = (activeStructGroup === g) ? null : g;
+
+      // Mutual exclusivity: disable ion filter when structure toggled
+      activeIon = null;
+
+      // Update sidebar row highlight
+      Array.from(el.children).forEach(ch=>ch.classList.toggle("active", ch.dataset.group === (activeStructGroup||"")));
+
+      applyFilters(); // if both filters null, this shows all
+    };
+    el.appendChild(row);
+  });
+}
+
+/* ---------------- Apply filters (mutually exclusive) ---------------- */
+function applyFilters(){
+  if(!traceMeta.length) return;
+
+  // If both cleared (null), show all
+  const showAll = !activeStructGroup && !activeIon;
+
+  const vis = traceMeta.map(meta=>{
+    if (showAll) return true;
+    if (activeIon) return meta.ion === activeIon;
+    if (activeStructGroup) return meta.fam === activeStructGroup;
+    return true;
+  });
+
+  Plotly.restyle("chart", { visible: vis.map(v => v ? true : "legendonly") });
+}
+
+/* ---------------- Draw ---------------- */
+function draw(){
+  const filtered = rowsGlobal.filter(r=>{
+    const ea = toNum(r[COLS.ea]);
+    const s  = toNum(r[COLS.sigma]);
+    return Number.isFinite(ea) && ea <= 0.6 && Number.isFinite(s) && s > 0;
+  });
+
+  say(`Rows: ${rowsGlobal.length} · Ions: ${Object.keys(ionSymbolMap).length} · Plotted: ${filtered.length} (Ea ≤ 0.6, σ>0)`);
+
+  const traces = buildTraces(filtered);
+  renderStructureLegend(filtered);
+
+  Plotly.newPlot("chart", traces, {
+    paper_bgcolor:"#fff", plot_bgcolor:"#fff",
+    xaxis:{
+      title:"Activation Energy Ea (eV)",
+      range:[0.05, 0.6],
+      tickformat:".2f",
+      tickmode:"linear",
+      tick0:0.10,
+      dtick:0.05,
+      gridcolor:"#e9e9e9",
+      zerolinecolor:"#e9e9e9",
+      titlefont:{size:12},
+      tickfont:{size:10}
+    },
+    yaxis:{
+      title:"Conductivity σ (S/cm)",
+      type:"log",
+      gridcolor:"#e9e9e9",
+      zerolinecolor:"#e9e9e9",
+      titlefont:{size:12},
+      tickfont:{size:10}
+    },
+    legend:{
+      title:{text:"Ion Type (shape)", font:{size:11, color:"#111"}},
+      font:{size:10, color:"#111"},
+      orientation:"h",
+      x:0.5, xanchor:"center", y:1.08,
+      itemclick:"toggle",
+      groupclick:"togglegroup"
+    },
+    margin:{t:54, r:20, b:54, l:64}
+  }, {
+    responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]
+  }).then(()=>{
+    const gd = document.getElementById('chart');
+
+    // Hover fade QoL
+    gd.on('plotly_hover', (ev)=>{
+      const ntr = ev.points.map(p=>p.curveNumber);
+      Plotly.restyle('chart', { 'marker.opacity': traceMeta.map((_, i)=> ntr.includes(i) ? 0.95 : 0.15) });
+    });
+    gd.on('plotly_unhover', ()=>{ Plotly.restyle('chart', { 'marker.opacity': traceMeta.map(()=>0.9) }); });
+
+    // MUTUAL EXCLUSIVITY + TOGGLE-TO-RESET on Plotly legend (Ion types)
+    gd.on('plotly_legendclick', (ev)=>{
+      const clickedIon = traces[ev.curveNumber].name;
+
+      // If clicking the same ion again, clear to reset (show all)
+      activeIon = (activeIon === clickedIon) ? null : clickedIon;
+
+      // Mutual exclusivity: clear structure filter when ion is toggled
+      activeStructGroup = null;
+
+      // Clear any highlight on the sidebar legend
+      const el = document.getElementById("structureLegend");
+      if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
+
+      applyFilters();
+
+      // Prevent Plotly's default show/hide toggle since we control visibility
+      return false;
+    });
+
+    // Double-click legend to reset EVERYTHING to show all
+    gd.on('plotly_legenddoubleclick', ()=>{
+      activeIon = null;
+      activeStructGroup = null;
+
+      // Clear sidebar highlight
+      const el = document.getElementById("structureLegend");
+      if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
+
+      applyFilters();
+      return false; // prevent default isolate behavior
+    });
+
+    applyFilters();
+  });
+}
+
+/* ---------------- CSV load ---------------- */
+function loadCsv(){
+  fetch("data.csv", { cache:"no-store" })
+    .then(resp => { if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`); return resp.text(); })
+    .then(text=>{
+      Papa.parse(text, {
+        header:true, dynamicTyping:false, skipEmptyLines:true,
+        complete:(res)=>{
+          if(!res.data || !res.data.length){ say("Parsed CSV but found no rows."); return; }
+          // validate required columns
+          const cols=res.meta.fields||[];
+          const must=[COLS.ion,COLS.structGrouped,COLS.ea,COLS.sigma,COLS.formula];
+          const missing=must.filter(m=>!cols.includes(m));
+          if(missing.length){ say("Missing required columns: "+missing.join(", ")); return; }
+
+          rowsGlobal = res.data;
+          activeStructGroup = null;
+          activeIon = null;
+
+          // Build a unique shape for each unique ion present
+          const uniqueIons = Array.from(new Set(rowsGlobal.map(r => (r[COLS.ion] || "Other").toString().trim() || "Other")));
+          ionSymbolMap = {};
+          let shapeIdx = 0;
+          uniqueIons.forEach(ion => {
+            ionSymbolMap[ion] = SHAPE_PALETTE[shapeIdx % SHAPE_PALETTE.length];
+            shapeIdx += 1;
+          });
+
+          draw();
+        },
+        error:(e)=>{ err("Parse error: " + e.message); }
+      });
+    })
+    .catch(e=>{
+      const onGitHubViewer = location.hostname === 'github.com';
+      const hint = onGitHubViewer
+        ? "You’re viewing this on github.com (scripts blocked). Publish via GitHub Pages or open via a local server."
+        : "Ensure data.csv is in the same folder and the page is served via http(s).";
+      err(`Could not load CSV: ${e.message}\n\n${hint}`);
+    });
+}
+
+/* ---------------- Controls ---------------- */
+document.getElementById("sizeScale").addEventListener("input", ()=>{
+  markerSizePx = parseInt(sizeScale.value, 10) || 16;
+  document.getElementById("scaleVal").textContent = markerSizePx + " px";
+  draw();
+});
+
+/* ---------------- Kick off ---------------- */
+loadCsv();
+</script>
+</body>
+</html>
