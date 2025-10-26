@@ -9,7 +9,7 @@
 <style>
   :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#dcdcdc; --text:#111; --panel-border:#cccccc; --note:#555; --accent:#007aff; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  body { margin:0; font-family:system-ui, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
 
   header {
     display:flex; flex-wrap:wrap; gap:10px; align-items:center;
@@ -34,8 +34,7 @@
   #structureLegend .row{
     display:flex; align-items:center; gap:8px;
     padding:6px 8px; margin:5px 0; border-radius:8px;
-    background:#fff; border:1px solid #ddd; cursor:pointer;
-    user-select:none;
+    background:#fff; border:1px solid #ddd; cursor:pointer; user-select:none;
   }
   #structureLegend .row.active{ outline:2px solid var(--accent); }
   #structureLegend .swatch{ width:12px; height:12px; border-radius:3px; border:1px solid #0002; }
@@ -80,7 +79,7 @@ const structColors = {
   "Polymeric":"#fdbf6f", "Other":"#999999"
 };
 
-// Palette of Plotly marker symbols to auto-assign per unique ion
+// A long palette of Plotly marker symbols. We'll auto-assign these per unique ion.
 const SHAPE_PALETTE = [
   "circle","square","diamond","triangle-up","triangle-down","triangle-left","triangle-right",
   "cross","x","star","hexagon","hexagon2","bowtie","hourglass","circle-open","square-open",
@@ -100,7 +99,7 @@ const COLS = {
 let rowsGlobal = [];
 let traceMeta = [];               // per-trace meta: {ion, fam}
 let activeStructGroup = null;     // sidebar filter (mutually exclusive with activeIon)
-let activeIon = null;             // bottom legend filter (mutually exclusive with activeStructGroup)
+let activeIon = null;             // legend filter (mutually exclusive with activeStructGroup)
 let markerSizePx = 16;
 let ionSymbolMap = {};            // ion -> marker symbol
 
@@ -126,22 +125,23 @@ function buildTraces(filteredRows){
     const symbol = ionSymbolMap[ion] || "circle-open";
 
     traces.push({
-      x:[ea_raw], y:[sigma_raw], customdata:[sigma_raw], mode:"markers",
+      x:[ea_raw], y:[sigma_raw], mode:"markers",
       name: ion, legendgroup: ion, showlegend: !ionsSeen.has(ion),
       marker:{
-        size:[markerSizePx],
-        color: color,                  // color indicates Structure Group
-        symbol: symbol,                // shape indicates Ion Type
-        line:{ width:0.7, color:"#222" },
+        size:[markerSizePx],           // fixed size
+        color: color,                  // color by Structure Group
+        symbol: symbol,                // shape by Ion Type
+        line:{ width:1.2, color:"#000" },
         opacity: 0.9
       },
       text:[`${r[COLS.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}`],
-      hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV<br> σ: %{customdata:.3e} S/cm<extra></extra>",
+      hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV<br> σ: %{y:.3e} S/cm<extra></extra>",
       visible: true
     });
     traceMeta.push({ ion, fam });
     ionsSeen.add(ion);
   });
+
   return traces;
 }
 
@@ -215,6 +215,7 @@ function applyFilters(){
 
 /* ---------------- Draw ---------------- */
 function draw(){
+  // filter by valid numeric values and Ea ≤ 0.6
   const filtered = rowsGlobal.filter(r=>{
     const ea = toNum(r[COLS.ea]);
     const s  = toNum(r[COLS.sigma]);
@@ -252,9 +253,13 @@ function draw(){
       title:{text:"Ion Type (shape)", font:{size:11, color:"#111"}},
       font:{size:10, color:"#111"},
       orientation:"h",
-      x:0.5, xanchor:"center", y:1.08,
+      x:0.5, xanchor:"center", y:1.08,     /* stays at the top */
       itemclick:"toggle",
-      groupclick:"togglegroup"
+      groupclick:"togglegroup",
+      traceorder:"normal",
+      bgcolor:"#fff",
+      bordercolor:"#ddd",
+      borderwidth:0.5
     },
     margin:{t:54, r:20, b:54, l:64}
   }, {
@@ -271,9 +276,10 @@ function draw(){
 
     // MUTUAL EXCLUSIVITY + TOGGLE-TO-RESET on Plotly legend (Ion types)
     gd.on('plotly_legendclick', (ev)=>{
-      const clickedIon = traces[ev.curveNumber].name;
+      const trace = gd.data[ev.curveNumber];
+      const clickedIon = trace && trace.name ? String(trace.name) : null;
 
-      // If clicking the same ion again, clear to reset (show all)
+      // Toggle: click selects; click again on same ion resets to "show all"
       activeIon = (activeIon === clickedIon) ? null : clickedIon;
 
       // Mutual exclusivity: clear structure filter when ion is toggled
@@ -302,6 +308,19 @@ function draw(){
       return false; // prevent default isolate behavior
     });
 
+    // 🎨 Make ion legend markers hollow (outline only) so legend shows shape without color
+    const makeLegendHollow = ()=>{
+      const paths = document.querySelectorAll('.legendtoggle path');
+      paths.forEach(p => {
+        p.style.fill = '#fff';     // white/hollow fill
+        p.style.stroke = '#000';   // outline
+        p.style.strokeWidth = '1.2px';
+      });
+    };
+    makeLegendHollow();
+    // Keep them hollow even on redraws / interactions
+    new MutationObserver(makeLegendHollow).observe(gd, { childList: true, subtree: true });
+
     applyFilters();
   });
 }
@@ -325,7 +344,7 @@ function loadCsv(){
           activeStructGroup = null;
           activeIon = null;
 
-          // Build a unique shape for each unique ion present
+          // Build a unique shape per unique ion present in the data
           const uniqueIons = Array.from(new Set(rowsGlobal.map(r => (r[COLS.ion] || "Other").toString().trim() || "Other")));
           ionSymbolMap = {};
           let shapeIdx = 0;
@@ -349,8 +368,9 @@ function loadCsv(){
 }
 
 /* ---------------- Controls ---------------- */
-document.getElementById("sizeScale").addEventListener("input", ()=>{
-  markerSizePx = parseInt(sizeScale.value, 10) || 16;
+const sizeScaleEl = document.getElementById("sizeScale");
+sizeScaleEl.addEventListener("input", ()=>{
+  markerSizePx = parseInt(sizeScaleEl.value, 10) || 16;
   document.getElementById("scaleVal").textContent = markerSizePx + " px";
   draw();
 });
