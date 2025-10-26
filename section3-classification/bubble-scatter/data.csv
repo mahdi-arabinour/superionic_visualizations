@@ -1,4 +1,4 @@
-"Ion Type (raw)","Ion Type","Structure Type (raw)","Structure Group","Doping / and or GB Strategy","Superionic Conductor Formula (Chemical)","Conductivity σ (S/cm) (raw)","Conductivity σ (S/cm)","Activation Energy Ea (eV) (raw)","Activation Energy Ea (eV)","Temperature (°C)"
+"Ion Type (raw)","Ion Type","Structure Type (raw)","Structure Group","Doping / and or GB Strategy","Superionic conductor Formula (Chemical)","Conductivity σ (S/cm) (raw)","Conductivity σ (S/cm)","Activation Energy Ea (eV) (raw)","Activation Energy Ea (eV)","Temperature (°C)"
 "Li⁺","Li+","UCl₃-type LaCl₃ lattice with 1D channels","Other","Ta doping → La vacancies","Li₀.₃₈₈Ta₀.₂₃₈La₀.₄₇₅Cl₃","3.02e-3 / 30 °C","3.02","0.197","0.197","30.0"
 "Li⁺","Li+","β-phase (P6₃/mmc)","Other","Vacancy engineering (Li + N vacancies)","β-Li₃N (vacancy-rich, 400 rpm – 16 h)","2.14e-3 / 25 °C","2.14","0.371","0.371","25.0"
 "Li⁺","Li+","Garnet-type (cubic)","Other","–","Li₇La₃Zr₂O₁₂ (LLZO)","3.0e-4 / 25 °C","3.0","0.30–0.34","0.3","25.0"
