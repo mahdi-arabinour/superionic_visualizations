@@ -90,7 +90,6 @@ Li⁺,Li+,Thio-LISICON,Other,Aliovalent P⁵⁺ substitution,Li₉P₃S₁₂,4e
 Li⁺,Li+,Thio-LISICON,Other,Aliovalent Al³⁺ substitution,Li₁₁AlP₂S₁₂,3.3e-2 / 25,0.033,0.18,0.18,
 Li⁺,Li+,Oxide-LISICON,Other,O substitution,Li₁₀GeP₂O₁₂,3e-5 / 25,3e-05,0.36,0.36,
 Li⁺,Li+,Selenide-LISICON,Other,Se substitution,Li₁₀GeP₂Se₁₂,2.4e-2 / 25,0.024,0.19,0.19,
-Effective ionic carriers (colloidal),Effectiveioniccarriers,fcc colloidal lattice,Other,–,"Binary charged colloidal crystal (RL=5 nm, qL=−80e; RS=1 nm, qS=+10e)",Ionic → superionic transition at Tc ≈ 320 K; field-induced at E ≈ 1 mV/nm,320.0,–,,
 Rb⁺,Rb+,Amorphous (borate glass),Amorphous,–,(Rb₂O)₁₀(B₂O₃)₉₀,σ(T) from impedance; Tg ≈ 550 K,550.0,–,,
 Rb⁺,Rb+,Amorphous (borate glass),Amorphous,–,(Rb₂O)₁₅(B₂O₃)₈₅,Conductivity from Arrhenius fits,,–,,
 Rb⁺,Rb+,Amorphous (borate glass),Amorphous,–,(Rb₂O)₂₀(B₂O₃)₈₀,Conductivity from σdc(T),,–,,
