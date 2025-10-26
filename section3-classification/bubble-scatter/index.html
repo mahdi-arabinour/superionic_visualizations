@@ -113,25 +113,26 @@ function toNum(v){
   return Number.isFinite(n) ? n : NaN;
 }
 
-/* ---------------- Build traces (one per row) ---------------- */
-function buildTraces(filteredRows){
-  const traces=[], ionsSeen=new Set(); traceMeta=[];
+/* ---------------- Build traces ---------------- */
+// Data traces: one per row, NO legend (so legend won't inherit their colors)
+function buildDataTraces(filteredRows){
+  const traces=[]; traceMeta=[];
   filteredRows.forEach(r=>{
     const ion = (r[COLS.ion]||"Other").toString().trim() || "Other";
     const fam = (r[COLS.structGrouped] || "Other").toString().trim() || "Other";
-    const ea_raw = toNum(r[COLS.ea]);
-    const sigma_raw = toNum(r[COLS.sigma]);
-    const color = structColors[fam] || structColors["Other"];
+    const ea  = toNum(r[COLS.ea]);
+    const sig = toNum(r[COLS.sigma]);
+    const color  = structColors[fam] || structColors["Other"];
     const symbol = ionSymbolMap[ion] || "circle-open";
 
     traces.push({
-      x:[ea_raw], y:[sigma_raw], mode:"markers",
-      name: ion, legendgroup: ion, showlegend: !ionsSeen.has(ion),
+      x:[ea], y:[sig], mode:"markers",
+      name: ion, legendgroup: ion, showlegend: false, // << no legend for data traces
       marker:{
-        size:[markerSizePx],           // fixed size
+        size:[markerSizePx],
         color: color,                  // color by Structure Group (points)
         symbol: symbol,                // shape by Ion Type
-        line:{ width:1.2, color:"#000" },
+        line:{ width:1.0, color:"#000" },
         opacity: 0.9
       },
       text:[`${r[COLS.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}`],
@@ -139,10 +140,27 @@ function buildTraces(filteredRows){
       visible: true
     });
     traceMeta.push({ ion, fam });
-    ionsSeen.add(ion);
   });
-
   return traces;
+}
+
+// Legend-only stub traces: one per ion, HOLLOW marker (white fill + outline)
+function buildIonLegendTraces(allIons){
+  return allIons.map(ion=>{
+    return {
+      x:[NaN], y:[NaN], mode:"markers",
+      name: ion, legendgroup: ion, showlegend: true,
+      marker:{
+        size:[markerSizePx],
+        color: "#ffffff",                              // white (hollow)
+        symbol: ionSymbolMap[ion] || "circle-open",
+        line:{ width:1.5, color:"#000" },             // outline
+        opacity: 1
+      },
+      hoverinfo:"skip",
+      visible:true
+    };
+  });
 }
 
 /* ---------------- Structure (right) legend ---------------- */
@@ -199,17 +217,20 @@ function renderStructureLegend(filteredRows){
 /* ---------------- Apply filters (mutually exclusive) ---------------- */
 function applyFilters(){
   if(!traceMeta.length) return;
-
   const showAll = !activeStructGroup && !activeIon;
-
   const vis = traceMeta.map(meta=>{
     if (showAll) return true;
     if (activeIon) return meta.ion === activeIon;
     if (activeStructGroup) return meta.fam === activeStructGroup;
     return true;
   });
-
-  Plotly.restyle("chart", { visible: vis.map(v => v ? true : "legendonly") });
+  // Update visibility of DATA traces only (legend stubs stay visible to keep legend clickable)
+  // Data traces are first in the .data array
+  const numDataTraces = traceMeta.length;
+  const update = { visible: vis.map(v => v ? true : "legendonly") };
+  for (let i = 0; i < numDataTraces; i++) {
+    Plotly.restyle("chart", { visible: [update.visible[i]] }, [i]);
+  }
 }
 
 /* ---------------- Draw ---------------- */
@@ -223,8 +244,15 @@ function draw(){
 
   say(`Rows: ${rowsGlobal.length} · Ions: ${Object.keys(ionSymbolMap).length} · Plotted: ${filtered.length} (Ea ≤ 0.6, σ>0)`);
 
-  const traces = buildTraces(filtered);
+  // Build traces
+  const dataTraces = buildDataTraces(filtered);
   renderStructureLegend(filtered);
+
+  // Ion legend stubs (hollow). Ensure ALL known ions appear in legend.
+  const allIons = Object.keys(ionSymbolMap);
+  const ionLegendTraces = buildIonLegendTraces(allIons);
+
+  const traces = [...dataTraces, ...ionLegendTraces];
 
   Plotly.newPlot("chart", traces, {
     paper_bgcolor:"#fff", plot_bgcolor:"#fff",
@@ -266,27 +294,40 @@ function draw(){
   }).then(()=>{
     const gd = document.getElementById('chart');
 
-    // Hover fade QoL
+    // Hover fade QoL for DATA traces only (indices 0..traceMeta.length-1)
     gd.on('plotly_hover', (ev)=>{
-      const ntr = ev.points.map(p=>p.curveNumber);
-      Plotly.restyle('chart', { 'marker.opacity': traceMeta.map((_, i)=> ntr.includes(i) ? 0.95 : 0.15) });
+      const ntr = ev.points.map(p=>p.curveNumber).filter(i=>i < traceMeta.length);
+      const op  = Array(traceMeta.length).fill(0.15);
+      ntr.forEach(i=>{ op[i]=0.95; });
+      for (let i=0;i<traceMeta.length;i++){
+        Plotly.restyle('chart', { 'marker.opacity': [op[i]] }, [i]);
+      }
     });
-    gd.on('plotly_unhover', ()=>{ Plotly.restyle('chart', { 'marker.opacity': traceMeta.map(()=>0.9) }); });
+    gd.on('plotly_unhover', ()=>{
+      for (let i=0;i<traceMeta.length;i++){
+        Plotly.restyle('chart', { 'marker.opacity': [0.9] }, [i]);
+      }
+    });
 
-    // Ion legend click: mutual exclusivity + toggle-to-reset
+    // Ion legend click (clicking a stub trace): toggle ion filter; second click resets
     gd.on('plotly_legendclick', (ev)=>{
-      const trace = gd.data[ev.curveNumber];
-      const clickedIon = trace && trace.name ? String(trace.name) : null;
+      const tr = gd.data[ev.curveNumber];
+      // If user clicked a legend-only stub (it has NaN x/y), handle filter
+      const isLegendStub = Array.isArray(tr.x) && tr.x.length===1 && !Number.isFinite(tr.x[0]);
+      if (isLegendStub) {
+        const clickedIon = tr.name || null;
+        activeIon = (activeIon === clickedIon) ? null : clickedIon;
+        activeStructGroup = null;
 
-      activeIon = (activeIon === clickedIon) ? null : clickedIon;
-      activeStructGroup = null;
+        // Clear sidebar highlight
+        const el = document.getElementById("structureLegend");
+        if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
 
-      // Clear sidebar highlight
-      const el = document.getElementById("structureLegend");
-      if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
-
-      applyFilters();
-      return false; // block Plotly's default toggle
+        applyFilters();
+        return false; // prevent default legend hide
+      }
+      // If it wasn't a stub (shouldn't happen since data traces don't have legend), allow default
+      return true;
     });
 
     // Legend double-click: reset everything
@@ -298,23 +339,6 @@ function draw(){
       applyFilters();
       return false;
     });
-
-    // ---- Make ion legend markers HOLLOW (shape only) ----
-    function makeLegendHollow(){
-      // Plotly uses path and/or rect for legend symbols
-      const legendRoot = gd.querySelector('.legend');
-      if (!legendRoot) return;
-      const targets = legendRoot.querySelectorAll('.legendtoggle path, .legendtoggle rect');
-      targets.forEach(el=>{
-        el.style.fill = 'white';
-        el.style.stroke = '#000';
-        el.style.strokeWidth = '1.5px';
-        el.style.opacity = '1';
-      });
-    }
-    // Apply now and keep applying on DOM changes/redraws
-    makeLegendHollow();
-    new MutationObserver(makeLegendHollow).observe(gd, { childList: true, subtree: true });
 
     applyFilters();
   });
