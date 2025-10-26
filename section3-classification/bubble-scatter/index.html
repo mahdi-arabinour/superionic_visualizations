@@ -73,11 +73,11 @@ function say(msg){ statusEl.textContent = msg; }
 function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
 
 /* ---------- Encodings ---------- */
-/* No greys/blacks so they don't clash with neutral ion legend */
+/* No greys/blacks in structure palette so neutral ion legend won't clash */
 const structColors = {
   "Amorphous":"#a6cee3", "Anti-perovskite":"#1f78b4", "Argyrodite":"#b2df8a",
   "Halide":"#33a02c", "NASICON":"#fb9a99", "Spinel":"#e31a1c",
-  "Polymeric":"#fdbf6f", "Other":"#9467bd"    /* changed from grey to purple */
+  "Polymeric":"#fdbf6f", "Other":"#9467bd"
 };
 
 /* Marker symbol palette for auto-assigning unique shapes per ion */
@@ -98,11 +98,14 @@ const COLS = {
 
 /* ---------- State ---------- */
 let rowsGlobal = [];
-let traceMeta = [];               // per-data-trace meta: {ion, fam}
+let traceMeta = [];               // per DATA trace meta: {ion, fam}
 let activeStructGroup = null;     // sidebar filter (mutually exclusive with activeIon)
 let activeIon = null;             // legend filter (mutually exclusive with activeStructGroup)
 let markerSizePx = 16;
 let ionSymbolMap = {};            // ion -> marker symbol
+
+// Legend stub bookkeeping: ion -> stub trace index (in Plotly figure)
+let legendStubIndexByIon = {};    
 
 /* ---------- Utils ---------- */
 function toNum(v){
@@ -128,7 +131,7 @@ function buildDataTraces(filteredRows){
 
     traces.push({
       x:[ea], y:[sig], mode:"markers",
-      name: ion, legendgroup: ion, showlegend: false, // keep legend clean
+      name: ion, legendgroup: ion, showlegend: false, // keep legend controlled by stubs
       marker:{
         size:[markerSizePx],
         color: color,                  // color by Structure Group (points)
@@ -145,10 +148,10 @@ function buildDataTraces(filteredRows){
   return traces;
 }
 
-/* ION LEGEND stubs: one per ion, NEUTRAL color (grey/black), legend-only */
-function buildIonLegendTraces(allIons){
-  const neutral = "#555555";   // pick "#000000" if you prefer pure black
-  return allIons.map(ion=>({
+/* ION LEGEND stubs: one per ion (neutral color); we can later hide stubs with no visible data */
+function buildIonLegendTraces(ions){
+  const neutral = "#555555";   // or "#000000" for pure black
+  return ions.map(ion=>({
     x:[NaN], y:[NaN], mode:"markers",
     name: ion, legendgroup: ion, showlegend: true,
     marker:{
@@ -207,6 +210,7 @@ function renderStructureLegend(filteredRows){
       // Highlight active group
       Array.from(el.children).forEach(ch=>ch.classList.toggle("active", ch.dataset.group === (activeStructGroup||"")));
 
+      // After changing structure filter, update data vis + legend stubs vis
       applyFilters();
     };
     el.appendChild(row);
@@ -216,23 +220,43 @@ function renderStructureLegend(filteredRows){
 /* ---------- Apply filters (mutually exclusive) ---------- */
 function applyFilters(){
   if(!traceMeta.length) return;
-  const n = traceMeta.length;                   // number of DATA traces
+
+  const nData = traceMeta.length;                 // number of DATA traces (first N)
   const showAll = !activeStructGroup && !activeIon;
 
-  const vis = traceMeta.map(meta=>{
+  // Visibility for DATA traces
+  const visData = traceMeta.map(meta=>{
     if (showAll) return true;
     if (activeIon) return meta.ion === activeIon;
     if (activeStructGroup) return meta.fam === activeStructGroup;
     return true;
   });
 
-  const indices = Array.from({length:n}, (_,i)=>i);
-  Plotly.restyle("chart", { visible: vis.map(v=>v?true:"legendonly") }, indices);
+  const dataIdx = Array.from({length:nData}, (_,i)=>i);
+  Plotly.restyle("chart", { visible: visData.map(v=>v?true:"legendonly") }, dataIdx);
+
+  // --- Keep ion legend in sync: only show ions that have at least one visible data trace
+  const ionsWithVisibleData = new Set();
+  traceMeta.forEach((m, i)=>{
+    if (visData[i] === true) ionsWithVisibleData.add(m.ion);
+  });
+
+  const stubUpdates = { visible: [] };
+  const stubIdx = [];
+  Object.entries(legendStubIndexByIon).forEach(([ion, idx])=>{
+    stubIdx.push(idx);
+    // If an ion has any visible data trace, show its stub; otherwise hide it
+    stubUpdates.visible.push( ionsWithVisibleData.has(ion) ? true : false );
+  });
+
+  if (stubIdx.length){
+    Plotly.restyle("chart", stubUpdates, stubIdx);
+  }
 }
 
 /* ---------- Draw ---------- */
 function draw(){
-  // filter by valid numeric values and Ea ≤ 0.6 (and σ>0)
+  // Base filter: valid numeric values and Ea ≤ 0.6 (and σ>0)
   const filtered = rowsGlobal.filter(r=>{
     const ea = toNum(r[COLS.ea]);
     const s  = toNum(r[COLS.sigma]);
@@ -241,13 +265,13 @@ function draw(){
 
   say(`Rows: ${rowsGlobal.length} · Ions: ${Object.keys(ionSymbolMap).length} · Plotted: ${filtered.length} (Ea ≤ 0.6, σ>0)`);
 
-  // Build traces
+  // Build data traces (no legend)
   const dataTraces = buildDataTraces(filtered);
   renderStructureLegend(filtered);
 
-  // Ion legend stubs (neutral color). Ensure ALL ions appear in legend.
-  const allIons = Object.keys(ionSymbolMap);
-  const ionLegendTraces = buildIonLegendTraces(allIons);
+  // Build ion legend stubs ONLY for ions present in *filtered* data (what's on the chart)
+  const presentIons = Array.from(new Set(filtered.map(r => (r[COLS.ion] || "Other").toString().trim() || "Other")));
+  const ionLegendTraces = buildIonLegendTraces(presentIons);
 
   const traces = [...dataTraces, ...ionLegendTraces];
 
@@ -290,6 +314,11 @@ function draw(){
     responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]
   }).then(()=>{
     const gd = document.getElementById('chart');
+
+    // Record where legend stubs live (after the data traces)
+    legendStubIndexByIon = {};
+    const nData = traceMeta.length;
+    presentIons.forEach((ion, k)=>{ legendStubIndexByIon[ion] = nData + k; });
 
     /* Fast hover fade for DATA traces (single batched restyle) */
     gd.on('plotly_hover', (ev)=>{
@@ -335,6 +364,7 @@ function draw(){
       return false;
     });
 
+    // Initial sync
     applyFilters();
   });
 }
@@ -348,6 +378,7 @@ function loadCsv(){
         header:true, dynamicTyping:false, skipEmptyLines:true,
         complete:(res)=>{
           if(!res.data || !res.data.length){ say("Parsed CSV but found no rows."); return; }
+
           // validate required columns
           const cols=res.meta.fields||[];
           const must=[COLS.ion,COLS.structGrouped,COLS.ea,COLS.sigma,COLS.formula];
@@ -358,7 +389,7 @@ function loadCsv(){
           activeStructGroup = null;
           activeIon = null;
 
-          // Auto-assign a unique symbol per ion present
+          // Auto-assign a unique symbol per ion present in ALL rows (safe; legend uses present ions only)
           const uniqueIons = Array.from(new Set(rowsGlobal.map(r => (r[COLS.ion] || "Other").toString().trim() || "Other")));
           ionSymbolMap = {};
           let shapeIdx = 0;
