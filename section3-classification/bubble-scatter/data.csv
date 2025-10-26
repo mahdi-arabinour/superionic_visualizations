@@ -1,9 +1,9 @@
-Ion Type (raw),Ion Type (Normalized),Structure Type (raw),Structure Group (Canonical),Doping / and or GB Strategy,superionic conductor Formula (Chemical),Conductivity (raw),Conductivity σ (S/cm) [numeric],Temperature (°C),Activation Energy Ea (raw),Activation Energy Ea (eV)  [smart parsed],"Activation Energy Ea (candidates, eV)",Cycle Life (raw),Structure Family (Canonical),Structure Group (source)
+Ion Type (raw),Ion Type (Normalized),Structure Type (raw),Structure Group (Canonical),Doping / and or GB Strategy,superionic conductor Formula (Chemical),Conductivity (raw),Conductivity σ (S/cm) [numeric],Temperature (°C),Activation Energy Ea (raw),Activation Energy Ea (eV)  [smart parsed],"Activation Energy Ea (candidates, eV)",Cycle Life (raw),Structure Family (Canonical),Structure_Group
 Li⁺,Li+,UCl₃-type LaCl₃ lattice with 1D channels,Other,Ta doping → La vacancies,Li₀.₃₈₈Ta₀.₂₃₈La₀.₄₇₅Cl₃,3.02e-3 / 30 °C,0.00302,30.0,0.197,0.197,0.197,–,Other / Novel,Other
 Li⁺,Li+,β-phase (P6₃/mmc),Other,Vacancy engineering (Li + N vacancies),"β-Li₃N (vacancy-rich, 400 rpm – 16 h)",2.14e-3 / 25 °C,0.00214,25.0,0.371,0.371,0.371,>4000 h (symmetric cell),Other / Novel,Other
 Li⁺,Li+,Garnet-type (cubic),Other,–,Li₇La₃Zr₂O₁₂ (LLZO),3.0e-4 / 25 °C,0.0003,25.0,0.30–0.34,0.3,0.3; -0.34,–,Garnet,Other
 F⁻,F⁻,"Tysonite (trigonal, P3̄c1)",Other,–,LaF₃ (tysonite),–,,,–,,,–,Other / Novel,Other
-Li⁺,Li+,Garnet–polymer composite (cubic LLZO + PEO),Other,–,Li₇La₃Zr₂O₁₂–PEO (LiClO₄) composite,~1e-4 / 25 °C,0.0001,25.0,–,,,–,Garnet,Other
+Li⁺,Li+,Garnet–polymer composite (cubic LLZO + PEO),Polymeric,–,Li₇La₃Zr₂O₁₂–PEO (LiClO₄) composite,~1e-4 / 25 °C,0.0001,25.0,–,,,–,Garnet,Polymeric
 Li⁺,Li+,LGPS-type (P4₂/nmc),Other,Si + Cl aliovalent doping,Li₉.₅₄Si₁.₇₄P₁.₄₄S₁₁.₇Cl₀.₃,2.5e-2 / 25 °C,0.025,25.0,–,,,–,Other / Novel,Other
 Li⁺,Li+,LGPS-type (P4₂/nmc),Other,–,Li₉.₆P₃S₁₂,~1e-2 / 25 °C,0.01,25.0,–,,,–,Other / Novel,Other
 Li⁺,Li+,Borosulfide,Other,–,Li₅B₇S₁₃,7.4e-2 / 25 °C (predicted RT),0.074,25.0,–,,,–,Other / Novel,Other
@@ -12,25 +12,25 @@ Li⁺,Li+,Borosulfide (Cs-substituted),Other,Cs substitution,CsLi₂BS₃,~1e-3 
 Li⁺,Li+,Halide (trigonal),Halide,–,Li₃ErCl₆,3e-4 / 25 °C (predicted RT),0.0003,25.0,–,,,–,Halide,Halide
 Li⁺,Li+,Halide (trigonal),Halide,–,Li₃InCl₆,~1e-3 / 25 °C (exp. literature),0.001,25.0,–,,,–,Halide,Halide
 Li⁺,Li+,Oxide-iodate,Other,–,Li₂HIO,~1e-4 / 25 °C (predicted RT),0.0001,25.0,–,,,–,Other / Novel,Other
-Li⁺,Li+,Oxyfluoride,Other,–,LiSO₃F,8.2e-2 / 25 °C (predicted RT),0.082,25.0,–,,,–,Other / Novel,Other
+Li⁺,Li+,Oxyfluoride,Halide,–,LiSO₃F,8.2e-2 / 25 °C (predicted RT),0.082,25.0,–,,,–,Other / Novel,Halide
 Li⁺,Li+,Nitridoborohydride,Other,–,LiMgB₃(H₉N)₂,7.9e-3 / 25 °C (predicted RT),0.0079,25.0,–,,,–,Nitride,Other
 Li⁺,Li+,Carbodiimide nitride,Other,–,Sr₂LiCBr₃N₂,3.3e-5 / 25 °C (marginal RT),3.3e-05,25.0,–,,,–,Nitride,Other
 Li⁺,Li+,Selenide,Other,–,LiErSe₂,8.8e-5 / 25 °C (marginal RT),8.8e-05,25.0,–,,,–,Other / Novel,Other
 Li⁺,Li+,Borate,Other,–,Li₆Ho(BO₃)₃,5.1e-3 / 25 °C (predicted RT),0.0051,25.0,–,,,–,Other / Novel,Other
 Li⁺,Li+,Oxide,Other,–,LiSbO₃,6.7e-4 / 25 °C (predicted RT),0.00067,25.0,–,,,–,Other / Novel,Other
 Ag⁺,Ag+,Halide (β-AgI → α-AgI transition),Halide,–,"(AgI)ₓ–C(1–ₓ), x=1.00 (pure AgI)",σ ~1 / 150 °C (α-AgI phase),1.0,150.0,–,,,–,Halide,Halide
-Ag⁺ + e⁻,Ag+,Composite (AgI–C),Polymeric,Carbon addition (1%),"(AgI)ₓ–C(1–ₓ), x=0.99","Non-Arrhenius; σ increases with T, abrupt jump at 140 °C",140.0,140.0,–,,,–,Polymer composite,Polymeric
-Ag⁺ + e⁻,Ag+,Composite (AgI–C),Polymeric,Carbon addition (2%),"(AgI)ₓ–C(1–ₓ), x=0.98",Non-Arrhenius; jump in σ near 140 °C,140.0,140.0,–,,,–,Polymer composite,Polymeric
-Ag⁺ + e⁻,Ag+,Composite (AgI–C),Polymeric,Carbon addition (3%),"(AgI)ₓ–C(1–ₓ), x=0.97","Non-Arrhenius; σ grows with T, reduced jump amplitude",,,–,,,–,Polymer composite,Polymeric
-Ag⁺ + e⁻,Ag+,Composite (AgI–C),Polymeric,Carbon addition (6%),"(AgI)ₓ–C(1–ₓ), x=0.94",Conductivity dominated by electrons; model only fits abrupt jump,,,–,,,–,Polymer composite,Polymeric
+Ag⁺ + e⁻,Ag++e⁻,Composite (AgI–C),Other,Carbon addition (1%),"(AgI)ₓ–C(1–ₓ), x=0.99","Non-Arrhenius; σ increases with T, abrupt jump at 140 °C",140.0,140.0,–,,,–,Polymer composite,Other
+Ag⁺ + e⁻,Ag++e⁻,Composite (AgI–C),Other,Carbon addition (2%),"(AgI)ₓ–C(1–ₓ), x=0.98",Non-Arrhenius; jump in σ near 140 °C,140.0,140.0,–,,,–,Polymer composite,Other
+Ag⁺ + e⁻,Ag++e⁻,Composite (AgI–C),Other,Carbon addition (3%),"(AgI)ₓ–C(1–ₓ), x=0.97","Non-Arrhenius; σ grows with T, reduced jump amplitude",,,–,,,–,Polymer composite,Other
+Ag⁺ + e⁻,Ag++e⁻,Composite (AgI–C),Other,Carbon addition (6%),"(AgI)ₓ–C(1–ₓ), x=0.94",Conductivity dominated by electrons; model only fits abrupt jump,,,–,,,–,Polymer composite,Other
 Li⁺,Li+,Halide (trigonal P3m1),Halide,–,Li₃ErCl₆ (ball-milled),3.0e-4 / 25 °C,0.0003,25.0,0.41,0.41,0.41,–,Halide,Halide
 Li⁺,Li+,Halide (trigonal P3m1),Halide,–,Li₃ErCl₆ (annealed),5.0e-5 / 25 °C,5e-05,25.0,0.48,0.48,0.48,–,Halide,Halide
 Li⁺,Li+,Phosphate (oxide),Other,–,LiCa₉Mg(PO₄)₇,–,,,–,,,–,Phosphate,Other
 Li⁺,Li+,Nitrate (oxide),Other,–,Li₂Pr(NO₃)₅,–,,,–,,,–,Other / Novel,Other
-Li⁺,Li+,Fluoride salt,Other,–,LiPF₆,–,,,–,,,–,Other / Novel,Other
-Li⁺,Li+,Fluoride salt,Other,–,LiAsF₆,–,,,–,,,–,Other / Novel,Other
-Li⁺,Li+,Fluoride salt,Other,–,LiSbF₆,–,,,–,,,–,Other / Novel,Other
-Li⁺,Li+,Fluoride complex,Other,–,LiK₂AlF₆,–,,,–,,,–,Other / Novel,Other
+Li⁺,Li+,Fluoride salt,Halide,–,LiPF₆,–,,,–,,,–,Other / Novel,Halide
+Li⁺,Li+,Fluoride salt,Halide,–,LiAsF₆,–,,,–,,,–,Other / Novel,Halide
+Li⁺,Li+,Fluoride salt,Halide,–,LiSbF₆,–,,,–,,,–,Other / Novel,Halide
+Li⁺,Li+,Fluoride complex,Halide,–,LiK₂AlF₆,–,,,–,,,–,Other / Novel,Halide
 Li⁺,Li+,Chloride,Halide,–,Li₁₀Mg₇Cl₂₄,–,,,–,,,–,Halide,Halide
 Li⁺,Li+,Chloride,Halide,–,LiCs₂LuCl₆,–,,,–,,,–,Halide,Halide
 Li⁺,Li+,Chloride,Halide,–,LiCs₂YCl₆,–,,,–,,,–,Halide,Halide
@@ -41,7 +41,7 @@ Li⁺,Li+,Chloride,Halide,–,LiCsCl₂,–,,,–,,,–,Halide,Halide
 Li⁺,Li+,Bromide,Halide,–,LiRbBr₂,–,,,–,,,–,Halide,Halide
 Li⁺,Li+,Bromide,Halide,–,Li₃ErBr₆,–,,,–,,,–,Halide,Halide
 Li⁺,Li+,Nitride-boride,Other,–,LiSr₄(BN₂)₃,–,,,–,,,–,Nitride,Other
-K⁺,K+,1D Nanopore (CNT),Anti-perovskite,COO⁻ termination (3–6 groups),"CNTPs (Carbon Nanotube Porins, 0.8 nm, 10 nm length)",D ≈ 7.34e-13 m²/s; μ ≈ 7.85e-8 m²/Vs @25 °C,7.34e-13,25.0,–,,,–,Antiperovskite,Anti-perovskite
+K⁺,K+,1D Nanopore (CNT),Other,COO⁻ termination (3–6 groups),"CNTPs (Carbon Nanotube Porins, 0.8 nm, 10 nm length)",D ≈ 7.34e-13 m²/s; μ ≈ 7.85e-8 m²/Vs @25 °C,7.34e-13,25.0,–,,,–,Antiperovskite,Other
 Li⁺,Li+,"Thio-phosphate (LGPS-type, tetragonal/orthorhombic)",Other,–,Li₁₀GeP₂S₁₂ (LGPS),"1.2e-2 / 25 °C (experimental, cited)",0.012,25.0,0.17–0.18 (FPMD),0.17,0.17; -0.18,–,Other / Novel,Other
 Li⁺,Li+,"Argyrodite (cubic, F4̅3m)",Argyrodite,Cl-doping,Li₆PS₅Cl (annealed 200 °C),2.87e-5 / 25 °C,2.87e-05,25.0,~0.40,0.4,0.4,–,Argyrodite,Argyrodite
 Li⁺,Li+,Argyrodite,Argyrodite,Cl-doping,Li₆PS₅Cl (annealed 300 °C),2.96e-4 / 25 °C,0.000296,25.0,~0.40,0.4,0.4,–,Argyrodite,Argyrodite
@@ -90,7 +90,7 @@ Li⁺,Li+,Thio-LISICON,Other,Aliovalent P⁵⁺ substitution,Li₉P₃S₁₂,4e
 Li⁺,Li+,Thio-LISICON,Other,Aliovalent Al³⁺ substitution,Li₁₁AlP₂S₁₂,3.3e-2 / 25,0.033,,0.18,0.18,0.18,–,LISICON,Other
 Li⁺,Li+,Oxide-LISICON,Other,O substitution,Li₁₀GeP₂O₁₂,3e-5 / 25,3e-05,,0.36,0.36,0.36,–,LISICON,Other
 Li⁺,Li+,Selenide-LISICON,Other,Se substitution,Li₁₀GeP₂Se₁₂,2.4e-2 / 25,0.024,,0.19,0.19,0.19,–,LISICON,Other
-Effective ionic carriers (colloidal),Effectiveioniccarriers,fcc colloidal lattice,Other,–,"Binary charged colloidal crystal (RL=5 nm, qL=−80e; RS=1 nm, qS=+10e)",Ionic → superionic transition at Tc ≈ 320 K; field-induced at E ≈ 1 mV/nm,320.0,,–,,,–,Other / Novel,Other
+Effective ionic carriers (colloidal),Effectiveioniccarriers(colloidal),fcc colloidal lattice,Other,–,"Binary charged colloidal crystal (RL=5 nm, qL=−80e; RS=1 nm, qS=+10e)",Ionic → superionic transition at Tc ≈ 320 K; field-induced at E ≈ 1 mV/nm,320.0,,–,,,–,Other / Novel,Other
 Rb⁺,Rb+,Amorphous (borate glass),Amorphous,–,(Rb₂O)₁₀(B₂O₃)₉₀,σ(T) from impedance; Tg ≈ 550 K,550.0,,–,,,–,Sulfide,Amorphous
 Rb⁺,Rb+,Amorphous (borate glass),Amorphous,–,(Rb₂O)₁₅(B₂O₃)₈₅,Conductivity from Arrhenius fits,,,–,,,–,Sulfide,Amorphous
 Rb⁺,Rb+,Amorphous (borate glass),Amorphous,–,(Rb₂O)₂₀(B₂O₃)₈₀,Conductivity from σdc(T),,,–,,,–,Sulfide,Amorphous
@@ -117,9 +117,9 @@ Li⁺,Li+,Phosphate,Other,V substitution,Li₅SiP₃ (doped V),5.0e−4 / 25,5.0
 Li⁺,Li+,Silicide,Other,Hf substitution,Li₁₄MgSi₄ (doped Hf),2.7e−3 / 25,2.7,,0.308,0.308,0.308,–,Other / Novel,Other
 Li⁺,Li+,Silicide,Other,Hf substitution,Li₂MgSi (doped Hf),5.0e−4 / 25,5.0,,0.351,0.351,0.351,–,Other / Novel,Other
 Li⁺,Li+,Novel orthorhombic (slab structure of alternating GeS₄ and PS₄ tetrahedra),Other,Vacancy introduction via aliovalent substitution in Li₂−ₓGe₁−ₓPₓS₃ (x=0.25),Li₂₁Ge₈P₃S₃₄,9.5e−4–1.0e−3 / 30,9.5,,0.20,0.2,0.2,–,Other / Novel,Other
-Li⁺,Li+,"Halide (Oxychloride, amorphous-rich)",Halide,Cu²⁺ substitution + O²⁻ incorporation (CASE strategy),Li₂.₁Zr₀.₉₅Cu₀.₀₅Cl₄.₄O₀.₈,2.05e-3 / 25,0.00205,,0.287,0.287,0.287,–,Halide,Halide
+Li⁺,Li+,"Halide (Oxychloride, amorphous-rich)",Halide,Cu²⁺ substitution + O²⁻ incorporation (CASE strategy),Li₂.₁Zr₀.₉₅Cu₀.₀₅Cl₄.₄O₀.₈,2.05e-3 / 25,0.00205,,0.287,0.287,0.287,–,Halide,Amorphous
 Li⁺,Li+,Argyrodite,Argyrodite,"Multi-cation substitution (Ge, Si, Sb)",Li₇₋ₓ(GeSi)(₁₋ₓ)/₂SbₓS₅I (x≈1/3),1.27e-2 / 25 (cold-pressed); 3.22e-2 / 25 (hot-pressed),0.0127,,0.17,0.17,0.17,–,Argyrodite,Argyrodite
-Li⁺,Li+,"Sulfide (Spinel-type, Fd-3m)",Other,–,Li₃.₆In₇S₁₁.₈Cl,1.1e-3 / 25 (4.2e-3 after moisture),0.0011,,0.26,0.26,0.26,–,Halide,Other
+Li⁺,Li+,"Sulfide (Spinel-type, Fd-3m)",Spinel,–,Li₃.₆In₇S₁₁.₈Cl,1.1e-3 / 25 (4.2e-3 after moisture),0.0011,,0.26,0.26,0.26,–,Halide,Spinel
 Li⁺,Li+,Halide,Halide,Al³⁺ substitution for Zr⁴⁺,Li₂.₃₇₅Al₀.₃₇₅Zr₀.₆₂₅Cl₆,0.87 / 30,0.87,,0.34,0.34,0.34,–,Halide,Halide
 Li⁺,Li+,Halide,Halide,"Al³⁺ substitution, Li-deficient",Li₁.₆₂₅Al₀.₃₇₅Zr₀.₆₂₅Cl₅.₂₅,1.10 / 30 (exp.); 5.73 / 30 (AIMD),1.1,,0.30 (exp.); 0.27 (AIMD),0.3,0.3; 0.27,–,Halide,Halide
 Li⁺,Li+,Halide,Halide,Fe³⁺ substitution for Zr⁴⁺,Li₂.₂₅Fe₀.₂₅Zr₀.₇₅Cl₆,0.98 / 30,0.98,,–,,,–,Halide,Halide
@@ -141,7 +141,7 @@ Li⁺,Li+,Fluoro-chloride (LiMXCl₄),Halide,–,LiSnFCl₄,>1e-2 / 25 (AIMD),0.
 Li⁺,Li+,Surface-chemisorbed oxide nanosheets,Other,–,EG–TiO₂ + LiTFSI (surface conductor),2.7e-4 / 25 (compressed aerogel); 5.3e-5 / 25 (as-made),0.00027,,0.21,0.21,0.21,–,Other / Novel,Other
 Li⁺,Li+,Garnet,Other,–,"LixA₃B₂O₁₂ (0 ≤ x ≤ 9; e.g., Li₇La₃Zr₂O₁₂)",Trend: Ce matches σexp; optimum at x = 6–7,6.0,,0.06–0.12 (simulation input),0.06,0.06; -0.12,–,Garnet,Other
 Li⁺,Li+,Perovskite,Other,–,LixLa₂/₃–x/3TiO₃ (0 ≤ x ≤ 0.5),Trend: Ce peaks at x ≈ 0.34; σexp correlation R² = 0.812,0.34,,0.12 (simulation input),0.12,0.12,–,Perovskite,Other
-Li⁺,Li+,Over-stoichiometric Rocksalt / Spinel-like domains,Other,–,Li₁₇In₉SnO₂₄ (o-LISO),4.09e-4 / 25 (air-quenched); up to 1.45e-3 / 25 (post-annealed),0.000409,,0.245–0.258,0.245,0.245; -0.258,–,Halide,Other
+Li⁺,Li+,Over-stoichiometric Rocksalt / Spinel-like domains,Spinel,–,Li₁₇In₉SnO₂₄ (o-LISO),4.09e-4 / 25 (air-quenched); up to 1.45e-3 / 25 (post-annealed),0.000409,,0.245–0.258,0.245,0.245; -0.258,–,Halide,Spinel
 Na⁺,Na+,NASICON,NASICON,–,Na₃Zr₂Si₂PO₁₂ (NZSP),3.8e-4 / 30,0.00038,,0.3382,0.3382,0.3382,–,NASICON,NASICON
 Na⁺,Na+,NASICON,NASICON,Zn²⁺ doping,Na₃.₁₀Zr₁.₉₅Zn₀.₀₅Si₂PO₁₂,–,,,–,,,–,NASICON,NASICON
 Na⁺,Na+,NASICON,NASICON,Zn²⁺ doping,Na₃.₂₀Zr₁.₉₀Zn₀.₁₀Si₂PO₁₂,1.58e-3 / 30,0.00158,,0.2721,0.2721,0.2721,"1800 h (Na|Na cell, 0 °C)",NASICON,NASICON
@@ -166,8 +166,8 @@ Na⁺,Na+,Closo-carbaborate,Other,Mixed anion,Na[(CB8H9)0.04(CB9H10)0.96] (s6),�
 Na⁺,Na+,Closo-carbaborate,Other,–,NaCB9H10 (reference),~1e-2 / 40,0.01,,–,,,–,Closo-carbaborate,Other
 Na⁺,Na+,Sulfide SIC,Other,–,"Na₆PS₅Cl (NPSC1, P2₁3)",6.7e-4 / 25,0.00067,,0.32,0.32,0.32,–,Sulfide,Other
 Na⁺,Na+,Sulfide SIC,Other,–,"Na₅PS₄Cl₂ (NPSC2, Amm2)",2.5e-4 / 25,0.00025,,0.35,0.35,0.35,–,Sulfide,Other
-Na⁺,Na+,NAP framework (orthorhombic HT / monoclinic LT),Anti-perovskite,–,Na₄TiP₂O₉ (NTP),2.6e-2 / 300,0.026,,"0.836 (LT), 0.449 (HT)",0.449,0.836; 0.449,–,Antiperovskite,Anti-perovskite
-Na⁺,Na+,NAP framework,Anti-perovskite,–,Na₄SnP₂O₉ (NSP),1e-7 / RT; higher at 650–800,1e-07,,"0.916 (RT–650 °C), 0.867 (650–800 °C), 0.389 (>800 °C)",0.389,0.916; 0.867; 650; 0.389,–,Antiperovskite,Anti-perovskite
+Na⁺,Na+,NAP framework (orthorhombic HT / monoclinic LT),Other,–,Na₄TiP₂O₉ (NTP),2.6e-2 / 300,0.026,,"0.836 (LT), 0.449 (HT)",0.449,0.836; 0.449,–,Antiperovskite,Other
+Na⁺,Na+,NAP framework,Other,–,Na₄SnP₂O₉ (NSP),1e-7 / RT; higher at 650–800,1e-07,,"0.916 (RT–650 °C), 0.867 (650–800 °C), 0.389 (>800 °C)",0.389,0.916; 0.867; 650; 0.389,–,Antiperovskite,Other
 Na⁺,Na+,NASICON,NASICON,–,Na₃V₂(PO₄)₃ (NVP),–,,,–,,,93.9% retention after 300 cycles (2 C),NASICON,NASICON
 Na⁺,Na+,– (3D superionic skeleton),Other,–,Na₃P (in CSA),Diffusion coeff. ~1.33e-7 cm²/s (vs 2.54e-8 for Na),1.33e-07,-7.0,0.192,0.192,0.192,>7000 h (0.1 mA cm⁻²); >4000 h (0.3 mA cm⁻²),Other / Novel,Other
 Na⁺,Na+,"Bimetal sulfide (C2/m, vacancy-rich)",Other,–,Cu₃.₂₁Bi₄.₇₉S₉,4.99e-2 / RT (electronic conductivity),0.0499,,–,,,325.5 mAh g⁻¹ after 4000 cycles @ 45C,Sulfide,Other
@@ -234,7 +234,7 @@ Li+,Li+,Anti-perovskite,Anti-perovskite,Li/Cl depletion (δ = 0.05–0.20); unin
 Li+,Li+,"Argyrodite (cubic, F-43m)",Argyrodite,Cl-rich substitution (anion disorder),Li5.5PS4.5Cl1.5 (LPSCl1.5),7.8e-3 / 25; ~1.0e-2,0.0078,,0.23,0.23,0.23,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,Cl substitution tuning (0–0.7),Li6-aPS5-aCl1+a (0 ≤ a ≤ 0.7) series,Up to 7.8e-3 / 25 (best at a=0.5),0.0078,,0.23–0.35,0.23,0.23; -0.35,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite (BH4-substituted),Argyrodite,–,Li3PS4·2.5LiBH4 (x=0),1.06e-2 / 25,0.0106,,–,,,–,Argyrodite,Argyrodite
-Li+,Li+,Argyrodite (BH4/Cl mixed),Halide,Co-substitution (0.5Cl),Li3PS4·2LiBH4·0.5LiCl (x=0.5),1.48e-2 / 25,0.0148,,0.30 (28.7 kJ/mol),0.297456,0.297456,–,Halide,Halide
+Li+,Li+,Argyrodite (BH4/Cl mixed),Argyrodite,Co-substitution (0.5Cl),Li3PS4·2LiBH4·0.5LiCl (x=0.5),1.48e-2 / 25,0.0148,,0.30 (28.7 kJ/mol),0.297456,0.297456,–,Halide,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,Co-substitution,Li3PS4·1.9LiBH4·0.6LiCl (x=0.6),1.49e-2 / 25,0.0149,,–,,,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,Co-substitution,Li3PS4·1.8LiBH4·0.7LiCl (x=0.7),1.51e-2 / 25,0.0151,,–,,,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,Co-substitution,Li3PS4·1.5LiBH4·1LiCl (x=1),9.2e-3 / 25,0.0092,,0.31,0.31,0.31,–,Argyrodite,Argyrodite
@@ -249,17 +249,17 @@ Li+,Li+,Sulfide (O-doped),Other,O substitution (0.5),Li9.9SnP2S11.4Br0.1O0.5,4.2
 Li+,Li+,Sulfide (O-doped),Other,O substitution (1.0),Li9.9SnP2S10.9Br0.1O1.0,4.08e-3 / 25,0.00408,,0.29,0.29,0.29,–,Sulfide,Other
 Li+,Li+,Sulfide (O-doped),Other,O substitution (1.5),Li9.9SnP2S10.4Br0.1O1.5,2.70e-3 / 25,0.0027,,–,,,–,Sulfide,Other
 Li+,Li+,"Sulfide (O-doped, high O)",Other,O substitution (2.0),Li9.9SnP2S9.9Br0.1O2.0,1.78e-3 / 25,0.00178,,–,,,–,Sulfide,Other
-Li+,Li+,Argyrodite (halide-excess),Halide,–,"Li5.4PS4.4Cl0.6Br1.0 (LiPSClBr, pristine)",1.08e-2 / 25,0.0108,,–,,,–,Halide,Halide
+Li+,Li+,Argyrodite (halide-excess),Argyrodite,–,"Li5.4PS4.4Cl0.6Br1.0 (LiPSClBr, pristine)",1.08e-2 / 25,0.0108,,–,,,–,Halide,Argyrodite
 Li+,Li+,"Argyrodite (core–shell, oxidized shell)",Argyrodite,"Surface oxidation via KMnO4 (200 °C, 1 h)",O-LiPSClBr (surface-oxidized),"8.15e-3 / 25 (6.85e-3 after 24h air, 84% retention)",0.00815,,–,,,–,Argyrodite,Argyrodite
-Li+,Li+,Argyrodite (halide-excess),Halide,Reduced particle size,"LiPSClBr_s (small particle, D50=3.6 µm)","5.29e-3 / 25 (1.31e-3 after 24h air, 24.8% retention)",0.00529,,–,,,–,Halide,Halide
+Li+,Li+,Argyrodite (halide-excess),Argyrodite,Reduced particle size,"LiPSClBr_s (small particle, D50=3.6 µm)","5.29e-3 / 25 (1.31e-3 after 24h air, 24.8% retention)",0.00529,,–,,,–,Halide,Argyrodite
 Li+,Li+,"Argyrodite (core–shell, oxidized shell, small particle)",Argyrodite,Surface oxidation,"O-LiPSClBr_s (oxidized, small particle)","2.49e-3 / 25 (1.63e-3 after 24h air, 65.5% retention)",0.00249,,–,,,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,–,Li6AsS5I (pristine),3.0e-6 / 303 K,3e-06,,–,,,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,Ge substitution (x=0.25),Li6.25Ge0.25As0.75S5I,1.2e-3 / 303 K,0.0012,,~0.18,0.18,0.18,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,Ge substitution (x=0.333),Li6.333Ge0.333As0.667S5I,3.2e-3 / 303 K,0.0032,,~0.15,0.15,0.15,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,Sn substitution (x=0.333),Li6.333Sn0.333As0.667S5I,1.4e-4 / 303 K,0.00014,,–,,,–,Argyrodite,Argyrodite
-Li+,Li+,Argyrodite (thioarsenate),Other,–,Li6AsS5Br,2.0e-3 / 25,0.002,,0.184,0.184,0.184,–,LISICON,Other
-Li+,Li+,Argyrodite (thioarsenate),Other,Br substitution (x=0.3),Li5.7AsS4.7Br1.3,~1.0e-2 / 25,0.01,,0.214,0.214,0.214,–,LISICON,Other
-Li+,Li+,Argyrodite (thioarsenate),Other,Br substitution (x=0.5),Li5.5AsS4.5Br1.5,1.54e-2 / 25,0.0154,,0.257,0.257,0.257,–,LISICON,Other
+Li+,Li+,Argyrodite (thioarsenate),Argyrodite,–,Li6AsS5Br,2.0e-3 / 25,0.002,,0.184,0.184,0.184,–,LISICON,Argyrodite
+Li+,Li+,Argyrodite (thioarsenate),Argyrodite,Br substitution (x=0.3),Li5.7AsS4.7Br1.3,~1.0e-2 / 25,0.01,,0.214,0.214,0.214,–,LISICON,Argyrodite
+Li+,Li+,Argyrodite (thioarsenate),Argyrodite,Br substitution (x=0.5),Li5.5AsS4.5Br1.5,1.54e-2 / 25,0.0154,,0.257,0.257,0.257,–,LISICON,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,–,Li6PS5Cl,~1.0e-3 / 25,0.001,,0.38,0.38,0.38,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,Mg + Cl codoping,Li5.375Mg0.125PS4.625Cl1.375,~1.3e-3 / 25,0.0013,,0.38,0.38,0.38,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,Mg + Cl codoping,Li5.375Mg0.0625PS4.5Cl1.5,~1.5e-3 / 25,0.0015,,0.36,0.36,0.36,–,Argyrodite,Argyrodite
@@ -270,19 +270,19 @@ Li+,Li+,Argyrodite,Argyrodite,–,Li6PS5Br,1.40e-3 / 25,0.0014,,–,,,–,Argyro
 Li+,Li+,Argyrodite,Argyrodite,–,Li6PS5I,9.6e-4 / 25,0.00096,,–,,,–,Argyrodite,Argyrodite
 Li+,Li+,Orthorhombic,Other,–,β-Li3PS4,3.4e-4 / 25,0.00034,,–,,,–,Other / Novel,Other
 Li+,Li+,Orthorhombic,Other,–,Li3SbS4 (glass-ceramic),2.5e-4 / 25,0.00025,,–,,,–,Other / Novel,Other
-Li+,Li+,Amorphous,Other,–,Li4SiS4 (glass),7.7e-3 / 25,0.0077,,–,,,–,Other / Novel,Other
+Li+,Li+,Amorphous,Amorphous,–,Li4SiS4 (glass),7.7e-3 / 25,0.0077,,–,,,–,Other / Novel,Amorphous
 Li+,Li+,Argyrodite,Argyrodite,–,Li6PS5Cl (This work-1),3.11e-3 / 25,0.00311,,0.22,0.22,0.22,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,–,"Li6PS5Cl (This work-2, scale-up)",5.71e-3 / 25,0.00571,,0.22,0.22,0.22,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,–,Li6PS5Br,1.40e-3 / 25,0.0014,,–,,,–,Argyrodite,Argyrodite
 Li+,Li+,Argyrodite,Argyrodite,–,Li6PS5I,9.6e-4 / 25,0.00096,,–,,,–,Argyrodite,Argyrodite
 Li+,Li+,Orthorhombic,Other,–,β-Li3PS4,3.4e-4 / 25,0.00034,,–,,,–,Other / Novel,Other
 Li+,Li+,Orthorhombic,Other,–,Li3SbS4 (glass-ceramic),2.5e-4 / 25,0.00025,,–,,,–,Other / Novel,Other
-Li+,Li+,Amorphous,Other,–,Li4SiS4 (glass),7.7e-3 / 25,0.0077,,–,,,–,Other / Novel,Other
-Cu+ / In3+ / Sn4+ (mixed cation),Cu+,Spinel (cation-disordered),Other,–,CuInSnS4,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Other
-Cu+ / In3+ / Sn4+ (mixed cation),In3+,Spinel (cation-disordered),Other,–,CuInSnS4,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Other
-Cu+ / In3+ / Sn4+ (mixed cation),Sn4+,Spinel (cation-disordered),Other,–,CuInSnS4,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Other
-Cu+ / In3+ (mixed cation),Cu+,Defect spinel,Other,–,CuIn11S17,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Other
-Cu+ / In3+ (mixed cation),In3+,Defect spinel,Other,–,CuIn11S17,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Other
+Li+,Li+,Amorphous,Amorphous,–,Li4SiS4 (glass),7.7e-3 / 25,0.0077,,–,,,–,Other / Novel,Amorphous
+Cu+ / In3+ / Sn4+ (mixed cation),Cu+,Spinel (cation-disordered),Spinel,–,CuInSnS4,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Spinel
+Cu+ / In3+ / Sn4+ (mixed cation),In3+,Spinel (cation-disordered),Spinel,–,CuInSnS4,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Spinel
+Cu+ / In3+ / Sn4+ (mixed cation),Sn4+(mixedcation),Spinel (cation-disordered),Spinel,–,CuInSnS4,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Spinel
+Cu+ / In3+ (mixed cation),Cu+,Defect spinel,Spinel,–,CuIn11S17,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Spinel
+Cu+ / In3+ (mixed cation),In3+(mixedcation),Defect spinel,Spinel,–,CuIn11S17,– (reported as 'mixed superionic conduction'),,,–,,,–,Halide,Spinel
 Li+,Li+,Inverse spinel halide (Fd3̅m),Halide,–,"Li2MgCl4 (LMC2, pristine)",9.6e-8 / 25,9.6e-08,,0.539,0.539,0.539,–,Halide,Halide
 Li+,Li+,Inverse spinel halide (Fd3̅m),Halide,Zr4+ doping → cation disorder at 16c,Li1.25Zr0.375Mg0.625Cl4 (LZMC1.25),1.4e-5 / 25,1.4e-05,,0.476,0.476,0.476,–,Halide,Halide
 Li+,Li+,Inverse spinel halide,Halide,Zn2+ doping → Li vacancies,Li1.6Zn0.2MgCl4,1.2e-5 / 25,1.2e-05,,–,,,–,Halide,Halide
@@ -309,98 +309,98 @@ Li+,Li+,Monoclinic halide,Halide,–,LiAlCl4,3.85 / 25,3.85,,0.27,0.27,0.27,–,
 Li+,Li+,Monoclinic halide,Halide,–,LiYCl4,–,,,–,,,–,Halide,Halide
 Li+,Li+,Monoclinic halide,Halide,–,LiSmCl4,"– (stable, wide 0.69–4.36 V window)",0.69,,–,,,–,Halide,Halide
 Li+,Li+,"Monoclinic (C2/m), defect rock-salt type in superionic phase",Other,–,Li3InBr6,4.0e-3 / 330 K,0.004,,0.31–0.23,0.31,0.31; -0.23,–,Halide,Other
-Li+,Li+,Defect spinel (Fd3̅m) above 315 K,Other,–,LiInBr4,Superionic phase above 315 K (σ rises steeply; no exact RT value given),315.0,,–,,,–,Halide,Other
+Li+,Li+,Defect spinel (Fd3̅m) above 315 K,Spinel,–,LiInBr4,Superionic phase above 315 K (σ rises steeply; no exact RT value given),315.0,,–,,,–,Halide,Spinel
 Li+,Li+,Over-stoichiometric rocksalt (o-DRX),Other,Li over-stoichiometry,Li17In9SnO24 (o-LISO),3.38e-4 / 25,0.000338,,0.255,0.255,0.255,–,Halide,Other
 Li+,Li+,Disordered rocksalt,Other,Li deficiency,ns-LISO (near-stoichiometric DRX),3.32e-8 / 25,3.32e-08,,0.552,0.552,0.552,–,Halide,Other
-Li+,Li+,Spinel,Other,–,LiTi2S4,1.03e-2 / 25,0.0103,,0.157,0.157,0.157,–,Halide,Other
-Li+,Li+,Spinel,Other,–,LiTb2S4,1.28e-2 / 25,0.0128,,0.151,0.151,0.151,–,Halide,Other
-Li+,Li+,Spinel,Other,Fe doping at Mn site,LiMn1.5Fe0.5S4,2.05e-2 / 25,0.0205,,0.135,0.135,0.135,–,Halide,Other
-Li+,Li+,Spinel,Other,Mo doping at Mn site,LiMn1.5Mo0.5O4,1.38e-2 / 25,0.0138,,0.146,0.146,0.146,–,Halide,Other
-Li+,Li+,Spinel,Other,V doping at Mn site,LiMn1.5V0.5S4,1.11e-2 / 25,0.0111,,0.153,0.153,0.153,–,Halide,Other
-Li+,Li+,Spinel,Other,Tb doping at Mn site,LiMn1.5Tb0.5S4,1.43e-2 / 25,0.0143,,0.149,0.149,0.149,–,Halide,Other
-Li+,Li+,Spinel,Other,Ru doping at Mn site,LiMn1.5Ru0.5S4,1.65e-2 / 25,0.0165,,0.142,0.142,0.142,–,Halide,Other
-Li+,Li+,Spinel,Other,Ta doping at Mn site,LiMn1.5Ta0.5O4,1.21e-2 / 25,0.0121,,0.154,0.154,0.154,–,Halide,Other
-Mg2+,Mg2+,Spinel,Other,–,MgYb2Se4,1.4e-4 / 25,0.00014,,0.364,0.364,0.364,–,Halide,Other
-Mg2+,Mg2+,Spinel,Other,"Multicationic substitution (Sc, Y, Er, Tm, Yb)",MgSc0.4Y0.4Er0.4Tm0.4Yb0.4Se4,2.4–5.5e-5 / 25,2.4,,0.38–0.40,0.38,0.38; -0.4,–,Halide,Other
-Mg2+,Mg2+,Spinel,Other,Anion substitution (Se → Br),Mg0.75Sc2Se3.5Br0.5,2.4–5.5e-5 / 25,2.4,,0.38–0.40,0.38,0.38; -0.4,–,Halide,Other
+Li+,Li+,Spinel,Spinel,–,LiTi2S4,1.03e-2 / 25,0.0103,,0.157,0.157,0.157,–,Halide,Spinel
+Li+,Li+,Spinel,Spinel,–,LiTb2S4,1.28e-2 / 25,0.0128,,0.151,0.151,0.151,–,Halide,Spinel
+Li+,Li+,Spinel,Spinel,Fe doping at Mn site,LiMn1.5Fe0.5S4,2.05e-2 / 25,0.0205,,0.135,0.135,0.135,–,Halide,Spinel
+Li+,Li+,Spinel,Spinel,Mo doping at Mn site,LiMn1.5Mo0.5O4,1.38e-2 / 25,0.0138,,0.146,0.146,0.146,–,Halide,Spinel
+Li+,Li+,Spinel,Spinel,V doping at Mn site,LiMn1.5V0.5S4,1.11e-2 / 25,0.0111,,0.153,0.153,0.153,–,Halide,Spinel
+Li+,Li+,Spinel,Spinel,Tb doping at Mn site,LiMn1.5Tb0.5S4,1.43e-2 / 25,0.0143,,0.149,0.149,0.149,–,Halide,Spinel
+Li+,Li+,Spinel,Spinel,Ru doping at Mn site,LiMn1.5Ru0.5S4,1.65e-2 / 25,0.0165,,0.142,0.142,0.142,–,Halide,Spinel
+Li+,Li+,Spinel,Spinel,Ta doping at Mn site,LiMn1.5Ta0.5O4,1.21e-2 / 25,0.0121,,0.154,0.154,0.154,–,Halide,Spinel
+Mg2+,Mg2+,Spinel,Spinel,–,MgYb2Se4,1.4e-4 / 25,0.00014,,0.364,0.364,0.364,–,Halide,Spinel
+Mg2+,Mg2+,Spinel,Spinel,"Multicationic substitution (Sc, Y, Er, Tm, Yb)",MgSc0.4Y0.4Er0.4Tm0.4Yb0.4Se4,2.4–5.5e-5 / 25,2.4,,0.38–0.40,0.38,0.38; -0.4,–,Halide,Spinel
+Mg2+,Mg2+,Spinel,Spinel,Anion substitution (Se → Br),Mg0.75Sc2Se3.5Br0.5,2.4–5.5e-5 / 25,2.4,,0.38–0.40,0.38,0.38; -0.4,–,Halide,Spinel
 Na+,Na+,Tetragonal (glass–ceramic),Amorphous,–,"Na3PS4 (x=0, glass–ceramic)",2.0e-4 / 25,0.0002,,0.41,0.41,0.41,–,Sulfide,Amorphous
 Na+,Na+,Tetragonal (glass–ceramic),Amorphous,Ca3N2 doping (5 mol%),"95Na3PS4–5Ca3N2 (x=5, glass–ceramic)",5.0e-4 / 25,0.0005,,0.43,0.43,0.43,–,Sulfide,Amorphous
 Na+,Na+,Tetragonal (glass–ceramic),Amorphous,Ca3N2 doping (8 mol%),"92Na3PS4–8Ca3N2 (x=8, glass–ceramic)",8.14e-4 / 25,0.000814,,0.33,0.33,0.33,–,Sulfide,Amorphous
 Na+,Na+,Tetragonal (glass–ceramic),Amorphous,Ca3N2 doping (10 mol%),"90Na3PS4–10Ca3N2 (x=10, glass–ceramic)",6.0e-4 / 25,0.0006,,0.35,0.35,0.35,–,Sulfide,Amorphous
-Li+,Li+,"Trigonal (hcp, ~46% amorphous)",Other,–,Li2ZrCl6,1.0e-4 / 25,0.0001,,0.118,0.118,0.118,–,Other / Novel,Other
-Li+,Li+,Oxyhalide (~69% amorphous),Halide,Partial Cl → O substitution (33.3%),Li2ZrCl4O,2.0e-4 / 25,0.0002,,–,,,–,Halide,Halide
-Li+,Li+,Highly amorphous oxyhalide (~89.5%),Halide,Partial Cl → O substitution (42.9%),Li3ZrCl4O1.5,1.35e-3 / 25,0.00135,,0.294,0.294,0.294,–,Halide,Halide
-Li+,Li+,Amorphous oxyhalide,Halide,Higher O substitution,Li4ZrCl4O2,Lower than Li3ZrCl4O1.5,3.0,,–,,,–,Halide,Halide
-Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 7),7.17e-3 / 25,0.00717,,–,,,–,Halide,Halide
-Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 8),8.30e-3 / 25,0.0083,,–,,,–,Halide,Halide
-Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 5),6.94e-3 / 25,0.00694,,–,,,–,Halide,Halide
-Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 6),5.63e-3 / 25,0.00563,,–,,,–,Halide,Halide
-Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 4),3.54e-3 / 25,0.00354,,–,,,–,Halide,Halide
-Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 9),6.3e-5 / 25,6.3e-05,,–,,,–,Halide,Halide
-Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 1),1.9e-4 / 25,0.00019,,–,,,–,Halide,Halide
-Li+,Li+,Amorphous LPS,Other,–,r-PS4 (amorphous),1.29e-2 (ρ=1.8 g/cm³); 3.81e-3 (ρ=2.0 g/cm³),0.0129,,0.236–0.265,0.236,0.236; -0.265,–,Other / Novel,Other
-Li+,Li+,Amorphous LPS,Other,–,1P2S7 (amorphous),6.95e-3 (ρ=1.8 g/cm³); 4.32e-4 (ρ=2.0 g/cm³),0.00695,,0.260–0.353,0.26,0.26; -0.353,–,Other / Novel,Other
-Li+,Li+,Amorphous LPS,Other,–,1P2S6 (amorphous),4.04e-2 (ρ=1.8 g/cm³); 2.36e-3 (ρ=2.0 g/cm³),0.0404,,0.185–0.289,0.185,0.185; -0.289,–,Other / Novel,Other
-Li+,Li+,Amorphous LPS,Other,–,2P2S7 (amorphous),2.68e-3; 2.64e-3,0.00268,,0.304–0.286,0.304,0.304; -0.286,–,Other / Novel,Other
-Li+,Li+,Amorphous LPS,Other,–,1P2S7–1S,4.24e-3; 1.11e-4,0.00424,,0.287–0.411,0.287,0.287; -0.411,–,Other / Novel,Other
-Li+,Li+,Amorphous LPS,Other,–,1P2S6–2S,1.77e-2; 7.72e-4,0.0177,,0.223–0.327,0.223,0.223; -0.327,–,Other / Novel,Other
-Li+,Li+,Amorphous LPS,Other,–,2P2S7–2S,9.91e-3; 5.68e-3,0.00991,,0.249–0.254,0.249,0.249; -0.254,–,Other / Novel,Other
-Li+,Li+,Amorphous LPS,Other,–,2P2S6–4S,1.14e-3; 1.01e-3,0.00114,,0.343–0.321,0.343,0.343; -0.321,–,Other / Novel,Other
+Li+,Li+,"Trigonal (hcp, ~46% amorphous)",Amorphous,–,Li2ZrCl6,1.0e-4 / 25,0.0001,,0.118,0.118,0.118,–,Other / Novel,Amorphous
+Li+,Li+,Oxyhalide (~69% amorphous),Halide,Partial Cl → O substitution (33.3%),Li2ZrCl4O,2.0e-4 / 25,0.0002,,–,,,–,Halide,Amorphous
+Li+,Li+,Highly amorphous oxyhalide (~89.5%),Halide,Partial Cl → O substitution (42.9%),Li3ZrCl4O1.5,1.35e-3 / 25,0.00135,,0.294,0.294,0.294,–,Halide,Amorphous
+Li+,Li+,Amorphous oxyhalide,Halide,Higher O substitution,Li4ZrCl4O2,Lower than Li3ZrCl4O1.5,3.0,,–,,,–,Halide,Amorphous
+Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 7),7.17e-3 / 25,0.00717,,–,,,–,Halide,Amorphous
+Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 8),8.30e-3 / 25,0.0083,,–,,,–,Halide,Amorphous
+Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 5),6.94e-3 / 25,0.00694,,–,,,–,Halide,Amorphous
+Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 6),5.63e-3 / 25,0.00563,,–,,,–,Halide,Amorphous
+Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 4),3.54e-3 / 25,0.00354,,–,,,–,Halide,Amorphous
+Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 9),6.3e-5 / 25,6.3e-05,,–,,,–,Halide,Amorphous
+Li+,Li+,Amorphous oxychloride,Halide,–,1.6Li2O–TaCl5 (Sample 1),1.9e-4 / 25,0.00019,,–,,,–,Halide,Amorphous
+Li+,Li+,Amorphous LPS,Amorphous,–,r-PS4 (amorphous),1.29e-2 (ρ=1.8 g/cm³); 3.81e-3 (ρ=2.0 g/cm³),0.0129,,0.236–0.265,0.236,0.236; -0.265,–,Other / Novel,Amorphous
+Li+,Li+,Amorphous LPS,Amorphous,–,1P2S7 (amorphous),6.95e-3 (ρ=1.8 g/cm³); 4.32e-4 (ρ=2.0 g/cm³),0.00695,,0.260–0.353,0.26,0.26; -0.353,–,Other / Novel,Amorphous
+Li+,Li+,Amorphous LPS,Amorphous,–,1P2S6 (amorphous),4.04e-2 (ρ=1.8 g/cm³); 2.36e-3 (ρ=2.0 g/cm³),0.0404,,0.185–0.289,0.185,0.185; -0.289,–,Other / Novel,Amorphous
+Li+,Li+,Amorphous LPS,Amorphous,–,2P2S7 (amorphous),2.68e-3; 2.64e-3,0.00268,,0.304–0.286,0.304,0.304; -0.286,–,Other / Novel,Amorphous
+Li+,Li+,Amorphous LPS,Amorphous,–,1P2S7–1S,4.24e-3; 1.11e-4,0.00424,,0.287–0.411,0.287,0.287; -0.411,–,Other / Novel,Amorphous
+Li+,Li+,Amorphous LPS,Amorphous,–,1P2S6–2S,1.77e-2; 7.72e-4,0.0177,,0.223–0.327,0.223,0.223; -0.327,–,Other / Novel,Amorphous
+Li+,Li+,Amorphous LPS,Amorphous,–,2P2S7–2S,9.91e-3; 5.68e-3,0.00991,,0.249–0.254,0.249,0.249; -0.254,–,Other / Novel,Amorphous
+Li+,Li+,Amorphous LPS,Amorphous,–,2P2S6–4S,1.14e-3; 1.01e-3,0.00114,,0.343–0.321,0.343,0.343; -0.321,–,Other / Novel,Amorphous
 Li+,Li+,β-phase,Other,–,β-Li3PS4 (crystalline),2.31e-3,0.00231,,0.301,0.301,0.301,–,Other / Novel,Other
 Li+,Li+,α-phase,Other,–,α-Li3PS4 (crystalline),1.49e-2,0.0149,,0.235,0.235,0.235,–,Other / Novel,Other
 Li+,Li+,Glass-ceramic,Amorphous,–,Li7P3S11 (crystalline),6.35e-2,0.0635,,0.174,0.174,0.174,–,Sulfide,Amorphous
 Na+,Na+,γ-phase (superionic),Other,–,γ–Na3PS4,2.54e-2 / 27,0.0254,,0.18,0.18,0.18,–,Other / Novel,Other
 Na+,Na+,Cubic,Other,–,c–Na3PS4,5.7e-4 / 27,0.00057,,–,,,–,Other / Novel,Other
 Na+,Na+,Tetragonal,Other,–,t–Na3PS4,1.3e-6 / 27,1.3e-06,,–,,,–,Other / Novel,Other
-Na+,Na+,Amorphous (S1),Other,–,Na3PS4 (S1 amorphous),–,,,0.17,0.17,0.17,–,Sulfide,Other
-Na+,Na+,Amorphous (S2),Other,–,Na3PS4 (S2 amorphous),–,,,0.24,0.24,0.24,–,Sulfide,Other
-Na+,Na+,Amorphous (S3),Other,–,Na3PS4 (S3 amorphous),–,,,0.88,0.88,0.88,–,Sulfide,Other
-Na+,Na+,Amorphous (S4),Other,–,Na3PS4 (S4 amorphous),–,,,0.47,0.47,0.47,–,Sulfide,Other
-Ag+,Ag+,Amorphous SIC,Other,–,50AgI–37.5Ag2O–12.5B2O3 (SISOBO),5.0e-3 / 25,0.005,,–,,,–,Other / Novel,Other
-Ag+,Ag+,Amorphous SIC,Other,–,50AgI–25Ag2O–25CrO3 (SISOCO),7.0e-3 / 25,0.007,,–,,,–,Other / Novel,Other
-Ag+,Ag+,Amorphous SIC,Other,–,50AgI–33.5Ag2O–16.5V2O5 (SISOVO),3.0e-3 / 25,0.003,,–,,,–,Other / Novel,Other
-Ag+,Ag+,Amorphous SIC,Other,–,50AgI–25Ag2O–25CrO3 (50SISOCO),7.0e-3 / 27,0.007,,0.21–0.27,0.21,0.21; -0.27,–,Other / Novel,Other
-Ag+,Ag+,Amorphous SIC,Other,–,60AgI–20Ag2O–20CrO3 (60SISOCO),1.0e-2 / 27,0.01,,0.27,0.27,0.27,–,Other / Novel,Other
-Ag+,Ag+,Partially amorphous SIC,Other,–,70AgI–15Ag2O–15CrO3 (70SISOCO),"1.1e-2 / 27 (best, 66 h)",0.011,,0.27,0.27,0.27,–,Other / Novel,Other
+Na+,Na+,Amorphous (S1),Amorphous,–,Na3PS4 (S1 amorphous),–,,,0.17,0.17,0.17,–,Sulfide,Amorphous
+Na+,Na+,Amorphous (S2),Amorphous,–,Na3PS4 (S2 amorphous),–,,,0.24,0.24,0.24,–,Sulfide,Amorphous
+Na+,Na+,Amorphous (S3),Amorphous,–,Na3PS4 (S3 amorphous),–,,,0.88,0.88,0.88,–,Sulfide,Amorphous
+Na+,Na+,Amorphous (S4),Amorphous,–,Na3PS4 (S4 amorphous),–,,,0.47,0.47,0.47,–,Sulfide,Amorphous
+Ag+,Ag+,Amorphous SIC,Amorphous,–,50AgI–37.5Ag2O–12.5B2O3 (SISOBO),5.0e-3 / 25,0.005,,–,,,–,Other / Novel,Amorphous
+Ag+,Ag+,Amorphous SIC,Amorphous,–,50AgI–25Ag2O–25CrO3 (SISOCO),7.0e-3 / 25,0.007,,–,,,–,Other / Novel,Amorphous
+Ag+,Ag+,Amorphous SIC,Amorphous,–,50AgI–33.5Ag2O–16.5V2O5 (SISOVO),3.0e-3 / 25,0.003,,–,,,–,Other / Novel,Amorphous
+Ag+,Ag+,Amorphous SIC,Amorphous,–,50AgI–25Ag2O–25CrO3 (50SISOCO),7.0e-3 / 27,0.007,,0.21–0.27,0.21,0.21; -0.27,–,Other / Novel,Amorphous
+Ag+,Ag+,Amorphous SIC,Amorphous,–,60AgI–20Ag2O–20CrO3 (60SISOCO),1.0e-2 / 27,0.01,,0.27,0.27,0.27,–,Other / Novel,Amorphous
+Ag+,Ag+,Partially amorphous SIC,Amorphous,–,70AgI–15Ag2O–15CrO3 (70SISOCO),"1.1e-2 / 27 (best, 66 h)",0.011,,0.27,0.27,0.27,–,Other / Novel,Amorphous
 Li+,Li+,Amorphous glass,Amorphous,–,Li3PS4 (x=0),3.4e-4 / 25; 1.17e-2 / 100,0.00034,,0.307,0.307,0.307,–,Sulfide,Amorphous
 Li+,Li+,Amorphous glass,Amorphous,Br doping,Li3PS3.5Br0.5 (x=0.5),1.0e-3 / 25,0.001,,0.291,0.291,0.291,–,Sulfide,Amorphous
 Li+,Li+,Amorphous glass,Amorphous,Br doping,Li3PS3Br (x=1.0),1.86e-3 / 25; 1.17e-2 / 100,0.00186,,0.277,0.277,0.277,–,Sulfide,Amorphous
 Li+,Li+,Partially crystalline,Other,Excess Br doping,Li3PS2.5Br1.5 (x=1.5),7.0e-4 / 25,0.0007,,0.288,0.288,0.288,–,Other / Novel,Other
 Na+,Na+,Sulfide (crystalline),Other,–,Na3PS4,7.5e-5 / 25,7.5e-05,,0.39,0.39,0.39,–,Sulfide,Other
-Na+,Na+,Amorphous oxysulfide,Other,Na2SO3 additive (5 mol%),95(0.75Na2S·0.25P2S5)·5Na2SO3,1.2e-5 / 25,1.2e-05,,0.51,0.51,0.51,–,Other / Novel,Other
-Na+,Na+,Amorphous oxysulfide,Other,Na2SO4 additive (5 mol%),95(0.75Na2S·0.25P2S5)·5Na2SO4,1.6e-5 / 25,1.6e-05,,0.50,0.5,0.5,–,Other / Novel,Other
-Na+,Na+,Amorphous oxysulfide,Other,Na3PO4 additive (5 mol%),95(0.75Na2S·0.25P2S5)·5Na3PO4,1.1e-5 / 25,1.1e-05,,0.50,0.5,0.5,–,Other / Novel,Other
-Na+,Na+,Amorphous halide,Halide,–,NaTaCl6 (amorphous),4.0e-3 / 25,0.004,,0.30–0.41,0.3,0.3; -0.41,–,Halide,Halide
+Na+,Na+,Amorphous oxysulfide,Amorphous,Na2SO3 additive (5 mol%),95(0.75Na2S·0.25P2S5)·5Na2SO3,1.2e-5 / 25,1.2e-05,,0.51,0.51,0.51,–,Other / Novel,Amorphous
+Na+,Na+,Amorphous oxysulfide,Amorphous,Na2SO4 additive (5 mol%),95(0.75Na2S·0.25P2S5)·5Na2SO4,1.6e-5 / 25,1.6e-05,,0.50,0.5,0.5,–,Other / Novel,Amorphous
+Na+,Na+,Amorphous oxysulfide,Amorphous,Na3PO4 additive (5 mol%),95(0.75Na2S·0.25P2S5)·5Na3PO4,1.1e-5 / 25,1.1e-05,,0.50,0.5,0.5,–,Other / Novel,Amorphous
+Na+,Na+,Amorphous halide,Halide,–,NaTaCl6 (amorphous),4.0e-3 / 25,0.004,,0.30–0.41,0.3,0.3; -0.41,–,Halide,Amorphous
 Na+,Na+,Trigonal (HNISE),Other,–,Na2ZrCl6,1.3e-5 / 25,1.3e-05,,0.50,0.5,0.5,–,Other / Novel,Other
 Na+,Na+,Trigonal (deficient),Other,Na/Cl-deficient (vacancy engineering),Na0.5ZrCl4.5,8.1e-5 / 25,8.1e-05,,0.35,0.35,0.35,–,Other / Novel,Other
-Na+,Na+,Amorphous halide,Halide,F substitution,Na0.5ZrCl4F0.5,1.12e-4 / 25,0.000112,,–,,,–,Halide,Halide
+Na+,Na+,Amorphous halide,Halide,F substitution,Na0.5ZrCl4F0.5,1.12e-4 / 25,0.000112,,–,,,–,Halide,Amorphous
 Na+,Na+,Trigonal,Other,Na/Cl-deficient,Na0.6Er0.4Zr0.6Cl4.2,5.7e-5 / 25,5.7e-05,,–,,,–,Other / Novel,Other
 Na+,Na+,Trigonal,Other,Na/Cl-deficient,Na0.4Yb0.25Zr0.75Cl4.15,2.0e-4 / 25,0.0002,,–,,,–,Other / Novel,Other
 Na+,Na+,–,Other,Yb substitution,Na2.25Yb0.25Zr0.75Cl6,–,,,–,,,–,Other / Novel,Other
 Na+,Na+,Crystalline halide,Halide,–,Na2ZrCl6 (NZC),1.3e-5 / 25,1.3e-05,,0.50,0.5,0.5,–,Halide,Halide
-Na+,Na+,Amorphous–nanocrystalline halide,Halide,F substitution,"0.5-NFZC (NaF–ZrCl4, x=0.5)",–,,,–,,,–,Halide,Halide
-Na+,Na+,Amorphous–nanocrystalline halide,Halide,F substitution,1.0-NFZC (x=1.0),–,,,–,,,–,Halide,Halide
-Na+,Na+,Amorphous–nanocrystalline halide,Halide,F substitution,2.0-NFZC (x=2.0),2.35e-4 / 25,0.000235,,0.28,0.28,0.28,–,Halide,Halide
-Na+,Na+,Amorphous–nanocrystalline halide,Halide,F substitution,3.0-NFZC (x=3.0),–,,,–,,,–,Halide,Halide
-Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.50Na2O,8.0e-5 / 30,8e-05,,–,,,–,Halide,Halide
-Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.60Na2O,1.2e-4 / 30,0.00012,,–,,,–,Halide,Halide
-Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.75Na2O,1.7e-4 / 30,0.00017,,–,,,–,Halide,Halide
-Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.80Na2O,1.0e-4 / 30,0.0001,,–,,,–,Halide,Halide
-Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.85Na2O,6.0e-5 / 30,6e-05,,–,,,–,Halide,Halide
-Na+,Na+,Halide (amorphous / nanocrystalline),Halide,NaCl deficiency tuning (vacancy mediated),Na2.25-xY0.25Zr0.75Cl6-x (x=1.375–2.000),1.2e-4 – 4.03e-4 / 25,0.00012,,0.348 – 0.370,0.348,0.348; 0.37,–,Halide,Halide
+Na+,Na+,Amorphous–nanocrystalline halide,Halide,F substitution,"0.5-NFZC (NaF–ZrCl4, x=0.5)",–,,,–,,,–,Halide,Amorphous
+Na+,Na+,Amorphous–nanocrystalline halide,Halide,F substitution,1.0-NFZC (x=1.0),–,,,–,,,–,Halide,Amorphous
+Na+,Na+,Amorphous–nanocrystalline halide,Halide,F substitution,2.0-NFZC (x=2.0),2.35e-4 / 25,0.000235,,0.28,0.28,0.28,–,Halide,Amorphous
+Na+,Na+,Amorphous–nanocrystalline halide,Halide,F substitution,3.0-NFZC (x=3.0),–,,,–,,,–,Halide,Amorphous
+Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.50Na2O,8.0e-5 / 30,8e-05,,–,,,–,Halide,Amorphous
+Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.60Na2O,1.2e-4 / 30,0.00012,,–,,,–,Halide,Amorphous
+Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.75Na2O,1.7e-4 / 30,0.00017,,–,,,–,Halide,Amorphous
+Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.80Na2O,1.0e-4 / 30,0.0001,,–,,,–,Halide,Amorphous
+Na+,Na+,Amorphous chloride–oxide,Halide,Na2O incorporation,AlCl3–0.85Na2O,6.0e-5 / 30,6e-05,,–,,,–,Halide,Amorphous
+Na+,Na+,Halide (amorphous / nanocrystalline),Halide,NaCl deficiency tuning (vacancy mediated),Na2.25-xY0.25Zr0.75Cl6-x (x=1.375–2.000),1.2e-4 – 4.03e-4 / 25,0.00012,,0.348 – 0.370,0.348,0.348; 0.37,–,Halide,Amorphous
 Rb+,Rb+,Amorphous borate glass,Amorphous,–,(Rb2O)10(B2O3)90,1e-6 / 25,1e-06,,–,,,–,Sulfide,Amorphous
 Rb+,Rb+,Amorphous borate glass,Amorphous,–,(Rb2O)15(B2O3)85,1e-5 / 25,1e-05,,–,,,–,Sulfide,Amorphous
 Rb+,Rb+,Amorphous borate glass,Amorphous,–,(Rb2O)20(B2O3)80,1e-4 / 25,0.0001,,–,,,–,Sulfide,Amorphous
 Rb+,Rb+,Amorphous borate glass,Amorphous,–,(Rb2O)30(B2O3)70,2.0e-3 / 300,0.002,,0.93–0.97,0.93,0.93; -0.97,–,Sulfide,Amorphous
-O2-,O2-,Core–shell nanocomposite (SDC + amorphous carbonate),Polymeric,Sm3+ doping in CeO2 + amorphous Na2CO3 shell,"Ce0.8Sm0.2O1.9/Na2CO3 (20 wt% Na2CO3, core–shell)",>0.1 / >300,0.1,,0.3,0.3,0.3,–,Polymer composite,Polymeric
-Na+,Na+,Amorphous,Other,–,Na3PS4 (amorphous),4.1e-6 / 25,4.1e-06,,–,,,–,Other / Novel,Other
-Na+,Na+,Cubic (I4̅3m),Halide,–,"Na3PS4 (cubic, annealed 240 °C)",1.3e-4 / 25,0.00013,,–,,,–,Halide,Halide
+O2-,O2-,Core–shell nanocomposite (SDC + amorphous carbonate),Amorphous,Sm3+ doping in CeO2 + amorphous Na2CO3 shell,"Ce0.8Sm0.2O1.9/Na2CO3 (20 wt% Na2CO3, core–shell)",>0.1 / >300,0.1,,0.3,0.3,0.3,–,Polymer composite,Amorphous
+Na+,Na+,Amorphous,Amorphous,–,Na3PS4 (amorphous),4.1e-6 / 25,4.1e-06,,–,,,–,Other / Novel,Amorphous
+Na+,Na+,Cubic (I4̅3m),Other,–,"Na3PS4 (cubic, annealed 240 °C)",1.3e-4 / 25,0.00013,,–,,,–,Halide,Other
 Na+,Na+,Tetragonal (P421c),Other,–,"Na3PS4 (tetragonal, annealed 480 °C)",1.9e-5 / 25,1.9e-05,,–,,,–,Other / Novel,Other
 Li+,Li+,Bicontinuous polymer nanostructure,Polymeric,–,PVDF-g-PAN + 34 wt% LiTFSI,5.8e-4 / 30,0.00058,,0.21,0.21,0.21,–,Polymer composite,Polymeric
 Li+,Li+,Bicontinuous polymer nanostructure,Polymeric,–,PVDF-g-PAN + 34 wt% LiTFSI,5.8e-4 / 30,0.00058,,0.21,0.21,0.21,–,Polymer composite,Polymeric
 Li+,Li+,3D porous polymer + ether network,Polymeric,"Sulfonation of PVDF-HFP, ether polymer network infiltration",SICP-EPN (sulfonated PVDF-HFP + in situ polymerized PEGMEA + LiFSI/LiTFSI/LiNO3),3.8e-4 / 30,0.00038,,–,,,–,Polymer composite,Polymeric
-H+,H+,Amorphous polymer,Polymeric,–,Disulfonic acid polymer (–SO3H rich),1e-2 – 1e-1 / 25 (humid),0.01,,–,,,–,Polymer composite,Polymeric
-H+,H+,Polymer electrolyte (amorphous),Polymeric,–,PVA–Iron Alum (uncrosslinked),1e-6 / 30,1e-06,,–,,,–,Polymer composite,Polymeric
+H+,H+,Amorphous polymer,Polymeric,–,Disulfonic acid polymer (–SO3H rich),1e-2 – 1e-1 / 25 (humid),0.01,,–,,,–,Polymer composite,Amorphous
+H+,H+,Polymer electrolyte (amorphous),Polymeric,–,PVA–Iron Alum (uncrosslinked),1e-6 / 30,1e-06,,–,,,–,Polymer composite,Amorphous
 H+,H+,Polymer electrolyte (cross-linked),Polymeric,Glycerol,PVA–Iron Alum + Glycerol,1e-5 / 30; 1.2e-3 / 100,1e-05,,–,,,–,Polymer composite,Polymeric
 H+,H+,Polymer electrolyte (cross-linked),Polymeric,Succinic acid,PVA–Iron Alum + Succinic Acid,3e-5 / 30; 1.8e-3 / 100,3e-05,,–,,,–,Polymer composite,Polymeric
 H+,H+,Polymer electrolyte (cross-linked),Polymeric,Glyoxal,PVA–Iron Alum + Glyoxal,5e-5 / 30; 2.38e-3 / 100,5e-05,,–,,,–,Polymer composite,Polymeric
@@ -439,7 +439,7 @@ Li+,Li+,Halide (hcp),Halide,–,Li3YCl6 (solid-state synthesis),6.5e-4 / 25,0.00
 Li+,Li+,Halide (hcp),Halide,Partial substitution Y3+→Zr4+,Li3Y0.2Zr0.6Cl6,1.2e-3 / 25,0.0012,,0.29,0.29,0.29,–,Halide,Halide
 Li+,Li+,Halide (hcp),Halide,–,Li3InCl6,2.0e-3 / 25,0.002,,0.35,0.35,0.35,–,Halide,Halide
 Li+,Li+,Halide (hcp),Halide,–,Li3ScCl6,3.4e-3 / 25,0.0034,,0.28,0.28,0.28,–,Halide,Halide
-Na+,Na+,"Halide, heterogeneous (UCl3-type + amorphous domains)",Halide,Interface engineering / dual-phase composite,HSE-Na (Halide Heterogeneous Structure Electrolyte – Na+),2.7e-3 / 25,0.0027,,0.23,0.23,0.23,–,Halide,Halide
+Na+,Na+,"Halide, heterogeneous (UCl3-type + amorphous domains)",Halide,Interface engineering / dual-phase composite,HSE-Na (Halide Heterogeneous Structure Electrolyte – Na+),2.7e-3 / 25,0.0027,,0.23,0.23,0.23,–,Halide,Amorphous
 Li+,Li+,"Halide, trigonal",Halide,–,Li3YbCl6,3.8e-4 / 25,0.00038,,0.36,0.36,0.36,–,Halide,Halide
 Li+,Li+,"Halide, trigonal (partially disordered)",Halide,Partial substitution Yb3+→Zr4+,Li2.8Yb0.8Zr0.2Cl6,9.5e-4 / 25,0.00095,,0.29,0.29,0.29,–,Halide,Halide
 Li+,Li+,"Halide, monoclinic (after heat treatment)",Halide,High-level Zr4+ substitution,Li2.5Yb0.5Zr0.5Cl6,1.5e-3 / 25,0.0015,,0.24,0.24,0.24,–,Halide,Halide
@@ -456,7 +456,7 @@ Li+,Li+,"Halide (orthorhombic, maximum stacking faults)",Halide,Partial substitu
 Li⁺,Li+,Argyrodite (cubic),Argyrodite,–,Li6PS5Cl,3.4e-4 / RT,0.00034,,0.399,0.399,0.399,–,Argyrodite,Argyrodite
 Li⁺,Li+,Argyrodite (cubic),Argyrodite,–,Li6PS5Br,3.1e-4 / RT,0.00031,,0.417,0.417,0.417,–,Argyrodite,Argyrodite
 Li⁺,Li+,Argyrodite (cubic),Argyrodite,–,Li6PS5I,2.9e-5 / RT,2.9e-05,,0.419,0.419,0.419,–,Argyrodite,Argyrodite
-Li⁺,Li+,Argyrodite composite,Polymeric,Excess LiCl doping,Li6PS5Cl·LiCl,5.3e-4 / RT,0.00053,,0.29,0.29,0.29,–,Polymer composite,Polymeric
+Li⁺,Li+,Argyrodite composite,Argyrodite,Excess LiCl doping,Li6PS5Cl·LiCl,5.3e-4 / RT,0.00053,,0.29,0.29,0.29,–,Polymer composite,Argyrodite
 Li⁺,Li+,"Halide (hexagonal close packed Cl⁻, P3̅m1)",Halide,High concentration of stacking faults and Li defect layers (mechanochemical synthesis),Li₃YCl₆ (BM-LYC),0.49 mS·cm⁻¹ / 25 °C,0.49,25.0,0.41 ± 0.006,0.41,0.41; 0.006,–,Halide,Halide
 Li⁺,Li+,"Halide (hexagonal close packed Cl⁻, P3̅m1)",Halide,Lower stacking fault concentration; multiphasic sample,Li₃YCl₆ (SS-LYC),0.067 mS·cm⁻¹ / 25 °C,0.067,25.0,0.47 ± 0.004,0.47,0.47; 0.004,–,Halide,Halide
 Li⁺,Li+,"Halide (hcp, P3m1)",Halide,–,Li₂ZrCl₆ (LZC),4.13 mS·cm⁻¹ / 25 °C,4.13,25.0,0.424,0.424,0.424,–,Halide,Halide
@@ -547,7 +547,7 @@ Li⁺,Li+,NASICON,NASICON,0.05 Cu²⁺ substitution,Li1.3Al0.3Ti1.65Cu0.05(PO4)3
 Li⁺,Li+,NASICON,NASICON,0.05 Sn⁴⁺ substitution,Li1.3Al0.3Ti1.65Sn0.05(PO4)3,2.8×10⁻⁴ / 25 °C,2.8,25.0,0.35,0.35,0.35,–,NASICON,NASICON
 Li⁺,Li+,NASICON (rhombohedral),NASICON,–,Li₁.₃Al₀.₃Ti₁.₇(PO₄)₃ (NASICON baseline),2.1×10⁻⁴ / 25 °C,2.1,25.0,0.36,0.36,0.36,–,NASICON,NASICON
 Li⁺,Li+,NASICON,NASICON,0.2 As⁵⁺ substitution for Ti⁴⁺,Li₁.₃Al₀.₃As₀.₂Ti₁.₅(PO₄)₃ (As-doped NASICON),3.8×10⁻⁴ / 25 °C,3.8,25.0,0.32,0.32,0.32,–,NASICON,NASICON
-Li⁺,Li+,NASICON–glass composite,NASICON,As-doped + 3 wt% lithium phosphate glass additive,"LAAs₀.₂TP-G (NASICON–glass composite, 3 wt% glass)",5.2×10⁻⁴ / 25 °C,5.2,25.0,0.29,0.29,0.29,–,NASICON,NASICON
+Li⁺,Li+,NASICON–glass composite,NASICON,As-doped + 3 wt% lithium phosphate glass additive,"LAAs₀.₂TP-G (NASICON–glass composite, 3 wt% glass)",5.2×10⁻⁴ / 25 °C,5.2,25.0,0.29,0.29,0.29,–,NASICON,Amorphous
 Na⁺,Na+,NASICON-type,NASICON,"Tri-site co-doping: 3% K⁺ for Na⁺, 0.05 Al³⁺ for Ti⁴⁺, 0.05 (SiO₄) for (PO₄) + conductive carbon coating",Na₀.₉₇K₀.₀₃Ti₁.₉₅Al₀.₀₅(PO₄)₂.₉₅(SiO₄)₀.₀₅/C (NTP-KAS),–,,,–,,,–,NASICON,NASICON
 Na⁺,Na+,NASICON-type,NASICON,–,Na₂TiV(PO₄)₃/C (NTVP),–,,,–,,,–,NASICON,NASICON
 Na⁺,Na+,NASICON-type,NASICON,Co²⁺ substitution for Ti⁴⁺+V³⁺ plus rGO conductive additive,Na₃Co₂/₃Ti₂/₃V₂/₃(PO₄)₃/C/rGO (NCTVP),–,,,–,,,–,NASICON,NASICON
@@ -557,23 +557,23 @@ Na⁺,Na+,NASICON-type,NASICON,0.2 W⁶⁺ substitution for Mn²⁺,Na₃.₂VMn
 Li⁺,Li+,Halide (trigonal),Halide,–,Li₂ZrCl₆ (baseline),0.48×10⁻³ / 25 °C,0.48,25.0,0.356,0.356,0.356,–,Halide,Halide
 Li⁺,Li+,Halide (trigonal),Halide,Rare earth Dy³⁺ doping + Ta⁵⁺ substitution,Li₂.₁Zr₀.₈Dy₀.₁₅Ta₀.₀₅Cl₆ (LZDTC),1.67×10⁻³ / 25 °C,1.67,25.0,0.272,0.272,0.272,–,Halide,Halide
 Li⁺,Li+,Halide (trigonal),Halide,Rare earth Ce³⁺ doping + Ta⁵⁺ substitution,Li₂.₁Zr₀.₈Ce₀.₁₅Ta₀.₀₅Cl₆,1.54×10⁻³ / 25 °C,1.54,25.0,0.279,0.279,0.279,–,Halide,Halide
-Li⁺,Li+,Halide (amorphous–crystalline composite),Halide,"Multiple-cation (Ta, Zr, Al, Ca) doped LaCl₃-based system",HELa0.5: 0.5LiCl–xLaCl₃(TaCl₅·ZrCl₄·AlCl₃·CaCl₂)₁/₄(1–x),0.82×10⁻³ / 25 °C,0.82,25.0,0.34,0.34,0.34,–,Halide,Halide
+Li⁺,Li+,Halide (amorphous–crystalline composite),Halide,"Multiple-cation (Ta, Zr, Al, Ca) doped LaCl₃-based system",HELa0.5: 0.5LiCl–xLaCl₃(TaCl₅·ZrCl₄·AlCl₃·CaCl₂)₁/₄(1–x),0.82×10⁻³ / 25 °C,0.82,25.0,0.34,0.34,0.34,–,Halide,Amorphous
 Na⁺,Na+,Tetragonal (superionic),Other,–,Na₃SbS₄ (baseline),0.4×10⁻³ / 25 °C,0.4,25.0,0.31,0.31,0.31,–,Other / Novel,Other
 Na⁺,Na+,Tetragonal,Other,Iso-valent V⁵⁺ for Sb⁵⁺,Na₃Sb₁₋ₓVₓS₄ (x≤0.2),0.6×10⁻³ / 25 °C (x=0.1),0.6,25.0,0.30,0.3,0.3,–,Other / Novel,Other
 Na⁺,Na+,Tetragonal,Other,Iso-valent Nb⁵⁺ for Sb⁵⁺,Na₃Sb₁₋ₓNbₓS₄ (x≤0.2),0.5×10⁻³ / 25 °C (x=0.1),0.5,25.0,0.30,0.3,0.3,–,Other / Novel,Other
 Na⁺,Na+,Tetragonal,Other,Iso-valent Ta⁵⁺ for Sb⁵⁺,Na₃Sb₁₋ₓTaₓS₄ (x≤0.2),0.48×10⁻³ / 25 °C (x=0.1),0.48,25.0,0.31,0.31,0.31,–,Other / Novel,Other
 Na⁺,Na+,Tetragonal (Na₃SbS₄-type),Other,W⁶⁺ supervalent substitution for Sb⁵⁺ creating Na vacancies,Na₂.₉Sb₀.₉W₀.₁S₄,σbulk 96 mS·cm⁻¹ / 293 K; σtotal ≈10 mS·cm⁻¹ / 293 K; σbulk 1.8 mS·cm⁻¹ / –130 °C,96.0,130.0,"Ea,bulk 0.11; Ea,total 0.17–0.20",0.17,0.11; 0.17; -0.2,–,Other / Novel,Other
 Li⁺,Li+,Cubic argyrodite (F-43m),Argyrodite,Bi + F dual-doping (BiF₃ replacing part of LiCl and P₂S₅),Li₅.₅₄P₀.₉₈Bi₀.₀₂S₄.₅Cl₁.₄₄F₀.₀₆ (LPBiSClF₀.₀₆),5.37 mS·cm⁻¹ / RT,5.37,,0.28,0.28,0.28,–,Argyrodite,Argyrodite
-K⁺,K+,Cubic K₃SbS₄ (I4̅3m),Halide,Cl⁻ doping at S sites inducing ~4.17% K-vacancies,K₂.875SbS₃.875Cl₀.125 (2v-2Cl),14.8 mS·cm⁻¹ / 300 K,14.8,,0.12,0.12,0.12,–,Halide,Halide
-K⁺,K+,Cubic K₃SbS₄ (I4̅3m),Halide,Cl⁻ doping at S sites inducing ~2.08% K-vacancies,K₂.9375SbS₃.9375Cl₀.0625 (1v-1Cl),≈10⁻² S·cm⁻¹ (predicted); Dₖ~6.91×10⁻⁶ cm²·s⁻¹ at 1000 K,10.0,,0.13,0.13,0.13,–,Halide,Halide
-Zn²⁺ (protective layer for Zn anode in AZIBs),Zn²+,NASICON (R3c),NASICON,–,Na₃V₂(PO₄)₃ (NVP),–,,,–,,,Symmetric NVP@Zn//NVP@Zn stable 500 h at 0.5 mA cm⁻²; 300 h at 2 & 5 mA cm⁻² without dendrites,NASICON,NASICON
+K⁺,K+,Cubic K₃SbS₄ (I4̅3m),Other,Cl⁻ doping at S sites inducing ~4.17% K-vacancies,K₂.875SbS₃.875Cl₀.125 (2v-2Cl),14.8 mS·cm⁻¹ / 300 K,14.8,,0.12,0.12,0.12,–,Halide,Other
+K⁺,K+,Cubic K₃SbS₄ (I4̅3m),Other,Cl⁻ doping at S sites inducing ~2.08% K-vacancies,K₂.9375SbS₃.9375Cl₀.0625 (1v-1Cl),≈10⁻² S·cm⁻¹ (predicted); Dₖ~6.91×10⁻⁶ cm²·s⁻¹ at 1000 K,10.0,,0.13,0.13,0.13,–,Halide,Other
+Zn²⁺ (protective layer for Zn anode in AZIBs),Zn²+(protectivelayerforZnanodeinAZIBs),NASICON (R3c),NASICON,–,Na₃V₂(PO₄)₃ (NVP),–,,,–,,,Symmetric NVP@Zn//NVP@Zn stable 500 h at 0.5 mA cm⁻²; 300 h at 2 & 5 mA cm⁻² without dendrites,NASICON,NASICON
 Li⁺,Li+,Glassy sulfide,Amorphous,LiI doping + SiS₂ substitution (P:Si=6),"75Li₂S–25P₂S₅ + 40 mol% LiI (Si-doped, P:Si=6)",2.21×10⁻³ / 25 °C,2.21,25.0,0.253,0.253,0.253,–,Sulfide,Amorphous
 Li⁺,Li+,Glassy sulfide,Amorphous,LiI doping (no Si),"75Li₂S–25P₂S₅ + 40 mol% LiI (without Si, “blank”)",~1.0×10⁻³ / 25 °C,1.0,25.0,~0.30,0.3,0.3,–,Sulfide,Amorphous
-Li⁺,Li+,Argyrodite + glass composite (C:G=7),Polymeric,Glass filler (P:Si=6),"Li₅.₄PS₄.₄Cl₁.₆ (argyrodite, composite)",~6.0×10⁻³ / 25 °C,6.0,25.0,–,,,–,Polymer composite,Polymeric
+Li⁺,Li+,Argyrodite + glass composite (C:G=7),Argyrodite,Glass filler (P:Si=6),"Li₅.₄PS₄.₄Cl₁.₆ (argyrodite, composite)",~6.0×10⁻³ / 25 °C,6.0,25.0,–,,,–,Polymer composite,Amorphous
 Li⁺,Li+,Glassy sulfide (monomer-rich Li₃PS₄–Li₄SiS₄ network),Amorphous,Halogen doping with LiI (40 mol%) + partial substitution of P₂S₅ by SiS₂ to suppress Li₂Sₓ formation,0.6((75+0.5x)Li₂S-(25-0.5x)P₂S₅-xSiS₂)-40LiI (optimal P:Si=6 composition),2.21e-3 / 25,0.00221,,0.253,0.253,0.253,–,Sulfide,Amorphous
 Li⁺,Li+,Glassy sulfide,Amorphous,"– (no halogen, no Si doping)",75Li₂S–25P₂S₅ (blank glassy electrolyte),0.46e-3 / 25,0.00046,,–,,,–,Sulfide,Amorphous
 Li⁺,Li+,Argyrodite crystalline sulfide,Argyrodite,Cl⁻ as intrinsic halide; no extra doping (reference state-of-the-art),Li₆PS₅Cl (argyrodite),2.04e-3 / 25,0.00204,,–,,,–,Argyrodite,Argyrodite
-Li⁺,Li+,Argyrodite crystalline sulfide (high-Cl content),Halide,Intrinsic high Cl⁻ content,Li₅.₄PS₄.₄Cl₁.₆ (high-Cl argyrodite),7.31e-3 / 25 (before composite),0.00731,,–,,,–,Halide,Halide
+Li⁺,Li+,Argyrodite crystalline sulfide (high-Cl content),Argyrodite,Intrinsic high Cl⁻ content,Li₅.₄PS₄.₄Cl₁.₆ (high-Cl argyrodite),7.31e-3 / 25 (before composite),0.00731,,–,,,–,Halide,Argyrodite
 Li⁺,Li+,Oxide polycrystalline (monoclinic C/2c),Other,– (baseline),LiTa₂PO₈ (LTPO),σ_bulk 1.99e-3 / 25; σ_total 1.3e-5 / 25,0.00199,,0.44,0.44,0.44,–,Other / Novel,Other
 Li⁺,Li+,Oxide polycrystalline,Other,LiF sintering additive (removed on final sintering),LiTa₂PO₈–0.15LiF (LTPO–LiF),σ_total 7.3e-5 / 25,7.3e-05,,–,,,–,Other / Novel,Other
 Li⁺,Li+,Oxide polycrystalline (Hf-doped),Other,Hf⁴⁺ doping (0.05 mol) at Ta sites,Li₁.₀₅Hf₀.₀₅Ta₁.₉₅PO₈ (LHTPO),σ_bulk 1.72e-3 / 25; σ_total 4.3e-4 / 25,0.00172,,0.35,0.35,0.35,–,Other / Novel,Other
@@ -611,14 +611,14 @@ Li⁺,Li+,Thiophosphate (LGPS-type),Other,–,Li₁₀GeP₂S₁₂ (x=0),~1.2e-
 Li⁺,Li+,Thiophosphate (LGPS-type),Other,Partial Ge→Sn substitution,Li₁₀Ge₀.₆₇Sn₀.₃₃P₂S₁₂,~6.0e-3 / 25 (exp.),0.006,,~0.24,0.24,0.24,–,Other / Novel,Other
 Li⁺,Li+,Thiophosphate (LGPS-type),Other,Higher Sn substitution,Li₁₀Ge₀.₃₃Sn₀.₆₇P₂S₁₂,~2.5e-3 / 25 (exp.),0.0025,,~0.27,0.27,0.27,–,Other / Novel,Other
 Li⁺,Li+,Thiophosphate (LGPS-type),Other,Full Ge→Sn substitution,Li₁₀SnP₂S₁₂ (x=1),~1.0e-3 / 25 (exp.),0.001,,~0.30,0.3,0.3,–,Other / Novel,Other
-Li⁺,Li+,Argyrodites,Other,–,Li₆PS₅Cl,1.84e-3 / 25 (exp.),0.00184,,0.29,0.29,0.29,–,Other / Novel,Other
-Li⁺,Li+,Argyrodites,Other,–,Li₆PS₅Br,8.88e-4 / 25 (exp.),0.000888,,0.32,0.32,0.32,–,Other / Novel,Other
-Li⁺,Li+,Argyrodites,Other,–,Li₆PS₅I,3.92e-4 / 25 (exp.),0.000392,,0.37,0.37,0.37,–,Other / Novel,Other
-Li⁺,Li+,Argyrodites,Other,Mixed halide (Cl/Br),Li₆PS₅Cl₀.₅Br₀.₅,2.05e-3 / 25 (exp.),0.00205,,0.28,0.28,0.28,–,Other / Novel,Other
-Li⁺,Li+,Argyrodites,Other,Mixed halide (Br/I),Li₆PS₅Br₀.₅I₀.₅,5.77e-4 / 25 (exp.),0.000577,,0.34,0.34,0.34,–,Other / Novel,Other
-Li⁺,Li+,Argyrodites,Other,Anion disorder studied computationally,Li₆PS₅Cl,"(AIMD only, no experimental σ in this paper)",,,–,,,–,Other / Novel,Other
-Li⁺,Li+,Argyrodites,Other,Anion disorder studied computationally,Li₆PS₅Br,"(AIMD only, no experimental σ in this paper)",,,–,,,–,Other / Novel,Other
-Li⁺,Li+,Argyrodites,Other,Anion disorder studied computationally,Li₆PS₅I,"(AIMD only, no experimental σ in this paper)",,,–,,,–,Other / Novel,Other
+Li⁺,Li+,Argyrodites,Argyrodite,–,Li₆PS₅Cl,1.84e-3 / 25 (exp.),0.00184,,0.29,0.29,0.29,–,Other / Novel,Argyrodite
+Li⁺,Li+,Argyrodites,Argyrodite,–,Li₆PS₅Br,8.88e-4 / 25 (exp.),0.000888,,0.32,0.32,0.32,–,Other / Novel,Argyrodite
+Li⁺,Li+,Argyrodites,Argyrodite,–,Li₆PS₅I,3.92e-4 / 25 (exp.),0.000392,,0.37,0.37,0.37,–,Other / Novel,Argyrodite
+Li⁺,Li+,Argyrodites,Argyrodite,Mixed halide (Cl/Br),Li₆PS₅Cl₀.₅Br₀.₅,2.05e-3 / 25 (exp.),0.00205,,0.28,0.28,0.28,–,Other / Novel,Argyrodite
+Li⁺,Li+,Argyrodites,Argyrodite,Mixed halide (Br/I),Li₆PS₅Br₀.₅I₀.₅,5.77e-4 / 25 (exp.),0.000577,,0.34,0.34,0.34,–,Other / Novel,Argyrodite
+Li⁺,Li+,Argyrodites,Argyrodite,Anion disorder studied computationally,Li₆PS₅Cl,"(AIMD only, no experimental σ in this paper)",,,–,,,–,Other / Novel,Argyrodite
+Li⁺,Li+,Argyrodites,Argyrodite,Anion disorder studied computationally,Li₆PS₅Br,"(AIMD only, no experimental σ in this paper)",,,–,,,–,Other / Novel,Argyrodite
+Li⁺,Li+,Argyrodites,Argyrodite,Anion disorder studied computationally,Li₆PS₅I,"(AIMD only, no experimental σ in this paper)",,,–,,,–,Other / Novel,Argyrodite
 Li⁺,Li+,Polymer (polythiourea),Polymeric,LiClO₄-doped PTU1,PTU1 + LiClO₄ (PSE1),1.23e-4 / 60,0.000123,,0.28,0.28,0.28,–,Polymer composite,Polymeric
 Li⁺,Li+,Polymer (polythiourea),Polymeric,LiClO₄-doped PTU2,PTU2 + LiClO₄ (PSE2),1.45e-4 / 60,0.000145,,0.27,0.27,0.27,–,Polymer composite,Polymeric
 Li⁺,Li+,Polymer (polythiourea),Polymeric,LiClO₄-doped PTU3,PTU3 + LiClO₄ (PSE3),1.62e-4 / 60,0.000162,,0.25,0.25,0.25,–,Polymer composite,Polymeric
@@ -642,9 +642,9 @@ Li⁺,Li+,Halide (hcp),Halide,–,Li₃YCl₆,6.08e-5 / 25 (exp.),6.08e-05,,0.43
 Li⁺,Li+,Halide (mixed phase),Halide,Partial substitution of In³⁺ for Y³⁺,Li₃Y₀.₅In₀.₅Cl₆,1.42e-3 / 25 (exp.),0.00142,,0.30,0.3,0.3,–,Halide,Halide
 Li⁺,Li+,Halide (ccp),Halide,Full substitution of In³⁺ for Y³⁺,Li₃InCl₆,1.42e-3 / 25 (exp.),0.00142,,0.29,0.29,0.29,–,Halide,Halide
 Li⁺,Li+,Complex hydride lithium superionic conductor,Other,–,0.7Li(CB₉H₁₀)–0.3Li(CB₁₁H₁₂),6.7e-3 / 25 (exp.),0.0067,,0.29,0.29,0.29,–,Other / Novel,Other
-Na⁺,Na+,Sulfide glass (orthothiophosphate),Other,–,Na₃PS₄ glass,6.0e-6 / 25 (exp.),6e-06,,0.47 (47 kJ mol⁻¹),0.47,0.47; 47,–,LISICON,Other
+Na⁺,Na+,Sulfide glass (orthothiophosphate),Amorphous,–,Na₃PS₄ glass,6.0e-6 / 25 (exp.),6e-06,,0.47 (47 kJ mol⁻¹),0.47,0.47; 47,–,LISICON,Amorphous
 Na⁺,Na+,Sulfide glass-ceramic (cubic Na₃PS₄ stabilized),Amorphous,–,Na₃PS₄ glass-ceramic (cubic),2.0e-4 / 25 (exp.),0.0002,,0.27 (27 kJ mol⁻¹),0.27,0.27; 27,–,Sulfide,Amorphous
 Na⁺,Na+,Sulfide glass-ceramic (low-temp tetragonal Na₃PS₄),Amorphous,–,Na₃PS₄ glass-ceramic (tetragonal),1.0e-6 / 25 (exp.),1e-06,,–,,,–,Sulfide,Amorphous
-Li⁺,Li+,Pliable halide–fluoride glass electrolyte,Halide,–,3LiCl–GaF₃ (glass),3.6e-3 / 25 (exp.),0.0036,,0.25,0.25,0.25,–,Halide,Halide
-Li⁺,Li+,Pliable halide–fluoride glass electrolyte,Halide,–,3LiBr–GaF₃ (glass),1.8e-3 / 25 (exp.),0.0018,,0.28,0.28,0.28,–,Halide,Halide
-Li⁺,Li+,Pliable halide–fluoride glass electrolyte with surface-modifying additive,Halide,Li₂CO₃-B coating on cathode,3LiCl–GaF₃ + Li₂CO₃-B coating (as catholyte),3.6e-3 / 25 (exp.),0.0036,,0.25,0.25,0.25,–,Halide,Halide
+Li⁺,Li+,Pliable halide–fluoride glass electrolyte,Halide,–,3LiCl–GaF₃ (glass),3.6e-3 / 25 (exp.),0.0036,,0.25,0.25,0.25,–,Halide,Amorphous
+Li⁺,Li+,Pliable halide–fluoride glass electrolyte,Halide,–,3LiBr–GaF₃ (glass),1.8e-3 / 25 (exp.),0.0018,,0.28,0.28,0.28,–,Halide,Amorphous
+Li⁺,Li+,Pliable halide–fluoride glass electrolyte with surface-modifying additive,Halide,Li₂CO₃-B coating on cathode,3LiCl–GaF₃ + Li₂CO₃-B coating (as catholyte),3.6e-3 / 25 (exp.),0.0036,,0.25,0.25,0.25,–,Halide,Amorphous
