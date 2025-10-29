@@ -8,7 +8,7 @@
     html, body { height: 100%; margin: 0; background: #0b0f17; color: #e6edf3;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
     #chart { height: 100vh; width: 100vw; }
-    .label { fill: #e6edf3; pointer-events: none; text-anchor: middle; dominant-baseline: middle; text-shadow:
+    text.label { fill: #e6edf3; pointer-events: none; text-anchor: middle; dominant-baseline: middle; text-shadow:
       0 1px 0 rgba(0,0,0,.5), 0 -1px 0 rgba(0,0,0,.5),
       1px 0 0 rgba(0,0,0,.5), -1px 0 0 rgba(0,0,0,.5); }
     .breadcrumb { position: fixed; top: 10px; left: 12px; background: rgba(255,255,255,0.06);
@@ -24,11 +24,13 @@
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script>
+  // Load CSV from same folder (expects columns: "Structure Group", "Ion Type")
   d3.csv("data.csv").then(raw => {
     raw = raw.filter(d => d["Structure Group"] && d["Ion Type"])
              .map(d => ({ group: String(d["Structure Group"]).trim(),
-                          ion: String(d["Ion Type"]).trim() }));
+                          ion:   String(d["Ion Type"]).trim() }));
 
+    // Build hierarchy: root -> structure group -> ion counts
     const grouped = d3.group(raw, d => d.group);
     const rootData = {
       name: "All Structure Groups",
@@ -41,9 +43,10 @@
       }))
     };
 
-    // Get all ions for consistent colors
+    // Global ion list for consistent colors
     const allIons = Array.from(new Set(raw.map(d => d.ion)));
-    const ionColor = d3.scaleOrdinal(allIons, d3.schemeTableau10.concat(d3.schemeSet3).flat());
+    const palette = d3.schemeTableau10.concat(d3.schemeSet3, d3.schemePaired, d3.schemeDark2, d3.schemePastel2).flat();
+    const ionColor = d3.scaleOrdinal(allIons, palette);
 
     draw(rootData, ionColor);
   }).catch(() => {
@@ -53,12 +56,12 @@
 
   function draw(data, ionColor) {
     const size = Math.min(window.innerWidth, window.innerHeight);
-    const pack = data => d3.pack()
-      .size([size, size])
-      .padding(3)
-      (d3.hierarchy(data)
+    const padding = 3;
+    const pack = data => d3.pack().size([size, size]).padding(padding)(
+      d3.hierarchy(data)
         .sum(d => d.value || 0)
-        .sort((a, b) => (b.value || 0) - (a.value || 0)));
+        .sort((a, b) => (b.value || 0) - (a.value || 0))
+    );
 
     const root = pack(data);
     let focus = root, view;
@@ -70,55 +73,74 @@
       .style("cursor", "pointer");
 
     const g = svg.append("g");
+    const nodes = root.descendants();
 
-    const node = g.selectAll("circle")
-      .data(root.descendants())
+    // Circles
+    const circles = g.selectAll("circle")
+      .data(nodes)
       .join("circle")
-        .attr("fill", d => d.children ? "#202530" : ionColor(d.data.name))
-        .attr("stroke", "rgba(255,255,255,0.15)")
-        .attr("stroke-width", 1)
+        .attr("fill", d => d.children ? "#1a2028" : ionColor(d.data.name))
+        .attr("stroke", "rgba(255,255,255,0.18)")
+        .attr("stroke-width", d => d.children ? 1 : 0.75)
         .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
 
-    // Labels: always show name + count on leaves, group name on parents
-    const label = g.selectAll("text")
-      .data(root.descendants())
+    // ---- TWO SEPARATE LABEL LAYERS ----
+    // Group labels (parents)
+    const groupLabels = g.selectAll("text.group-label")
+      .data(nodes.filter(d => d.children))
       .join("text")
-        .attr("class", "label")
-        .text(d => d.children ? d.data.name : `${d.data.name} (${d.value})`)
-        .style("font-size", d => `${Math.max(8, d.r / 4)}px`)
-        .style("fill-opacity", d => d.parent === root ? 1 : 0)
-        .style("display", d => d.parent === root ? "inline" : "none");
+        .attr("class", "label group-label")
+        .text(d => d.data.name);
+
+    // Ion labels (leaves) — ALWAYS render name + count
+    const ionLabels = g.selectAll("text.ion-label")
+      .data(nodes.filter(d => !d.children))
+      .join("text")
+        .attr("class", "label ion-label")
+        .text(d => `${d.data.name} (${d.value})`);
 
     svg.on("click", (event) => zoom(event, root));
 
+    // Initial layout
     zoomTo([root.x, root.y, root.r * 2]);
     updateTrail(root);
 
     function zoomTo(v) {
       const k = size / v[2];
       view = v;
-      label.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
-           .style("font-size", d => `${Math.max(6, d.r * k / 4)}px`);
-      node.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
-          .attr("r", d => d.r * k);
+
+      // position shapes
+      circles
+        .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
+        .attr("r", d => d.r * k);
+
+      // dynamic label positions + visibility + font size
+
+      // Group labels: show for nodes that are the current focus or direct children of focus
+      groupLabels
+        .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
+        .style("font-size", d => `${Math.max(10, (d.r * k) / 4)}px`)
+        .style("display", d => (d === focus || d.parent === focus) ? "inline" : "none")
+        .style("fill-opacity", d => (d === focus || d.parent === focus) ? 1 : 0);
+
+      // Ion labels: ALWAYS show (name + count), but hide very tiny ones to avoid clutter
+      ionLabels
+        .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
+        .style("font-size", d => `${Math.max(8, (d.r * k) / 4)}px`)
+        .style("display", d => (d.r * k >= 14) ? "inline" : "none")  // threshold for readability
+        .style("fill-opacity", d => (d.r * k >= 14) ? 1 : 0);
     }
 
     function zoom(event, d) {
       focus = d;
-      const transition = svg.transition()
+      const t = svg.transition()
         .duration(650)
         .tween("zoom", () => {
           const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
           return t => zoomTo(i(t));
         });
 
-      label
-        .filter(function(dd) { return dd.parent === focus || this.style.display === "inline"; })
-        .transition(transition)
-          .style("fill-opacity", dd => dd.parent === focus ? 1 : 0)
-          .on("start", function(dd) { if (dd.parent === focus) this.style.display = "inline"; })
-          .on("end",   function(dd) { if (dd.parent !== focus) this.style.display = "none"; });
-
+      // Label fades handled in zoomTo via display/opacity rules
       updateTrail(d);
     }
 
@@ -139,6 +161,7 @@
       });
     }
 
+    // Keep centered on resize
     window.addEventListener('resize', () => {
       const s = Math.min(window.innerWidth, window.innerHeight);
       svg.attr("viewBox", `${-s/2} ${-s/2} ${s} ${s}`);
