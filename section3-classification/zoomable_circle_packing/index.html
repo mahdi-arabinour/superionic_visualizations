@@ -8,8 +8,7 @@
     html, body { height: 100%; margin: 0; background: #0b0f17; color: #e6edf3;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
     #chart { height: 100vh; width: 100vw; }
-    .label { fill: #e6edf3; font-size: 12px; pointer-events: none; text-anchor: middle;
-      dominant-baseline: middle; text-shadow:
+    .label { fill: #e6edf3; pointer-events: none; text-anchor: middle; dominant-baseline: middle; text-shadow:
       0 1px 0 rgba(0,0,0,.5), 0 -1px 0 rgba(0,0,0,.5),
       1px 0 0 rgba(0,0,0,.5), -1px 0 0 rgba(0,0,0,.5); }
     .breadcrumb { position: fixed; top: 10px; left: 12px; background: rgba(255,255,255,0.06);
@@ -17,123 +16,97 @@
       border-radius: 10px; font-size: 13px; z-index: 10; user-select: none; }
     .breadcrumb a { color: #8ab4ff; text-decoration: none; cursor: pointer; }
     .breadcrumb .sep { opacity: .5; margin: 0 6px; }
-    .tooltip { position: fixed; padding: 8px 10px; font-size: 12px; color: #0b0f17; background: #e6edf3;
-      border-radius: 8px; pointer-events: none; z-index: 20; transform: translate(-50%, -140%);
-      white-space: nowrap; visibility: hidden; }
-    .legend { position: fixed; bottom: 10px; right: 12px; background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.08); padding: 8px 10px; border-radius: 10px; font-size: 12px; }
   </style>
 </head>
 <body>
   <div class="breadcrumb" id="trail">Loading…</div>
   <div id="chart"></div>
-  <div class="tooltip" id="tip"></div>
-  <div class="legend">Parent = Structure Group • Child = Ion (size = count)</div>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script>
-  // Load CSV from same folder (expects columns: "Structure Group", "Ion Type")
   d3.csv("data.csv").then(raw => {
-    raw = raw.filter(d => d["Structure Group"] != null && d["Ion Type"] != null)
+    raw = raw.filter(d => d["Structure Group"] && d["Ion Type"])
              .map(d => ({ group: String(d["Structure Group"]).trim(),
-                          ion:   String(d["Ion Type"]).trim() }));
+                          ion: String(d["Ion Type"]).trim() }));
 
-    // Build hierarchy: root -> structure group -> ion counts
     const grouped = d3.group(raw, d => d.group);
     const rootData = {
       name: "All Structure Groups",
-      children: Array.from(grouped, ([g, rows]) => ({
-        name: g,
+      children: Array.from(grouped, ([group, rows]) => ({
+        name: group,
         children: Array.from(
-          d3.rollup(rows, v => v.length, d => d.ion), // ion -> count in this group
+          d3.rollup(rows, v => v.length, d => d.ion),
           ([ion, count]) => ({ name: ion, value: count })
         )
       }))
     };
 
-    // Collect global set of ions for consistent colors across groups
-    const allIons = new Set();
-    rootData.children.forEach(grp => grp.children.forEach(ch => allIons.add(ch.name)));
-
-    // Big categorical palette (cycled if more ions than colors)
-    const palette = [
-      ...d3.schemeTableau10, ...d3.schemeSet3, ...d3.schemePaired,
-      ...d3.schemeDark2, ...d3.schemePastel2
-    ].flat();
-    const ionColor = d3.scaleOrdinal([...allIons], palette);
+    // Get all ions for consistent colors
+    const allIons = Array.from(new Set(raw.map(d => d.ion)));
+    const ionColor = d3.scaleOrdinal(allIons, d3.schemeTableau10.concat(d3.schemeSet3).flat());
 
     draw(rootData, ionColor);
-  }).catch(err => {
-    console.error(err);
-    document.getElementById('trail').textContent = "Failed to load data.csv — open via a local web server.";
+  }).catch(() => {
+    document.getElementById('trail').textContent =
+      "⚠️ Failed to load data.csv — please open this file via a local web server.";
   });
 
   function draw(data, ionColor) {
-    const size = Math.min(window.innerWidth, window.innerHeight); // square canvas
-    const padding = 3;
-
-    const pack = data => d3.pack().size([size, size]).padding(padding)(
-      d3.hierarchy(data)
+    const size = Math.min(window.innerWidth, window.innerHeight);
+    const pack = data => d3.pack()
+      .size([size, size])
+      .padding(3)
+      (d3.hierarchy(data)
         .sum(d => d.value || 0)
-        .sort((a, b) => (b.value || 0) - (a.value || 0))
-    );
+        .sort((a, b) => (b.value || 0) - (a.value || 0)));
 
     const root = pack(data);
     let focus = root, view;
 
-    // Centered viewBox ensures chart is centered
     const svg = d3.select("#chart").append("svg")
       .attr("viewBox", `${-size/2} ${-size/2} ${size} ${size}`)
       .attr("width", "100%")
       .attr("height", "100%")
-      .style("display", "block")
       .style("cursor", "pointer");
 
     const g = svg.append("g");
 
-    const nodes = root.descendants();
-
-    // Circles
-    const circle = g.selectAll("circle")
-      .data(nodes)
+    const node = g.selectAll("circle")
+      .data(root.descendants())
       .join("circle")
-        .attr("fill", d => d.children ? "#141920" : ionColor(d.data.name))   // parent neutral, leaves colored by ion
-        .attr("fill-opacity", d => d.children ? 1 : 1)
-        .attr("stroke", d => d.children ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.3)")
-        .attr("stroke-width", d => d.children ? 1 : 0.75)
-        .on("mouseover", function(e, d) { d3.select(this).attr("stroke-width", 2); showTip(e, d); })
-        .on("mouseout",  function(e, d) { d3.select(this).attr("stroke-width", d.children ? 1 : 0.75); hideTip(); })
+        .attr("fill", d => d.children ? "#202530" : ionColor(d.data.name))
+        .attr("stroke", "rgba(255,255,255,0.15)")
+        .attr("stroke-width", 1)
         .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
 
-    // Labels: show group names on parents, ion + count on leaves
+    // Labels: always show name + count on leaves, group name on parents
     const label = g.selectAll("text")
-      .data(nodes)
+      .data(root.descendants())
       .join("text")
         .attr("class", "label")
         .text(d => d.children ? d.data.name : `${d.data.name} (${d.value})`)
+        .style("font-size", d => `${Math.max(8, d.r / 4)}px`)
         .style("fill-opacity", d => d.parent === root ? 1 : 0)
         .style("display", d => d.parent === root ? "inline" : "none");
 
     svg.on("click", (event) => zoom(event, root));
 
-    // --- Proper centering: NO extra offsets inside zoomTo ---
     zoomTo([root.x, root.y, root.r * 2]);
     updateTrail(root);
 
     function zoomTo(v) {
       const k = size / v[2];
       view = v;
-      label.attr("transform", d => `translate(${(d.x - v[0]) * k - 0},${(d.y - v[1]) * k - 0})`);
-      circle.attr("transform", d => `translate(${(d.x - v[0]) * k - 0},${(d.y - v[1]) * k - 0})`)
-            .attr("r", d => d.r * k);
-      // dynamic label visibility to avoid clutter
-      label.style("display", d => (d.parent === focus && d.r * k > 18) ? "inline" : "none")
-           .style("fill-opacity", d => (d.parent === focus && d.r * k > 18) ? 1 : 0);
+      label.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
+           .style("font-size", d => `${Math.max(6, d.r * k / 4)}px`);
+      node.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
+          .attr("r", d => d.r * k);
     }
 
     function zoom(event, d) {
       focus = d;
-      const t = svg.transition().duration(650)
+      const transition = svg.transition()
+        .duration(650)
         .tween("zoom", () => {
           const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
           return t => zoomTo(i(t));
@@ -141,10 +114,10 @@
 
       label
         .filter(function(dd) { return dd.parent === focus || this.style.display === "inline"; })
-        .transition(t)
-        .style("fill-opacity", dd => (dd.parent === focus && dd.r * (size / (focus.r * 2)) > 18) ? 1 : 0)
-        .on("start", function(dd) { if (dd.parent === focus) this.style.display = "inline"; })
-        .on("end",   function(dd) { if (dd.parent !== focus || dd.r * (size / (focus.r * 2)) <= 18) this.style.display = "none"; });
+        .transition(transition)
+          .style("fill-opacity", dd => dd.parent === focus ? 1 : 0)
+          .on("start", function(dd) { if (dd.parent === focus) this.style.display = "inline"; })
+          .on("end",   function(dd) { if (dd.parent !== focus) this.style.display = "none"; });
 
       updateTrail(d);
     }
@@ -152,10 +125,11 @@
     function updateTrail(d) {
       const trail = document.getElementById('trail');
       const ancestors = d.ancestors().reverse();
-      trail.innerHTML = ancestors.map((a, i) => {
-        if (i === ancestors.length - 1) return `<strong>${a.data.name}</strong>`;
-        return `<a data-depth="${i}">${a.data.name}</a>`;
-      }).join('<span class="sep">›</span>');
+      trail.innerHTML = ancestors.map((a, i) =>
+        i === ancestors.length - 1
+          ? `<strong>${a.data.name}</strong>`
+          : `<a data-depth="${i}">${a.data.name}</a>`
+      ).join('<span class="sep">›</span>');
       [...trail.querySelectorAll('a')].forEach(a => {
         a.addEventListener('click', () => {
           const depth = +a.getAttribute('data-depth');
@@ -165,20 +139,6 @@
       });
     }
 
-    const tip = document.getElementById('tip');
-    function showTip(e, d) {
-      const isLeaf = !d.children;
-      const value = d.value || 0;
-      tip.style.left = e.clientX + "px";
-      tip.style.top  = e.clientY + "px";
-      tip.innerHTML = isLeaf
-        ? `<strong>${d.data.name}</strong><br>Uses in group: ${value}`
-        : `<strong>${d.data.name}</strong><br>Total ions: ${value}`;
-      tip.style.visibility = "visible";
-    }
-    function hideTip() { tip.style.visibility = "hidden"; }
-
-    // Keep centered on resize
     window.addEventListener('resize', () => {
       const s = Math.min(window.innerWidth, window.innerHeight);
       svg.attr("viewBox", `${-s/2} ${-s/2} ${s} ${s}`);
