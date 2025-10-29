@@ -1,0 +1,158 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zoomable Circle Packing — Structure Group / Ion Type</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+      background: #0b0f17;
+      color: #e6edf3;
+    }
+    #chart { height: 100vh; width: 100vw; }
+    .label { fill: #e6edf3; font-size: 12px; pointer-events: none; text-shadow:
+        0 1px 0 rgba(0,0,0,.4), 0 -1px 0 rgba(0,0,0,.4),
+        1px 0 0 rgba(0,0,0,.4), -1px 0 0 rgba(0,0,0,.4); }
+    .breadcrumb {
+      position: fixed; top: 10px; left: 12px; background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.08);
+      padding: 8px 10px; border-radius: 10px; font-size: 13px; z-index: 10; user-select: none;
+    }
+    .breadcrumb a { color: #8ab4ff; text-decoration: none; cursor: pointer; }
+    .breadcrumb .sep { opacity: .5; margin: 0 6px; }
+    .tooltip {
+      position: fixed; padding: 8px 10px; font-size: 12px; color: #0b0f17; background: #e6edf3;
+      border-radius: 8px; pointer-events: none; z-index: 20; transform: translate(-50%, -140%);
+      white-space: nowrap; visibility: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div class="breadcrumb" id="trail"></div>
+  <div id="chart"></div>
+  <div class="tooltip" id="tip"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script>
+  const data = {"name": "All Structure Groups", "children": [{"name": "Amorphous", "children": [{"name": "Li+", "value": 28}, {"name": "Na+", "value": 17}, {"name": "Rb+", "value": 8}, {"name": "Ag+", "value": 6}, {"name": "O2-", "value": 1}], "value": 60}, {"name": "Anti-perovskite", "children": [{"name": "Li+", "value": 24}, {"name": "Na+", "value": 18}, {"name": "K+", "value": 2}], "value": 44}, {"name": "Argyrodite", "children": [{"name": "Li+", "value": 76}, {"name": "Ag+", "value": 1}], "value": 77}, {"name": "Halide", "children": [{"name": "Li+", "value": 173}, {"name": "Na+", "value": 30}, {"name": "Ag+", "value": 4}, {"name": "K+", "value": 1}, {"name": "Cu+", "value": 1}], "value": 209}, {"name": "NASICON", "children": [{"name": "Na+", "value": 27}, {"name": "Li+", "value": 15}, {"name": "Zn²+", "value": 1}], "value": 43}, {"name": "Other", "children": [{"name": "Li+", "value": 96}, {"name": "Na+", "value": 42}, {"name": "Ag+", "value": 18}, {"name": "K+", "value": 5}, {"name": "F-", "value": 4}, {"name": "H+", "value": 2}, {"name": "I-", "value": 1}, {"name": "Cu+", "value": 1}], "value": 169}, {"name": "Polymeric", "children": [{"name": "Li+", "value": 16}, {"name": "H+", "value": 6}, {"name": "Na+", "value": 5}], "value": 27}, {"name": "Spinel", "children": [{"name": "Li+", "value": 11}, {"name": "Mg2+", "value": 3}, {"name": "Cu+", "value": 2}, {"name": "In3+", "value": 2}, {"name": "Sn4+", "value": 1}], "value": 19}]};
+
+  const width = Math.min(window.innerWidth, window.innerHeight);
+  const padding = 3;
+  const color = d3.scaleSequential([0, 1], d3.interpolateMagma);
+
+  const pack = data => d3.pack()
+      .size([width, width])
+      .padding(padding)
+    (d3.hierarchy(data)
+      .sum(d => d.value || 0)
+      .sort((a, b) => (b.value || 0) - (a.value || 0)));
+
+  const root = pack(data);
+  let focus = root;
+  let view;
+
+  const svg = d3.select("#chart").append("svg")
+      .attr("viewBox", `${-width/2} ${-width/2} ${width} ${width}`)
+      .attr("width", "100%")
+      .attr("height", "100%")
+      .style("display", "block")
+      .style("cursor", "pointer")
+      .style("background", "transparent");
+
+  const node = svg.append("g")
+      .selectAll("circle")
+      .data(root.descendants())
+      .join("circle")
+        .attr("fill", d => d.children ? color(d.depth / (root.height || 1)) : "white")
+        .attr("stroke", d => d.children ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.15)")
+        .attr("stroke-width", d => d.children ? 1 : 0.5)
+        .on("mouseover", function(e, d) { d3.select(this).attr("stroke-width", 2); showTip(e, d); })
+        .on("mouseout",  function(e, d) { d3.select(this).attr("stroke-width", d.children ? 1 : 0.5); hideTip(); })
+        .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
+
+  const label = svg.append("g")
+      .style("font", "12px sans-serif")
+      .attr("pointer-events", "none")
+      .attr("text-anchor", "middle")
+    .selectAll("text")
+    .data(root.descendants())
+    .join("text")
+      .attr("class", "label")
+      .style("fill-opacity", d => d.parent === root ? 1 : 0)
+      .style("display", d => d.parent === root ? "inline" : "none")
+      .text(d => d.data.name);
+
+  svg.on("click", (event) => zoom(event, root));
+
+  zoomTo([root.x, root.y, root.r * 2]);
+  updateTrail(root);
+
+  function zoomTo(v) {
+    const k = width / v[2];
+    view = v;
+    label.attr("transform", d => `translate(${(d.x - v[0]) * k - width/2},${(d.y - v[1]) * k - width/2})`);
+    node.attr("transform", d => `translate(${(d.x - v[0]) * k - width/2},${(d.y - v[1]) * k - width/2})`);
+    node.attr("r", d => d.r * k);
+  }
+
+  function zoom(event, d) {
+    focus = d;
+    const transition = svg.transition()
+        .duration(650)
+        .tween("zoom", d => {
+          const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
+          return t => zoomTo(i(t));
+        });
+
+    label
+      .filter(function(d) { return d.parent === focus || this.style.display === "inline"; })
+      .transition(transition)
+        .style("fill-opacity", d => d.parent === focus ? 1 : 0)
+        .on("start", function(d) { if (d.parent === focus) this.style.display = "inline"; })
+        .on("end", function(d) { if (d.parent !== focus) this.style.display = "none"; });
+
+    updateTrail(d);
+  }
+
+  function updateTrail(d) {
+    const trail = document.getElementById('trail');
+    const ancestors = d.ancestors().reverse();
+    trail.innerHTML = ancestors.map((a, i) => {
+      if (i === ancestors.length - 1) return `<strong>${a.data.name}</strong>`;
+      return `<a data-depth="${i}">${a.data.name}</a>`;
+    }).join('<span class="sep">›</span>');
+
+    [...trail.querySelectorAll('a')].forEach((a, i) => {
+      a.addEventListener('click', () => {
+        const depth = +a.getAttribute('data-depth');
+        const target = ancestors[depth];
+        if (target) zoom(null, target);
+      });
+    });
+  }
+
+  const tip = document.getElementById('tip');
+  function showTip(e, d) {
+    const isLeaf = !d.children;
+    const value = d.value || 0;
+    tip.style.left = e.clientX + "px";
+    tip.style.top = e.clientY + "px";
+    tip.innerHTML = isLeaf
+      ? `<strong>${d.data.name}</strong><br>Uses in group: ${value}`
+      : `<strong>${d.data.name}</strong><br>Total ions: ${value}`;
+    tip.style.visibility = "visible";
+  }
+  function hideTip() { tip.style.visibility = "hidden"; }
+
+  window.addEventListener('resize', () => {
+    const w = Math.min(window.innerWidth, window.innerHeight);
+    svg.attr("viewBox", `${-w/2} ${-w/2} ${w} ${w}`);
+    zoomTo([focus.x, focus.y, focus.r * 2]);
+  });
+  </script>
+</body>
+</html>
