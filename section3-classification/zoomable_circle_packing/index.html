@@ -19,7 +19,7 @@
   </style>
 </head>
 <body>
-  <div class="breadcrumb" id="trail">Loading…</div>
+  <div class="breadcrumb" id="trail"></div>
   <div id="chart"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
@@ -33,7 +33,7 @@
     // Build hierarchy: root -> structure group -> ion counts
     const grouped = d3.group(raw, d => d.group);
     const rootData = {
-      name: "All Structure Groups",
+      name: "", // no visible root label
       children: Array.from(grouped, ([group, rows]) => ({
         name: group,
         children: Array.from(
@@ -57,6 +57,7 @@
   function draw(data, ionColor) {
     const size = Math.min(window.innerWidth, window.innerHeight);
     const padding = 3;
+
     const pack = data => d3.pack().size([size, size]).padding(padding)(
       d3.hierarchy(data)
         .sum(d => d.value || 0)
@@ -84,15 +85,14 @@
         .attr("stroke-width", d => d.children ? 1 : 0.75)
         .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
 
-    // ---- TWO SEPARATE LABEL LAYERS ----
-    // Group labels (parents)
+    // GROUP LABELS (parents, depth > 0), positioned near top of circle to avoid overlap with ion labels
     const groupLabels = g.selectAll("text.group-label")
-      .data(nodes.filter(d => d.children))
+      .data(nodes.filter(d => d.children && d.depth > 0))
       .join("text")
         .attr("class", "label group-label")
         .text(d => d.data.name);
 
-    // Ion labels (leaves) — ALWAYS render name + count
+    // ION LABELS (leaves) — always show name + count (hidden only if too small)
     const ionLabels = g.selectAll("text.ion-label")
       .data(nodes.filter(d => !d.children))
       .join("text")
@@ -109,25 +109,27 @@
       const k = size / v[2];
       view = v;
 
-      // position shapes
+      // Circles
       circles
         .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
         .attr("r", d => d.r * k);
 
-      // dynamic label positions + visibility + font size
-
-      // Group labels: show for nodes that are the current focus or direct children of focus
+      // Group labels near the top of their circle to avoid center overlap
       groupLabels
-        .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
+        .attr("transform", d => {
+          const x = (d.x - v[0]) * k;
+          const yTop = (d.y - v[1]) * k - (d.r * k * 0.45); // push upwards
+          return `translate(${x},${yTop})`;
+        })
         .style("font-size", d => `${Math.max(10, (d.r * k) / 4)}px`)
         .style("display", d => (d === focus || d.parent === focus) ? "inline" : "none")
         .style("fill-opacity", d => (d === focus || d.parent === focus) ? 1 : 0);
 
-      // Ion labels: ALWAYS show (name + count), but hide very tiny ones to avoid clutter
+      // Ion labels centered; hidden if circle too small for readability
       ionLabels
         .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
         .style("font-size", d => `${Math.max(8, (d.r * k) / 4)}px`)
-        .style("display", d => (d.r * k >= 14) ? "inline" : "none")  // threshold for readability
+        .style("display", d => (d.r * k >= 14) ? "inline" : "none")
         .style("fill-opacity", d => (d.r * k >= 14) ? 1 : 0);
     }
 
@@ -139,19 +141,19 @@
           const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
           return t => zoomTo(i(t));
         });
-
-      // Label fades handled in zoomTo via display/opacity rules
       updateTrail(d);
     }
 
     function updateTrail(d) {
       const trail = document.getElementById('trail');
-      const ancestors = d.ancestors().reverse();
-      trail.innerHTML = ancestors.map((a, i) =>
-        i === ancestors.length - 1
-          ? `<strong>${a.data.name}</strong>`
-          : `<a data-depth="${i}">${a.data.name}</a>`
-      ).join('<span class="sep">›</span>');
+      const ancestors = d.ancestors().reverse().slice(1); // drop root from breadcrumb
+      trail.innerHTML = ancestors.length
+        ? ancestors.map((a, i) =>
+            i === ancestors.length - 1
+              ? `<strong>${a.data.name}</strong>`
+              : `<a data-depth="${i}">${a.data.name}</a>`
+          ).join('<span class="sep">›</span>')
+        : "";
       [...trail.querySelectorAll('a')].forEach(a => {
         a.addEventListener('click', () => {
           const depth = +a.getAttribute('data-depth');
