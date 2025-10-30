@@ -1,196 +1,283 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>[SAFE] Bubble Dot Matrix — Dopant × Structure</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<!-- Plotly -->
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Conductivity by Structure × Dopant — Light Theme (Legends)</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<!-- PapaParse -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  :root { --bg:#0f1115; --panel:#171a20; --grid:#2a3240; --text:#e8e8ea; --err:#f87171; --ok:#34d399; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
-  header { display:flex; gap:10px; align-items:center; padding:10px 12px; background:var(--panel); border-bottom:1px solid var(--grid); position:sticky; top:0; z-index:10; }
-  #status { font-size:12px; color:#9aa4b2; }
-  #error { display:none; padding:8px 12px; background:#2b1111; color:#fecaca; border:1px solid #7f1d1d; border-radius:8px; margin:8px 12px; white-space:pre-wrap; }
-  #chart { height:85vh; width:100%; }
+  :root { color-scheme: light; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    background: #ffffff;
+    color: #111827;
+  }
+  header { padding: 16px 20px 0 20px; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  .sub { color: #4b5563; font-size: 13px; margin-bottom: 12px; }
+  #controls {
+    display:flex; gap:12px; align-items:center; flex-wrap: wrap;
+    padding: 8px 20px 0 20px; color:#374151; font-size: 13px;
+  }
+  #chart { width: 100%; height: 78vh; }
+  .pill { padding:4px 10px; border:1px solid #e5e7eb; border-radius: 999px; background:#f9fafb; }
+  .status { padding: 8px 20px; color:#6b7280; font-size:12px;}
+  .muted { color:#6b7280; }
 </style>
 </head>
 <body>
   <header>
-    <div id="status">Loading…</div>
+    <h1>Conductivity by Structure × Dopant</h1>
+    <div class="sub">Bubble color = <b>log<sub>10</sub>(σ)</b> (S/cm). Bubble size ∝ number of records. Theme: light.</div>
   </header>
-  <div id="error"></div>
+
+  <div id="controls">
+    <label class="pill"><input id="toggleColorScale" type="checkbox"/> Color by <b>linear σ</b> (instead of log<sub>10</sub>(σ))</label>
+    <label class="pill"><input id="toggleMean" type="checkbox"/> Use <b>mean</b> instead of median</label>
+    <span class="muted">Tip: hover a bubble to see raw σ and log<sub>10</sub>(σ)</span>
+  </div>
+
   <div id="chart"></div>
+  <div class="status" id="status">Loading sample data…</div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  const statusEl = document.getElementById('status');
-  const errorEl  = document.getElementById('error');
-  function say(msg, ok=false){ statusEl.textContent = msg; statusEl.style.color = ok ? 'var(--ok)' : '#9aa4b2'; }
-  function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
-
-  if(!window.Plotly){ err("Plotly failed to load from CDN. Check your network or try a VPN."); return; }
-
-  // --- Helpers (minimal) ---
-  const COLS = {
-    doping: ["Doping / and or GB Strategy (Normalized)","Doping / and or GB Strategy","Doping","GB Strategy","Doping / GB"],
-    structure: ["Structure Group"],
-    sigma: ["Conductivity σ (S·cm⁻¹)"]
+function guessCol(row, candidates) {
+  const keys = Object.keys(row);
+  const score = (name) => {
+    const n = name.toLowerCase();
+    for (const c of candidates) { if (n.includes(c)) return c.length; }
+    return 0;
   };
-  function guessCol(headers, candidates){
-    const map = Object.fromEntries(headers.map(h=>[h.toLowerCase(), h]));
-    for(const name of candidates){ if(map[name.toLowerCase()]) return map[name.toLowerCase()]; }
-    for(const h of headers){ const lc=h.toLowerCase(); if(candidates.some(n=>lc.includes(n.toLowerCase()))) return h; }
-    return null;
+  let best = null, bestScore = 0;
+  for (const k of keys) {
+    const s = score(k);
+    if (s > bestScore) { best = k; bestScore = s; }
   }
-  function toNum(v){
-    if(typeof v==="number") return v;
-    if(v==null) return NaN;
-    const s = String(v).trim();
-    if(!s || s==="–" || s==="—" || /^n\/?a$/i.test(s)) return NaN;
-    const n = Number(s.replace(/[, ]/g,""));
-    if(Number.isFinite(n)) return n;
-    const m = s.match(/([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)/);
-    return m ? Number(m[1]) : NaN;
+  return best;
+}
+
+function parseNumber(x) {
+  if (x == null) return NaN;
+  const s = String(x).trim().toLowerCase().replace(/,/g, "");
+  if (!s) return NaN;
+  const v = Number(s);
+  if (!Number.isNaN(v)) return v;
+  const m = s.match(/([0-9.]+)\\s*(?:x|\\*)\\s*10\\s*(?:\\^)?\\s*([-+]?\\d+)/i);
+  if (m) {
+    const base = Number(m[1]); const exp = Number(m[2]);
+    if (!Number.isNaN(base) && !Number.isNaN(exp)) return base * Math.pow(10, exp);
   }
-  const SPLIT_RE = /[,;+/]/;
-  function explodeDopants(raw){
-    if(raw==null || String(raw).trim()==="") return ["(none)"];
-    return String(raw).split(SPLIT_RE).map(s=>s.trim()).filter(Boolean);
+  return NaN;
+}
+
+function splitMulti(value) {
+  if (!value) return [];
+  return String(value).split(/[+,/&]| and /i).map(s => s.trim()).filter(Boolean);
+}
+
+function quantile(arr, q) {
+  const a = arr.slice().sort((x,y)=>x-y);
+  const pos = (a.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  if (a[base+1] !== undefined) { return a[base] + rest * (a[base+1] - a[base]); }
+  else { return a[base]; }
+}
+function median(arr){ return quantile(arr, 0.5); }
+function mean(arr){ return arr.reduce((s,x)=>s+x,0)/arr.length; }
+function roundSig(x, sig=6){
+  if (!isFinite(x) || x===0) return x;
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  const f = Math.pow(10, sig-1-e);
+  return Math.round(x*f)/f;
+}
+
+function buildChart(rows, useMean=false, colorLinear=false) {
+  const sample = rows[0] || {};
+  const colDopant = guessCol(sample, ["doping", "dopant", "gb strategy", "gb", "additive"]);
+  const colStruct = guessCol(sample, ["structure group", "structure"]);
+  const colSigma  = guessCol(sample, ["conductivity", "sigma", "s/cm"]);
+  if (!colDopant || !colStruct || !colSigma) {
+    document.getElementById("status").textContent = "Missing required columns. Need dopant, structure group, and conductivity.";
+    return;
   }
 
-  // --- Core draw (small, robust) ---
-  function draw(rows, cols){
-    // bucket: (structure,dopant) -> {vals:[], count}
-    const bucket = new Map();
-    const structs = new Set();
-    const dopants = new Set();
+  const bucket = new Map();
+  for (const r of rows) {
+    const dopants = splitMulti(r[colDopant]);
+    const structure = String(r[colStruct] ?? "").trim();
+    const raw = parseNumber(r[colSigma]);
+    if (!structure || !isFinite(raw) || raw <= 0) continue;
+    const keyBase = structure + "|||";
+    if (dopants.length === 0) dopants.push("(none)");
+    for (const d of dopants) {
+      const key = keyBase + d;
+      if (!bucket.has(key)) bucket.set(key, []);
+      bucket.get(key).push(raw);
+    }
+  }
 
-    for(const r of rows){
-      const s = toNum(r[cols.sigma]);
-      if(!Number.isFinite(s) || s<=0) continue;
-      const fam = (r[cols.structure] ?? "Other / Novel").toString().trim() || "Other / Novel";
-      const dops = explodeDopants(r[cols.doping]);
-      for(const d of dops){
-        const key = fam + "|||" + d;
-        if(!bucket.has(key)) bucket.set(key, {vals:[], count:0, struct:fam, dop:d});
-        const b = bucket.get(key);
-        b.vals.push(s); b.count++;
-        structs.add(fam); dopants.add(d);
+  const xs = [], ys = [], sizes = [], colors = [], texts = [], hover = [];
+  let minC = Infinity, maxC = -Infinity;
+
+  for (const [key, arr] of bucket) {
+    if (arr.length === 0) continue;
+    const [structure, dopant] = key.split("|||");
+    const val = useMean ? mean(arr) : median(arr);
+    const n = arr.length;
+    const colorVal = colorLinear ? val : Math.log10(val);
+
+    minC = Math.min(minC, colorVal);
+    maxC = Math.max(maxC, colorVal);
+
+    xs.push(dopant);
+    ys.push(structure);
+    sizes.push(Math.sqrt(n) * 10);
+    colors.push(colorVal);
+
+    const valRounded = roundSig(val, 6);
+    const logRounded = roundSig(Math.log10(val), 6);
+    texts.push(`${structure}<br><b>${dopant}</b>`);
+    hover.push(
+      `Structure: ${structure}<br>` +
+      `Dopant: ${dopant}<br>` +
+      `N: ${n}<br>` +
+      `Median σ: ${valRounded} S/cm<br>` +
+      `log10(σ): ${logRounded}`
+    );
+  }
+
+  // Main trace
+  const traceMain = {
+    x: xs, y: ys, mode: "markers",
+    text: texts,
+    hovertemplate: "%{text}<br>%{customdata}<extra></extra>",
+    customdata: hover.map(h => h.replace(/<br>/g, "\\n")),
+    marker: {
+      size: sizes,
+      sizemode: "area",
+      color: colors,
+      colorscale: "Viridis",
+      colorbar: { title: colorLinear ? "σ (S/cm)" : "log10(σ)", titleside: "right", thickness: 14, len: 0.8 },
+      line: { width: 0.5, color: "rgba(0,0,0,0.2)" }
+    },
+    type: "scatter",
+    xaxis: "x",
+    yaxis: "y"
+  };
+
+  // ---- Size legend as inset subplot ----
+  // We'll use a secondary x2/y2 axis in the top-right corner as an inset
+  const sizeLegendCounts = [1, 4, 9, 16];
+  const sizeLegendY = [4, 3, 2, 1]; // positions within inset
+  const sizeLegendSizes = sizeLegendCounts.map(n => Math.sqrt(n) * 10);
+  const sizeLegendLabels = sizeLegendCounts.map(n => n + (n===1 ? " record" : " records"));
+
+  const traceSizeLegend = {
+    x: [1, 1, 1, 1],
+    y: sizeLegendY,
+    mode: "markers+text",
+    text: sizeLegendLabels,
+    textposition: "middle left",
+    textfont: { size: 11, color: "#374151" },
+    hoverinfo: "skip",
+    marker: {
+      size: sizeLegendSizes,
+      sizemode: "area",
+      color: "#9CA3AF",
+      line: { width: 0.5, color: "rgba(0,0,0,0.2)" }
+    },
+    xaxis: "x2",
+    yaxis: "y2",
+    showlegend: false,
+    type: "scatter"
+  };
+
+  const layout = {
+    template: "plotly_white",
+    paper_bgcolor: "#ffffff",
+    plot_bgcolor: "#ffffff",
+    margin: { l: 90, r: 60, t: 20, b: 60 },
+    xaxis: { title: "Dopant / Strategy", automargin: true, tickangle: -30 },
+    yaxis: { title: "Structure Group", automargin: true, categoryorder: "array" },
+    showlegend: false,
+
+    // Inset axes for size legend (top-right corner)
+    xaxis2: { domain: [0.80, 0.98], visible: false },
+    yaxis2: { domain: [0.62, 0.95], visible: false },
+    annotations: [
+      {
+        xref: "x2", yref: "y2", x: 0.95, y: 4.4, showarrow: false,
+        text: "Bubble size ∝ √(count)", font: { size: 12, color: "#111827" }, xanchor: "right"
       }
-    }
+    ]
+  };
 
-    if(!bucket.size){
-      err("No points to plot (no valid σ > 0 after parsing). Check your conductivity column values.");
-      return;
-    }
-
-    const xCats = Array.from(dopants).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-    const yCats = Array.from(structs).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-    const x=[], y=[], c=[], sz=[], txt=[];
-
-    let zMin=Infinity, zMax=-Infinity;
-    for(const [,b] of bucket){
-      // median
-      const vals = b.vals.slice().sort((a,b)=>a-b);
-      const mid = Math.floor(vals.length/2);
-      const z = vals.length%2 ? vals[mid] : (vals[mid-1]+vals[mid])/2;
-      zMin=Math.min(zMin,z); zMax=Math.max(zMax,z);
-      x.push(b.dop); y.push(b.struct);
-      c.push(Math.log10(z));
-      sz.push(Math.max(10, Math.min(60, 10 + Math.log2(b.count+1)*10)));
-      txt.push(`${b.struct} × ${b.dop}<br>count: ${b.count}<br>median σ: ${z.toExponential(2)}<br>log₁₀σ: ${Math.log10(z).toFixed(2)}`);
-    }
-
-    Plotly.react('chart', [{
-      type:'scatter', mode:'markers', x, y, text:txt, hovertemplate:'%{text}<extra></extra>',
-      marker:{
-        size:sz, sizemode:'diameter',
-        color:c, colorscale:'Viridis',
-        cmin:Math.log10(zMin), cmax:Math.log10(zMax),
-        line:{color:'#111', width:0.5}, opacity:0.9,
-        colorbar:{ title:'log₁₀ σ (S·cm⁻¹)', tickfont:{color:'#e8e8ea'}, titlefont:{color:'#e8e8ea'} }
-      }
-    }], {
-      paper_bgcolor:'#0f1115', plot_bgcolor:'#0f1115',
-      margin:{t:30,r:10,b:120,l:200},
-      xaxis:{ title:'Dopant', type:'category', categoryorder:'array', categoryarray:xCats,
-              tickangle:-30, automargin:true, gridcolor:'#2a3240', zerolinecolor:'#2a3240',
-              titlefont:{color:'#e8e8ea'}, tickfont:{color:'#e8e8ea'} },
-      yaxis:{ title:'Structure (family)', type:'category', categoryorder:'array', categoryarray:yCats,
-              automargin:true, gridcolor:'#2a3240', zerolinecolor:'#2a3240',
-              titlefont:{color:'#e8e8ea'}, tickfont:{color:'#e8e8ea'} }
-    }, {responsive:true, displaylogo:false});
-
-    say(`Rendered ${bucket.size} bubbles · σ range log₁₀[${Math.log10(zMin).toFixed(2)}…${Math.log10(zMax).toFixed(2)}]`, true);
+  // Sort Y categories by overall median color value (descending)
+  const yCats = Array.from(new Set(ys));
+  const catScore = new Map(yCats.map(c => [c, -Infinity]));
+  for (let i=0;i<ys.length;i++){
+    const cat = ys[i];
+    const c = colors[i];
+    const prev = catScore.get(cat);
+    catScore.set(cat, Math.max(prev, c));
   }
+  yCats.sort((a,b)=> (catScore.get(b)-catScore.get(a)));
+  layout.yaxis.categoryarray = yCats;
 
-  // --- CSV pipeline with hard checks ---
-  function handleParsed(res){
-    errorEl.style.display='none';
-    if(!res.data || !res.data.length){ err("Parsed file but found no rows."); return; }
-    const headers = res.meta.fields || [];
-    const cols = {
-      doping:   guessCol(headers, COLS.doping),
-      structure:guessCol(headers, COLS.structure),
-      sigma:    guessCol(headers, COLS.sigma)
-    };
-    if(!cols.doping || !cols.structure || !cols.sigma){
-      err(
-`Missing required columns.
+  Plotly.react("chart", [traceMain, traceSizeLegend], layout, {
+    responsive: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: ["lasso2d", "select2d"],
+    toImageButtonOptions: {format: "png", filename: "conductivity_by_structure_dopant"}
+  });
 
-Need something like:
-- Doping: ${COLS.doping.join(" | ")}
-- Structure: ${COLS.structure.join(" | ")}
-- Conductivity: ${COLS.sigma.join(" | ")}
+  document.getElementById("status").textContent =
+    `Rendered ${xs.length} bubbles across ${yCats.length} structure groups (color by ` +
+    (colorLinear ? "linear σ" : "log10(σ)") + (useMean ? ", mean" : ", median") + ").";
+}
 
-Detected headers:
-${headers.join(", ")}`
-      );
-      return;
+// Sample first, then attempt to load real data.csv
+const sampleCSV = `Structure Group,Doping / GB Strategy,Conductivity σ (S·cm⁻¹)
+NASICON,Al,1.2e-3
+NASICON,Al+Nb,7.5e-4
+Halide,Cl,2.1e-3
+Spinel,(none),4.7e-5
+Argyrodite,I,6.0e-3`;
+
+function parseAndBuild(csvText) {
+  Papa.parse(csvText, {
+    header: true,
+    dynamicTyping: false,
+    skipEmptyLines: true,
+    complete: (res) => {
+      const rows = res.data;
+      buildChart(rows, document.getElementById("toggleMean").checked, document.getElementById("toggleColorScale").checked);
     }
-    say("CSV loaded ✓ parsing rows…");
-    draw(res.data, cols);
-  }
+  });
+}
 
-  // --- Always render a tiny sample first so you SEE a chart immediately ---
-  const SAMPLE = `Doping / and or GB Strategy,Structure Family (Canonical),Conductivity σ (S·cm⁻¹)
-Al,NASICON,2e-3
-Ga,NASICON,1.2e-3
-Al + Ga,NASICON,1.7e-3
-Al,Garnet,4.0e-4
-Li-excess,Argyrodite,1.1e-2
-Cl,Halide,9.0e-2
-(none),NASICON,6.5e-4
-Al + Nb,NASICON,1.8e-3
-Cl + Br,Halide,7.0e-2
-`;
-  Papa.parse(SAMPLE, {header:true, complete: (res)=>{ handleParsed(res); say("Sample loaded — fetching data.csv…"); }});
+parseAndBuild(sampleCSV);
 
-  // --- Auto-fetch data.csv (same folder as this HTML) ---
-  fetch("data.csv", { cache: "no-store" })
-    .then(resp => {
-      if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
-      return resp.text();
-    })
-    .then(csvText => {
-      Papa.parse(csvText, {
-        header:true,
-        dynamicTyping:false,
-        skipEmptyLines:true,
-        complete: (res) => { handleParsed(res); say("data.csv loaded ✓", true); },
-        error: (e)=> err("Parse error: " + e.message)
-      });
-    })
-    .catch(e => {
-      say("Using sample data (data.csv not loaded)");
-      err("Could not load data.csv automatically: " + e.message + "\n\nEnsure data.csv is in the same folder and you are serving this file over HTTP.");
-    });
+fetch("data.csv")
+  .then(r => r.ok ? r.text() : Promise.reject("No data.csv found in the same folder."))
+  .then(text => {
+    document.getElementById("status").textContent = "CSV loaded ✓";
+    parseAndBuild(text);
+  })
+  .catch(err => {
+    document.getElementById("status").textContent = "Using sample (place your cleaned CSV as data.csv in the same folder to render your data).";
+    console.warn(err);
+  });
+
+document.getElementById("toggleColorScale").addEventListener("change", ()=>{
+  fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
+});
+document.getElementById("toggleMean").addEventListener("change", ()=>{
+  fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
 });
 </script>
 </body>
 </html>
-
