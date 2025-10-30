@@ -130,7 +130,7 @@ d3.csv(CSV_FILE).then(raw => {
   const shapes = [d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, d3.symbolDiamond, d3.symbolCross, d3.symbolStar, d3.symbolWye];
   const getShape = t => shapes[(ionTypes.indexOf(t) >= 0 ? ionTypes.indexOf(t) : 0) % shapes.length];
 
-  const x = d3.scaleLinear().domain([0,20000]).range([0,innerW]);
+  const x = d3.scaleLinear().domain([0,2000]).range([0,innerW]);
   const y = d3.scaleLinear().domain([0,100]).range([innerH,0]);
   const xTicks = [0,100,200,500,1000,2000,5000,10000,20000];
   xAxisG.call(d3.axisBottom(x).tickValues(xTicks).tickFormat(d => d>=1000 ? (d/1000)+"k" : d));
