@@ -53,10 +53,10 @@ d3.csv(CSV_FILE).then(raw => {
 
   // Accept either textual or numeric headers
   const C_FORMULA = pick(cols, ["Formula (Chemical)", "Formula"]);
-  const C_STRUCT  = pick(cols, ["Structure Type","StructureType"]);
+  const C_STRUCT  = pick(cols, ["Structure Group","StructureType"]);
   const C_ION     = pick(cols, ["Ion Type","IonType"]);
-  const C_CYCLE   = pick(cols, ["Cycle Life (N cycles or hours)","Cycle Life"]);
-  const C_RET     = pick(cols, ["Retention %","Retention"]);
+  const C_CYCLE   = pick(cols, ["Cycle Life normalized (cycles)","Cycle Life"]);
+  const C_RET     = pick(cols, ["Retention % normalized","Retention"]);
 
   const missing = [C_FORMULA,C_STRUCT,C_ION,C_CYCLE,C_RET].filter(v => !v);
   if (missing.length) {
