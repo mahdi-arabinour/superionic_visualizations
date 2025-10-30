@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Conductivity by Structure × Dopant — Hard‑wired (Toolbar Legend v2)</title>
+<title>Conductivity by Structure × Dopant — Hard‑wired (Toolbar Legend v3)</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
@@ -92,21 +92,20 @@ function roundSig(x, sig=6){
   return Math.round(x*f)/f;
 }
 
-let LAST_ROWS = null;
-
 function buildSizeLegend(scale){
   const counts = [1,4,9,16];
   const svg = document.getElementById("sizeLegendSvg");
   while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-  // auto-scale legend to a gentle fraction of main scale
-  const legendScale = Math.max(10, scale * 0.25); // 1/4 of chart scale, but at least 10
-  const maxDiameter = 44; // clamp so it never explodes
-  let x = 24;
+  // Auto-scale legend: 1/4 of main scale + soft log cap so larger examples stay distinct
+  const legendScale = Math.max(10, scale * 0.25);
+  let x = 20;
   const y = 18;
+
   for (const n of counts){
-    let diameter = Math.sqrt(n) * legendScale;
-    diameter = Math.min(diameter, maxDiameter);
+    const base = Math.sqrt(n) * legendScale;
+    const softCap = 32 + Math.log2(n + 1) * 6; // 1≈38, 4≈44, 9≈48, 16≈50 px
+    const diameter = Math.min(base, softCap);
     const r = diameter / 2;
 
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -131,12 +130,12 @@ function buildSizeLegend(scale){
     g.appendChild(label);
     svg.appendChild(g);
 
-    // tighter spacing with a minimum padding
-    const spacing = Math.max(diameter + 16, 52);
+    const spacing = Math.max(diameter + 14, 48); // tighter spacing
     x += spacing;
   }
 }
 
+let LAST_ROWS = null;
 function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SCALE) {
   LAST_ROWS = rows;
   const headers = Object.keys(rows[0] || {});
@@ -146,7 +145,6 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SC
     return;
   }
 
-  // bucket (Structure, Dopant) -> values[]
   const bucket = new Map();
   for (const r of rows) {
     const dopants = splitMulti(r[COL_DOPANT]);
@@ -179,13 +177,7 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SC
     const valRounded = roundSig(val, 6);
     const logRounded = roundSig(Math.log10(val), 6);
     texts.push(`${structure}<br><b>${dopant}</b>`);
-    hover.push(
-      `Structure: ${structure}<br>` +
-      `Dopant: ${dopant}<br>` +
-      `Count: ${n}<br>` +
-      `Median σ: ${valRounded} S/cm<br>` +
-      `log10(σ): ${logRounded}`
-    );
+    hover.push(`Structure: ${structure}<br>Dopant: ${dopant}<br>Count: ${n}<br>Median σ: ${valRounded} S/cm<br>log10(σ): ${logRounded}`);
   }
 
   const traceMain = {
@@ -193,12 +185,9 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SC
     text: texts,
     hovertemplate: "%{text}<br>%{customdata}<extra></extra>",
     customdata: hover.map(h => h.replace(/<br>/g, "\\n")),
-    marker: {
-      size: sizes, sizemode: "area",
-      color: colors, colorscale: "Viridis",
+    marker: { size: sizes, sizemode: "area", color: colors, colorscale: "Viridis",
       colorbar: { title: colorLinear ? "σ (S/cm)" : "log10(σ)", titleside: "right", thickness: 14, len: 0.8 },
-      line: { width: 0.5, color: "rgba(0,0,0,0.2)" }
-    },
+      line: { width: 0.5, color: "rgba(0,0,0,0.2)" } },
     type: "scatter", xaxis: "x", yaxis: "y"
   };
 
@@ -214,8 +203,7 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SC
   const yCats = Array.from(new Set(ys));
   const catScore = new Map(yCats.map(c => [c, -Infinity]));
   for (let i=0;i<ys.length;i++){
-    const cat = ys[i];
-    const c = colors[i];
+    const cat = ys[i]; const c = colors[i];
     catScore.set(cat, Math.max(catScore.get(cat), c));
   }
   if (yCats.length) {
@@ -233,11 +221,9 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SC
     `Rendered ${xs.length} bubbles across ${yCats.length} structure groups (color by ` +
     (colorLinear ? "linear σ" : "log10(σ)") + (useMean ? ", mean" : ", median") + `). Size scale: ${sizeScale}`;
 
-  // Update inline legend to match scale
   buildSizeLegend(sizeScale);
 }
 
-// Parse & render
 const sampleCSV = `Structure Group,Doping / and or GB Strategy,Conductivity σ (S·cm⁻¹)
 NASICON,Al,1.2e-3
 NASICON,Al+Nb,7.5e-4
@@ -246,8 +232,7 @@ Spinel,(none),4.7e-5
 Argyrodite,I,6.0e-3`;
 
 function parseAndBuild(csvText) {
-  Papa.parse(csvText, {
-    header: true, dynamicTyping: false, skipEmptyLines: true,
+  Papa.parse(csvText, { header: true, dynamicTyping: false, skipEmptyLines: true,
     complete: (res) => { 
       const scale = Number(document.getElementById("sizeScale").value) || DEFAULT_SCALE;
       buildChart(res.data, document.getElementById("toggleMean").checked, document.getElementById("toggleColorScale").checked, scale);
@@ -262,7 +247,6 @@ fetch("data.csv")
   .then(text => { document.getElementById("status").textContent = "CSV loaded ✓"; parseAndBuild(text); })
   .catch(err => { document.getElementById("status").textContent = "Using sample (place your cleaned CSV as data.csv)."; console.warn(err); });
 
-// Controls
 document.getElementById("toggleColorScale").addEventListener("change", ()=>{
   fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
 });
