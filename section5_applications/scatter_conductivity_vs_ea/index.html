@@ -3,14 +3,16 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Activation Energy vs Conductivity (X = log10σ, Y = Ea)</title>
+<title>Activation Energy vs Conductivity — robust parser</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  :root { --panel-w: 280px; }
+  :root { --panel-w: 320px; }
   body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; background:#f8fafc; margin:16px; color:#0f172a; }
-  h2 { margin: 4px 0 10px; font-size: 22px; letter-spacing: .2px; }
+  h2 { margin: 4px 0 10px; font-size: 24px; letter-spacing: .2px; }
   .toolbar { display:flex; flex-wrap: wrap; gap:10px; align-items:center; margin-bottom: 10px; }
   .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; background:#fff; border:1px solid #e5e7eb; border-radius:999px; font-size:12px; }
+  .btn { font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; }
+  .btn:hover { background:#f1f5f9; }
   .wrap { display:grid; grid-template-columns: 1fr var(--panel-w); gap:16px; align-items: start; }
   .viz { background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
   .axis path, .axis line { stroke:#94a3b8; }
@@ -28,7 +30,13 @@
   .controls button { font-size:11px; padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; }
   .controls button:hover { background:#eef2f7; }
   .foot { margin-top:6px; color:#64748b; font-size:12px; }
-  @media (max-width: 980px) { :root { --panel-w: 100%; } .wrap { grid-template-columns: 1fr; } }
+  details { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; }
+  details summary { cursor:pointer; font-weight:600; color:#0f172a; }
+  .diag { font-size:12px; color:#334155; }
+  .kpi { display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+  .kpi span { color:#64748b; }
+  .kpi b { color:#111827; }
+  @media (max-width: 1000px) { :root { --panel-w: 100%; } .wrap { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -36,6 +44,12 @@
 <h2>Activation Energy vs Conductivity</h2>
 <div class="toolbar">
   <span class="pill"><input type="checkbox" id="eaFilter" checked> Show only Ea ≤ 1 eV</span>
+  <span class="pill">
+    Ea parsing:
+    <label style="margin-left:6px;"><input type="radio" name="eaMode" value="strict"> strict</label>
+    <label style="margin-left:6px;"><input type="radio" name="eaMode" value="relaxed" checked> relaxed</label>
+  </span>
+  <button class="btn" id="resetAll">Reset filters</button>
   <span id="status" style="font-size:12px;color:#64748b;"></span>
 </div>
 
@@ -63,6 +77,11 @@
       <h3>Ion Type (Shape)</h3>
       <div id="shapeItems"></div>
     </div>
+
+    <details open>
+      <summary>Diagnostics</summary>
+      <div class="diag" id="diag"></div>
+    </details>
     <div class="foot" id="footnote"></div>
   </div>
 </div>
@@ -97,6 +116,43 @@ function parseNumberFlexible(v) {
   return Number.isFinite(n) ? n : NaN;
 }
 
+// Relaxed Ea parser: supports ranges (~, -, –, 'to'), multiple values separated by ';', and strips parenthetical notes.
+function parseEa(value, mode="relaxed") {
+  if (value == null) return NaN;
+  let s = String(value).trim();
+  if (!s) return NaN;
+  if (mode === "strict") return parseNumberFlexible(s);
+
+  // relaxed:
+  s = s.replace(/[\u223C~≈]/g, "");            // ~ ≈
+  s = s.replace(/\(.*?\)/g, "");               // drop (...) notes
+  const parts = s.split(";").map(x => x.trim()).filter(Boolean);
+  if (!parts.length) return NaN;
+
+  function toNum(t) {
+    // handle ranges: a-b, a–b, a to b
+    const range = t.match(/([-+]?\d*\.?\d+)\s*(?:-|–|to)\s*([-+]?\d*\.?\d+)/i);
+    if (range) {
+      const a = parseNumberFlexible(range[1]);
+      const b = parseNumberFlexible(range[2]);
+      if (Number.isFinite(a) && Number.isFinite(b)) return (a + b) / 2;
+    }
+    // otherwise first numeric in the token
+    const m = t.match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/i);
+    return m ? parseNumberFlexible(m[0]) : NaN;
+  }
+
+  // prefer first token but allow fallback to any numeric across tokens
+  let n = toNum(parts[0]);
+  if (Number.isFinite(n)) return n;
+  for (const p of parts.slice(1)) {
+    n = toNum(p);
+    if (Number.isFinite(n)) return n;
+  }
+  return NaN;
+}
+
+// Pick σ at ~25 °C from a combined "σ / Temp" string
 function pickSigmaAtRT(cell) {
   if (cell == null) return {sigma: NaN, temp: NaN, raw: ""};
   const raw = String(cell);
@@ -106,7 +162,7 @@ function pickSigmaAtRT(cell) {
 
   function extractOne(s) {
     const sigMatch = s.match(/[-+]?[\d.,]*\d(?:\.\d+)?(?:e[-+]?\d+)?/i);
-    const tempMatch = s.match(/(-?\d(?:\.\d+)?)\s*°?\s*c/i) || (/\bRT\b/i.test(s) ? {1:"25"} : null);
+    const tempMatch = s.match(/(-?\d+(?:\.\d+)?)\s*°?\s*c/i) || (/\bRT\b/i.test(s) ? {1:"25"} : null);
     const sigma = sigMatch ? parseNumberFlexible(sigMatch[0]) : NaN;
     const temp  = tempMatch ? parseFloat(tempMatch[1]) : NaN;
     return {sigma, temp, raw:s};
@@ -137,35 +193,43 @@ const xAxisG = svg.append("g").attr("class","axis").attr("transform", `translate
 const yAxisG = svg.append("g").attr("class","axis");
 const tooltip = d3.select("body").append("div").attr("class","tooltip").style("opacity",0);
 
-d3.csv(CSV_FILE).then(raw => {
-  const rows = raw.map(d => {
+let global = {raw:[], allData:[], structureGroups:[], ionTypes:[], points:null};
+
+function render(modeEa="relaxed"){
+  svg.selectAll("*").remove();
+  gridG.selectAll("*").remove();
+  xAxisG.selectAll("*").remove();
+  yAxisG.selectAll("*").remove();
+
+  const allData = global.raw.map(d => {
     const pick = pickSigmaAtRT(d[COL.sigmaTemp]);
     const log10_sigma = (Number.isFinite(pick.sigma) && pick.sigma > 0) ? Math.log10(pick.sigma) : NaN;
+    const ionSafe = normLabel(d[COL.ion]) || "Unknown";
+    const structSafe = normLabel(d[COL.struct]) || "Others";
+    const Ea_eV = parseEa(d[COL.ea], modeEa);
     return {
       Formula: (d[COL.formula] || "").trim(),
-      StructureGroup: normLabel(d[COL.struct]),
-      IonType: normLabel(d[COL.ion]),
-      Ea_eV: parseNumberFlexible(d[COL.ea]),
+      StructureGroup: structSafe,
+      IonType: ionSafe,
+      Ea_eV,
       sigma: pick.sigma, tempC: pick.temp, log10_sigma, sigmaRaw: pick.raw
     };
   });
 
-  const allData = rows.filter(d => Number.isFinite(d.Ea_eV) && Number.isFinite(d.log10_sigma));
+  const valid = allData.filter(d => Number.isFinite(d.Ea_eV) && Number.isFinite(d.log10_sigma));
+  const structureGroups = [...new Set(valid.map(d => d.StructureGroup))];
+  const ionTypes = [...new Set(valid.map(d => d.IonType))];
 
-  const structureGroups = [...new Set(allData.map(d => d.StructureGroup).filter(Boolean))];
-  const ionTypes = [...new Set(allData.map(d => d.IonType).filter(Boolean))];
+  global.allData = valid;
+  global.structureGroups = structureGroups;
+  global.ionTypes = ionTypes;
 
   const status = document.getElementById("status");
-  status.textContent = `loaded: ${raw.length}, parsed: ${allData.length}`;
-  document.getElementById("footnote").textContent = "X = log10(σ) from Conductivity/Temp (prefers ~25°C); Y = Ea (eV).";
+  status.textContent = `loaded: ${global.raw.length}, parsed: ${valid.length}`;
 
-  if (!allData.length) {
-    svg.append("text").attr("class","empty").attr("x", width/2).attr("y", height/2).text("No parsable values.");
-    return;
-  }
-
-  const x = d3.scaleLinear().domain(d3.extent(allData, d => d.log10_sigma)).nice().range([0, width]);
-  const y = d3.scaleLinear().domain(d3.extent(allData, d => d.Ea_eV)).nice().range([height, 0]);
+  // axes
+  const x = d3.scaleLinear().domain(d3.extent(valid, d => d.log10_sigma)).nice().range([0, width]);
+  const y = d3.scaleLinear().domain(d3.extent(valid, d => d.Ea_eV)).nice().range([height, 0]);
   const color = d3.scaleOrdinal(d3.schemeTableau10).domain(structureGroups);
   const shapes = [d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, d3.symbolDiamond, d3.symbolCross, d3.symbolStar, d3.symbolWye];
   const shape = t => shapes[(Math.max(0, ionTypes.indexOf(t))) % shapes.length];
@@ -177,7 +241,7 @@ d3.csv(CSV_FILE).then(raw => {
   svg.append("text").attr("x", width/2).attr("y", height + 48).attr("text-anchor","middle").attr("fill","#0f172a").attr("font-size",13).text("log₁₀(Conductivity σ) (S·cm⁻¹)");
   svg.append("text").attr("transform","rotate(-90)").attr("x", -height/2).attr("y", -56).attr("text-anchor","middle").attr("fill","#0f172a").attr("font-size",13).text("Activation Energy Ea (eV)");
 
-  const points = svg.selectAll(".point").data(allData).enter().append("path")
+  const points = svg.selectAll(".point").data(valid).enter().append("path")
     .attr("class","point")
     .attr("transform", d => `translate(${x(d.log10_sigma)},${y(d.Ea_eV)})`)
     .attr("d", d3.symbol().type(d => shape(d.IonType)).size(110)())
@@ -196,6 +260,27 @@ d3.csv(CSV_FILE).then(raw => {
     .on("mousemove", (event) => { tooltip.style("left",(event.clientX+14)+"px").style("top",(event.clientY+14)+"px"); })
     .on("mouseout", () => tooltip.style("opacity", 0));
 
+  // store for filter
+  global.points = points;
+
+  // legends
+  const colorItems = d3.select("#colorItems").html("");
+  structureGroups.forEach(s => {
+    const item = colorItems.append("div").attr("class","legend-item");
+    const sym = item.append("svg").attr("class","legend-symbol");
+    sym.append("rect").attr("x",2).attr("y",2).attr("width",14).attr("height",14).attr("fill", color(s)).attr("stroke","#1f2937").attr("stroke-width",0.6);
+    item.append("span").text(s);
+  });
+
+  const shapeItems = d3.select("#shapeItems").html("");
+  ionTypes.forEach(t => {
+    const item = shapeItems.append("div").attr("class","legend-item");
+    const symSvg = item.append("svg").attr("class","legend-symbol").attr("viewBox","-10 -10 20 20");
+    symSvg.append("path").attr("d", d3.symbol().type(shape(t)).size(120)()).attr("fill","#475569").attr("stroke","#1f2937").attr("stroke-width",0.6);
+    item.append("span").text(t);
+  });
+
+  // filters
   const eaCheckbox = document.getElementById("eaFilter");
   let activeStructures = new Set(structureGroups);
   let activeIons = new Set(ionTypes);
@@ -210,62 +295,80 @@ d3.csv(CSV_FILE).then(raw => {
       if (show) visibleCount++;
       return show ? null : "none";
     });
-    status.textContent = `loaded: ${raw.length}, parsed: ${allData.length}, showing: ${visibleCount}`;
+    status.textContent = `loaded: ${global.raw.length}, parsed: ${valid.length}, showing: ${visibleCount}`;
   }
 
-  const colorItems = d3.select("#colorItems");
-  structureGroups.forEach(s => {
-    const item = colorItems.append("div").attr("class","legend-item");
-    const sym = item.append("svg").attr("class","legend-symbol");
-    sym.append("rect").attr("x",2).attr("y",2).attr("width",14).attr("height",14).attr("fill", color(s)).attr("stroke","#1f2937").attr("stroke-width",0.6);
-    item.append("span").text(s || "—");
-    item.on("click", () => { if (activeStructures.has(s)) activeStructures.delete(s); else activeStructures.add(s); item.classed("disabled", !activeStructures.has(s)); updateVisibility(); });
-  });
-
-  const shapeItems = d3.select("#shapeItems");
-  ionTypes.forEach(t => {
-    const item = shapeItems.append("div").attr("class","legend-item");
-    const symSvg = item.append("svg").attr("class","legend-symbol").attr("viewBox","-10 -10 20 20");
-    symSvg.append("path").attr("d", d3.symbol().type(shape(t)).size(120)()).attr("fill","#475569").attr("stroke","#1f2937").attr("stroke-width",0.6);
-    item.append("span").text(t || "—");
-    item.on("click", () => { if (activeIons.has(t)) activeIons.delete(t); else activeIons.add(t); item.classed("disabled", !activeIons.has(t)); updateVisibility(); });
-  });
-
-  document.getElementById("colorAll").addEventListener("click", ()=>{
-    activeStructures = new Set(structureGroups);
-    d3.select("#colorItems").selectAll(".legend-item").classed("disabled", false);
+  // interactive legend toggles
+  colorItems.selectAll(".legend-item").on("click", function(_, s){
+    const name = d3.select(this).select("span").text();
+    if (activeStructures.has(name)) activeStructures.delete(name); else activeStructures.add(name);
+    d3.select(this).classed("disabled", !activeStructures.has(name));
     updateVisibility();
   });
-  document.getElementById("colorNone").addEventListener("click", ()=>{
+
+  shapeItems.selectAll(".legend-item").on("click", function(_, t){
+    const name = d3.select(this).select("span").text();
+    if (activeIons.has(name)) activeIons.delete(name); else activeIons.add(name);
+    d3.select(this).classed("disabled", !activeIons.has(name));
+    updateVisibility();
+  });
+
+  document.getElementById("colorAll").onclick = ()=>{
+    activeStructures = new Set(structureGroups);
+    colorItems.selectAll(".legend-item").classed("disabled", false);
+    updateVisibility();
+  };
+  document.getElementById("colorNone").onclick = ()=>{
     activeStructures.clear();
-    d3.select("#colorItems").selectAll(".legend-item").classed("disabled", true);
+    colorItems.selectAll(".legend-item").classed("disabled", true);
     updateVisibility();
-  });
-  document.getElementById("shapeAll").addEventListener("click", ()=>{
+  };
+  document.getElementById("shapeAll").onclick = ()=>{
     activeIons = new Set(ionTypes);
-    d3.select("#shapeItems").selectAll(".legend-item").classed("disabled", false);
+    shapeItems.selectAll(".legend-item").classed("disabled", false);
     updateVisibility();
-  });
-  document.getElementById("shapeNone").addEventListener("click", ()=>{
+  };
+  document.getElementById("shapeNone").onclick = ()=>{
     activeIons.clear();
-    d3.select("#shapeItems").selectAll(".legend-item").classed("disabled", true);
+    shapeItems.selectAll(".legend-item").classed("disabled", true);
     updateVisibility();
-  });
+  };
 
-  document.getElementById("resetAll").addEventListener("click", ()=>{
-    eaCheckbox.checked = true;
-    activeStructures = new Set(structureGroups);
-    activeIons = new Set(ionTypes);
-    d3.select("#colorItems").selectAll(".legend-item").classed("disabled", false);
-    d3.select("#shapeItems").selectAll(".legend-item").classed("disabled", false);
-    updateVisibility();
-  });
+  document.getElementById("resetAll").onclick = ()=>{
+    document.querySelector('input[name="eaMode"][value="relaxed"]').checked = true;
+    document.getElementById("eaFilter").checked = true;
+    render("relaxed");
+  };
+  document.getElementById("eaFilter").onchange = updateVisibility;
 
-  eaCheckbox.addEventListener("change", updateVisibility);
+  // diagnostics
+  const diag = document.getElementById("diag");
+  const total = global.raw.length;
+  const eaBad = allData.filter(d => !Number.isFinite(d.Ea_eV) && Number.isFinite(d.log10_sigma)).length;
+  const sigmaBad = allData.filter(d => Number.isFinite(d.Ea_eV) && !Number.isFinite(d.log10_sigma)).length;
+  const bothBad = allData.filter(d => !Number.isFinite(d.Ea_eV) && !Number.isFinite(d.log10_sigma)).length;
+  diag.innerHTML = `<div class="kpi"><span>Total:</span><b>${total}</b>
+                    <span>Parsed:</span><b>${valid.length}</b>
+                    <span>Unparsable Ea only:</span><b>${eaBad}</b>
+                    <span>Unparsable σ only:</span><b>${sigmaBad}</b>
+                    <span>Both unparsable:</span><b>${bothBad}</b></div>`;
+
   updateVisibility();
+}
+
+d3.csv(CSV_FILE).then(raw => {
+  global.raw = raw;
+  render("relaxed");
+
+  // listen for Ea mode toggle
+  document.querySelectorAll('input[name="eaMode"]').forEach(r => {
+    r.addEventListener('change', (e)=> render(e.target.value));
+  });
+
+  document.getElementById("footnote").textContent = "X = log10(σ) parsed from Conductivity/Temp (prefers ~25°C); Y = Ea (eV). Ea relaxed mode accepts ranges (~, -, – , 'to') using midpoint and strips notes; multiple values ';' use the first numeric.";
 }).catch(err => {
   console.error(err);
-  svg.append("text").attr("class","empty").attr("x", 450).attr("y", 280).text("Failed to load data.csv");
+  svg.append("text").attr("class","empty").attr("x", 450).attr("y", 280).text("Could not load data.csv");
 });
 </script>
 </body>
