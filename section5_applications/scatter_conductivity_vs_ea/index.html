@@ -5,40 +5,44 @@
 <title>Activation Energy vs Conductivity</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  body { font-family: sans-serif; background: #fafafa; margin: 30px; }
-  svg { width: 950px; height: 620px; }
+  :root { --side: 260px; }
+  body { font-family: sans-serif; background:#fafafa; margin:24px; color:#111; }
+  h2 { margin:0 0 12px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin:10px 0 12px; }
+  .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; background:#fff; border:1px solid #ddd; border-radius:999px; font-size:13px; }
+  .wrap { display:grid; grid-template-columns: 1fr var(--side); gap:16px; align-items:start; }
+  svg { width: 950px; height: 620px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; }
   .axis-label { font-size: 14px; font-weight: 600; }
-  .point { stroke: #333; opacity: 0.9; }
-  .tooltip {
-    position: absolute; background: white; border: 1px solid #ccc;
-    padding: 6px 10px; border-radius: 4px; font-size: 13px;
-    pointer-events: none; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  }
-  .legends { display:flex; gap:50px; margin-top:10px; align-items:flex-start; }
-  .legend { font-size: 13px; }
-  .legend-title { font-weight: 600; margin-bottom: 4px; }
+  .point { stroke:#333; opacity:.9; }
+  .tooltip { position:fixed; pointer-events:none; background:#fff; border:1px solid #ddd; padding:6px 10px; border-radius:6px; font-size:13px; box-shadow:0 2px 10px rgba(0,0,0,.08); opacity:0; }
+  .side { position:sticky; top:16px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; padding:12px; }
+  .legend-title { font-weight:700; margin:12px 0 6px; font-size:14px; }
   .legend-controls { display:flex; gap:6px; margin: 4px 0 6px; }
   .legend-controls button { font-size:12px; padding:2px 6px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:4px; }
-  .legend-item { display: flex; align-items: center; gap: 5px; margin: 3px 0; cursor:pointer; user-select:none; }
-  .legend-item.disabled { opacity: .35; text-decoration: line-through; }
-  .legend-symbol { width: 18px; height: 18px; }
+  .legend-item { display:flex; align-items:center; gap:6px; margin:4px 0; cursor:pointer; user-select:none; }
+  .legend-item.disabled { opacity:.35; text-decoration:line-through; }
+  .legend-symbol { width:18px; height:18px; }
 </style>
 </head>
 <body>
+
 <h2>Activation Energy (eV) vs Conductivity (S/cm)</h2>
-<svg></svg>
-<div class="tooltip" style="opacity:0"></div>
-<div class="legends">
-  <div id="legend-color" class="legend">
+<div class="toolbar">
+  <label class="pill"><input id="eaToggle" type="checkbox" checked> Show only Ea ≤ 1 eV</label>
+</div>
+
+<div class="wrap">
+  <svg></svg>
+
+  <div class="side">
     <div class="legend-title">Structure Group (color)</div>
     <div class="legend-controls">
       <button id="color-show-all">Show all</button>
       <button id="color-hide-all">Hide all</button>
     </div>
     <div id="legend-color-items"></div>
-  </div>
-  <div id="legend-shape" class="legend">
-    <div class="legend-title">Ion Type (shape)</div>
+
+    <div class="legend-title" style="margin-top:14px;">Ion Type (shape)</div>
     <div class="legend-controls">
       <button id="shape-show-all">Show all</button>
       <button id="shape-hide-all">Hide all</button>
@@ -46,6 +50,8 @@
     <div id="legend-shape-items"></div>
   </div>
 </div>
+
+<div class="tooltip"></div>
 
 <script>
 const svg = d3.select("svg");
@@ -67,8 +73,8 @@ d3.csv("data.csv").then(data => {
   const rows = data.map(d => ({
     Ea: +d["Activation Energy Ea (eV)"],
     cond: +d["Conductivity σ (S·cm⁻¹) / Temp (°C) normalized"],
-    ion: (d["Ion Type"] || "Unknown").trim() || "Unknown",
-    structure: (d["Structure Group"] || "Others").trim() || "Others"
+    ion: (d["Ion Type"] || "Unknown").toString().trim() || "Unknown",
+    structure: (d["Structure Group"] || "Others").toString().trim() || "Others"
   })).filter(d => isFinite(d.Ea) && isFinite(d.cond) && d.cond > 0);
 
   const x = d3.scaleLinear()
@@ -85,9 +91,7 @@ d3.csv("data.csv").then(data => {
     .domain(structureGroups)
     .range(d3.schemeTableau10.concat(d3.schemeSet2).slice(0, structureGroups.length));
 
-  const shapeFor = d3.scaleOrdinal()
-    .domain(ionTypes)
-    .range(SHAPES);
+  const shapeFor = d3.scaleOrdinal().domain(ionTypes).range(SHAPES);
 
   // Axes
   g.append("g").attr("transform",`translate(0,${innerH})`).call(d3.axisBottom(x));
@@ -110,22 +114,27 @@ d3.csv("data.csv").then(data => {
     .on("mouseover", (e,d) => {
       tooltip.style("opacity",1)
         .html(`Ion: ${d.ion}<br>Structure: ${d.structure}<br>Ea: ${d.Ea}<br>σ: ${d.cond}`)
-        .style("left", (e.pageX+10)+"px")
-        .style("top", (e.pageY-20)+"px");
+        .style("left", (e.clientX+12)+"px").style("top",(e.clientY+12)+"px");
     })
     .on("mouseout", () => tooltip.style("opacity",0));
 
-  // Legends
+  // Filtering state
   let activeStructures = new Set(structureGroups);
   let activeIons = new Set(ionTypes);
+  const eaToggle = document.getElementById("eaToggle");
 
   function updateVisibility() {
-    points.attr("display", d =>
-      (activeStructures.has(d.structure) && activeIons.has(d.ion)) ? null : "none"
-    );
+    const eaCut = eaToggle.checked;
+    points.attr("display", d => {
+      const ok = activeStructures.has(d.structure) &&
+                 activeIons.has(d.ion) &&
+                 (!eaCut || d.Ea <= 1);
+      return ok ? null : "none";
+    });
   }
+  eaToggle.addEventListener("change", updateVisibility);
 
-  // Color legend
+  // Color legend (Structure)
   const colorWrap = d3.select("#legend-color-items");
   const colorItems = colorWrap.selectAll(".legend-item")
     .data(structureGroups)
@@ -133,8 +142,8 @@ d3.csv("data.csv").then(data => {
 
   colorItems.each(function(s){
     const item = d3.select(this);
-    const sv = item.append("svg").attr("class","legend-symbol");
-    sv.append("rect").attr("width",14).attr("height",14)
+    item.append("svg").attr("class","legend-symbol")
+      .append("rect").attr("width",14).attr("height",14)
       .attr("fill", color(s)).attr("stroke","#444");
     item.append("span").text(s);
   }).on("click", function(_, s){
@@ -154,7 +163,7 @@ d3.csv("data.csv").then(data => {
     updateVisibility();
   });
 
-  // Shape legend
+  // Shape legend (Ion)
   const shapeWrap = d3.select("#legend-shape-items");
   const shapeItems = shapeWrap.selectAll(".legend-item")
     .data(ionTypes)
