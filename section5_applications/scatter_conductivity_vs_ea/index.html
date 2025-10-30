@@ -6,25 +6,51 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   body { font-family: sans-serif; background: #fafafa; margin: 30px; }
-  svg { width: 900px; height: 600px; }
+  svg { width: 950px; height: 620px; }
   .axis-label { font-size: 14px; font-weight: 600; }
-  .point { fill: steelblue; opacity: 0.8; }
+  .point { stroke: #333; opacity: 0.9; }
   .tooltip {
     position: absolute; background: white; border: 1px solid #ccc;
     padding: 6px 10px; border-radius: 4px; font-size: 13px;
     pointer-events: none; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
+  .legends { display:flex; gap:50px; margin-top:10px; align-items:flex-start; }
+  .legend { font-size: 13px; }
+  .legend-title { font-weight: 600; margin-bottom: 4px; }
+  .legend-controls { display:flex; gap:6px; margin: 4px 0 6px; }
+  .legend-controls button { font-size:12px; padding:2px 6px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:4px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; margin: 3px 0; cursor:pointer; user-select:none; }
+  .legend-item.disabled { opacity: .35; text-decoration: line-through; }
+  .legend-symbol { width: 18px; height: 18px; }
 </style>
 </head>
 <body>
 <h2>Activation Energy (eV) vs Conductivity (S/cm)</h2>
 <svg></svg>
 <div class="tooltip" style="opacity:0"></div>
+<div class="legends">
+  <div id="legend-color" class="legend">
+    <div class="legend-title">Structure Group (color)</div>
+    <div class="legend-controls">
+      <button id="color-show-all">Show all</button>
+      <button id="color-hide-all">Hide all</button>
+    </div>
+    <div id="legend-color-items"></div>
+  </div>
+  <div id="legend-shape" class="legend">
+    <div class="legend-title">Ion Type (shape)</div>
+    <div class="legend-controls">
+      <button id="shape-show-all">Show all</button>
+      <button id="shape-hide-all">Hide all</button>
+    </div>
+    <div id="legend-shape-items"></div>
+  </div>
+</div>
 
 <script>
 const svg = d3.select("svg");
-const width = svg.attr("width") || 900;
-const height = svg.attr("height") || 600;
+const width = svg.attr("width") || 950;
+const height = svg.attr("height") || 620;
 const margin = {top:40, right:40, bottom:60, left:80};
 const innerW = width - margin.left - margin.right;
 const innerH = height - margin.top - margin.bottom;
@@ -32,20 +58,38 @@ const innerH = height - margin.top - margin.bottom;
 const g = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
 const tooltip = d3.select(".tooltip");
 
+const SHAPES = [
+  d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle,
+  d3.symbolDiamond, d3.symbolCross, d3.symbolStar, d3.symbolWye
+];
+
 d3.csv("data.csv").then(data => {
-  // Parse numeric columns safely
-  const points = data.map(d => ({
+  const rows = data.map(d => ({
     Ea: +d["Activation Energy Ea (eV)"],
-    cond: +d["Conductivity σ (S·cm⁻¹) / Temp (°C) normalized"]
+    cond: +d["Conductivity σ (S·cm⁻¹) / Temp (°C) normalized"],
+    ion: (d["Ion Type"] ?? "").toString().trim() || "Unknown",
+    structure: (d["Structure Group"] ?? "").toString().trim() || "Others"
   })).filter(d => isFinite(d.Ea) && isFinite(d.cond) && d.cond > 0);
 
   const x = d3.scaleLinear()
-    .domain(d3.extent(points, d => d.Ea)).nice()
+    .domain(d3.extent(rows, d => d.Ea)).nice()
     .range([0, innerW]);
   const y = d3.scaleLog()
-    .domain(d3.extent(points, d => d.cond)).nice()
+    .domain(d3.extent(rows, d => d.cond)).nice()
     .range([innerH, 0]);
 
+  const structureGroups = Array.from(new Set(rows.map(d => d.structure)));
+  const ionTypes = Array.from(new Set(rows.map(d => d.ion)));
+
+  const color = d3.scaleOrdinal()
+    .domain(structureGroups)
+    .range(d3.schemeTableau10.slice(0, structureGroups.length));
+
+  const shapeFor = d3.scaleOrdinal()
+    .domain(ionTypes)
+    .range(SHAPES);
+
+  // Axes
   g.append("g").attr("transform",`translate(0,${innerH})`).call(d3.axisBottom(x));
   g.append("g").call(d3.axisLeft(y).ticks(6, "~g"));
 
@@ -56,18 +100,88 @@ d3.csv("data.csv").then(data => {
     .attr("x",-innerH/2).attr("y",-55).attr("transform","rotate(-90)")
     .attr("text-anchor","middle").text("Conductivity (S/cm)");
 
-  g.selectAll(".point").data(points).enter().append("circle")
+  // Points
+  const points = g.selectAll(".point").data(rows).enter()
+    .append("path")
     .attr("class","point")
-    .attr("cx", d => x(d.Ea))
-    .attr("cy", d => y(d.cond))
-    .attr("r", 5)
-    .on("mouseover", (e,d) => {
-      tooltip.style("opacity",1)
-        .html(`Ea: ${d.Ea}<br>σ: ${d.cond}`)
-        .style("left", (e.pageX+10)+"px")
-        .style("top", (e.pageY-20)+"px");
-    })
-    .on("mouseout", () => tooltip.style("opacity",0));
+    .attr("transform", d => `translate(${x(d.Ea)},${y(d.cond)})`)
+    .attr("d", d3.symbol().type(d => shapeFor(d.ion)).size(90)())
+    .attr("fill", d => color(d.structure));
+
+  // === Legends (click to filter) ===
+  let activeStructures = new Set(structureGroups);
+  let activeIons = new Set(ionTypes);
+
+  function updateVisibility() {
+    points.attr("display", d => (
+      activeStructures.has(d.structure) && activeIons.has(d.ion)
+    ) ? null : "none");
+  }
+
+  // Color legend
+  const colorWrap = d3.select("#legend-color-items");
+  const colorItems = colorWrap.selectAll(".legend-item")
+    .data(structureGroups)
+    .enter().append("div").attr("class","legend-item");
+
+  colorItems.each(function(s){
+    const item = d3.select(this);
+    const sv = item.append("svg").attr("class","legend-symbol");
+    sv.append("rect").attr("width",14).attr("height",14)
+      .attr("fill", color(s)).attr("stroke","#444");
+    item.append("span").text(s);
+  });
+
+  colorItems.on("click", function(_, s){
+    if (activeStructures.has(s)) activeStructures.delete(s); else activeStructures.add(s);
+    d3.select(this).classed("disabled", !activeStructures.has(s));
+    updateVisibility();
+  });
+
+  d3.select("#color-show-all").on("click", () => {
+    activeStructures = new Set(structureGroups);
+    colorItems.classed("disabled", false);
+    updateVisibility();
+  });
+  d3.select("#color-hide-all").on("click", () => {
+    activeStructures.clear();
+    colorItems.classed("disabled", true);
+    updateVisibility();
+  });
+
+  // Shape legend
+  const shapeWrap = d3.select("#legend-shape-items");
+  const shapeItems = shapeWrap.selectAll(".legend-item")
+    .data(ionTypes)
+    .enter().append("div").attr("class","legend-item");
+
+  shapeItems.each(function(t){
+    const item = d3.select(this);
+    const sv = item.append("svg").attr("class","legend-symbol").attr("viewBox","-10 -10 20 20");
+    sv.append("path")
+      .attr("d", d3.symbol().type(shapeFor(t)).size(120)())
+      .attr("fill","#777").attr("stroke","#333");
+    item.append("span").text(t);
+  });
+
+  shapeItems.on("click", function(_, t){
+    if (activeIons.has(t)) activeIons.delete(t); else activeIons.add(t);
+    d3.select(this).classed("disabled", !activeIons.has(t));
+    updateVisibility();
+  });
+
+  d3.select("#shape-show-all").on("click", () => {
+    activeIons = new Set(ionTypes);
+    shapeItems.classed("disabled", false);
+    updateVisibility();
+  });
+  d3.select("#shape-hide-all").on("click", () => {
+    activeIons.clear();
+    shapeItems.classed("disabled", true);
+    updateVisibility();
+  });
+
+  updateVisibility();
 });
 </script>
 </body>
