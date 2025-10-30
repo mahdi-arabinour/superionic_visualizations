@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Conductivity by Structure × Dopant — Hard‑wired Columns (Size Legend + Control)</title>
+<title>Conductivity by Structure × Dopant — Hard‑wired (Toolbar Legend, Scale 80)</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
@@ -14,25 +14,38 @@
   .sub { color:#4b5563; font-size:13px; margin-bottom: 12px; }
   #controls { display:flex; gap:16px; align-items:center; flex-wrap: wrap; padding: 8px 20px 0 20px; color:#374151; font-size: 13px; }
   #chart { width: 100%; height: 78vh; }
-  .pill { padding:4px 10px; border:1px solid #e5e7eb; border-radius: 999px; background:#f9fafb; }
+  .pill { padding:4px 10px; border:1px solid #e5e7eb; border-radius: 999px; background:#f9fafb; display:flex; align-items:center; gap:8px; }
   .status { padding: 8px 20px; color:#6b7280; font-size:12px;}
-  .range { display:flex; align-items:center; gap:8px; }
   .range input[type="range"]{ accent-color:#2563eb; }
+  .legend-inline { display:flex; align-items:center; gap:10px; }
+  .legend-inline svg { overflow: visible; }
+  button.reset { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:6px 10px; cursor:pointer; }
+  button.reset:hover { background:#f3f4f6; }
 </style>
 </head>
 <body>
   <header>
     <h1>Conductivity by Structure × Dopant</h1>
-    <div class="sub">Bubble color = <b>log<sub>10</sub>(σ)</b> (S/cm). Bubble size ∝ number of records. Columns are hard‑wired.</div>
+    <div class="sub">Bubble color = <b>log<sub>10</sub>(σ)</b> (S/cm). Bubble size ∝ √(count). Columns hard‑wired.</div>
   </header>
 
   <div id="controls">
-    <label class="pill"><input id="toggleColorScale" type="checkbox"/> Color by <b>linear σ</b> (instead of log<sub>10</sub>(σ))</label>
-    <label class="pill"><input id="toggleMean" type="checkbox"/> Use <b>mean</b> instead of median</label>
+    <label class="pill"><input id="toggleColorScale" type="checkbox"/> Color by <b>linear σ</b></label>
+    <label class="pill"><input id="toggleMean" type="checkbox"/> Use <b>mean</b> (vs median)</label>
+
     <div class="pill range">
       <label for="sizeScale"><b>Bubble size</b></label>
-      <input id="sizeScale" type="range" min="8" max="40" step="1" value="18"/>
-      <span id="sizeScaleVal">18</span>
+      <input id="sizeScale" type="range" min="20" max="120" step="2" value="80"/>
+      <span id="sizeScaleVal">80</span>
+      <button class="reset" id="resetSize">Reset</button>
+    </div>
+
+    <!-- Inline horizontal size legend -->
+    <div class="pill legend-inline" id="sizeLegend">
+      <span><b>Size legend:</b></span>
+      <svg id="sizeLegendSvg" width="320" height="48" aria-label="Bubble size legend">
+        <!-- Circles and labels populated by JS -->
+      </svg>
     </div>
   </div>
 
@@ -43,6 +56,7 @@
 const COL_SIGMA   = "Conductivity σ (S·cm⁻¹)";
 const COL_STRUCT  = "Structure Group";
 const COL_DOPANT  = "Doping / and or GB Strategy";
+const DEFAULT_SCALE = 80;
 
 function parseNumber(x) {
   if (x == null) return NaN;
@@ -80,7 +94,53 @@ function roundSig(x, sig=6){
 
 let LAST_ROWS = null;
 
-function buildChart(rows, useMean=false, colorLinear=false, sizeScale=18) {
+function buildSizeLegend(scale){
+  const counts = [1,4,9,16];
+  const svg = document.getElementById("sizeLegendSvg");
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  // layout circles horizontally
+  let x = 24;
+  const y = 22;
+  for (const n of counts){
+    const diameter = Math.sqrt(n) * scale;
+    const r = diameter / 2;
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", x + r);
+    circle.setAttribute("cy", y);
+    circle.setAttribute("r", r);
+    circle.setAttribute("fill", "#9CA3AF");
+    circle.setAttribute("stroke", "rgba(0,0,0,0.25)");
+    circle.setAttribute("stroke-width", "0.5");
+
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", x + r);
+    label.setAttribute("y", y + r + 12);
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("font-size", "11");
+    label.setAttribute("fill", "#374151");
+    label.textContent = n + (n===1 ? " rec" : " recs");
+
+    g.appendChild(circle);
+    g.appendChild(label);
+    svg.appendChild(g);
+
+    x += Math.max(diameter + 30, 60); // spacing
+  }
+
+  // Title on left
+  const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  title.setAttribute("x", 0);
+  title.setAttribute("y", 12);
+  title.setAttribute("font-size", "12");
+  title.setAttribute("fill", "#111827");
+  title.textContent = "Bubble size ∝ √(count)";
+  svg.appendChild(title);
+}
+
+function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SCALE) {
   LAST_ROWS = rows;
   const headers = Object.keys(rows[0] || {});
   if (!headers.includes(COL_SIGMA) || !headers.includes(COL_STRUCT) || !headers.includes(COL_DOPANT)) {
@@ -131,7 +191,6 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=18) {
     );
   }
 
-  // Main scatter
   const traceMain = {
     x: xs, y: ys, mode: "markers",
     text: texts,
@@ -146,30 +205,11 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=18) {
     type: "scatter", xaxis: "x", yaxis: "y"
   };
 
-  // Horizontal size legend (top strip)
-  const counts = [1,4,9,16];
-  const legendX = [1,2,3,4];
-  const traceSizeLegend = {
-    x: legendX, y: [1,1,1,1], mode: "markers+text",
-    text: counts.map(n => n + (n===1 ? " record" : " records")), textposition: "bottom center",
-    textfont: { size: 11, color: "#374151" },
-    hoverinfo: "skip",
-    marker: { size: counts.map(n => Math.sqrt(n)*sizeScale), sizemode: "area", color: "#9CA3AF", line: { width: 0.5, color: "rgba(0,0,0,0.2)" } },
-    xaxis: "x2", yaxis: "y2", showlegend: false, type: "scatter"
-  };
-
   const layout = {
     template: "plotly_white", paper_bgcolor: "#fff", plot_bgcolor: "#fff",
-    margin: { l: 90, r: 60, t: 80, b: 60 },  // extra top margin for legend strip
+    margin: { l: 90, r: 60, t: 20, b: 60 },
     xaxis: { title: "Dopant / Strategy", automargin: true, tickangle: -30 },
     yaxis: { title: "Structure Group", automargin: true, categoryorder: "array" },
-    // Legend strip across top
-    xaxis2: { domain: [0.25, 0.95], visible: false },
-    yaxis2: { domain: [0.88, 0.98], visible: false },
-    annotations: [
-      { xref:"x2", yref:"y2", x:0.1, y:1.25, showarrow:false, xanchor:"left",
-        text:"Bubble size ∝ √(count)", font:{size:12, color:"#111827"} }
-    ],
     showlegend: false
   };
 
@@ -186,7 +226,7 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=18) {
     layout.yaxis.categoryarray = yCats;
   }
 
-  Plotly.react("chart", [traceMain, traceSizeLegend], layout, {
+  Plotly.react("chart", [traceMain], layout, {
     responsive: true, displaylogo: false,
     modeBarButtonsToRemove: ["lasso2d", "select2d"],
     toImageButtonOptions: {format: "png", filename: "conductivity_by_structure_dopant"}
@@ -195,6 +235,9 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=18) {
   document.getElementById("status").textContent =
     `Rendered ${xs.length} bubbles across ${yCats.length} structure groups (color by ` +
     (colorLinear ? "linear σ" : "log10(σ)") + (useMean ? ", mean" : ", median") + `). Size scale: ${sizeScale}`;
+
+  // Update inline legend to match scale
+  buildSizeLegend(sizeScale);
 }
 
 // Parse & render
@@ -209,7 +252,7 @@ function parseAndBuild(csvText) {
   Papa.parse(csvText, {
     header: true, dynamicTyping: false, skipEmptyLines: true,
     complete: (res) => { 
-      const scale = Number(document.getElementById("sizeScale").value) || 18;
+      const scale = Number(document.getElementById("sizeScale").value) || DEFAULT_SCALE;
       buildChart(res.data, document.getElementById("toggleMean").checked, document.getElementById("toggleColorScale").checked, scale);
     }
   });
@@ -230,10 +273,18 @@ document.getElementById("toggleMean").addEventListener("change", ()=>{
   fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
 });
 document.getElementById("sizeScale").addEventListener("input", (e)=>{
-  document.getElementById("sizeScaleVal").textContent = e.target.value;
-  // Re-render with new size scale using last known data by refetching
+  const v = Number(e.target.value) || DEFAULT_SCALE;
+  document.getElementById("sizeScaleVal").textContent = v;
   fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
 });
+document.getElementById("resetSize").addEventListener("click", ()=>{
+  document.getElementById("sizeScale").value = DEFAULT_SCALE;
+  document.getElementById("sizeScaleVal").textContent = DEFAULT_SCALE;
+  fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
+});
+
+// Initialize legend for first paint
+buildSizeLegend(DEFAULT_SCALE);
 </script>
 </body>
 </html>
