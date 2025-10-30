@@ -1,8 +1,8 @@
-section3-classification/zoomable_circle_packing<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Zoomable Circle Packing — Structure Group / Ion Type (Light)</title>
+  <title>Zoomable Circle Packing — Structure Group / Ion Type (Light + Root Outline)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     html, body {
@@ -53,7 +53,7 @@ section3-classification/zoomable_circle_packing<!doctype html>
     // Build hierarchy: root -> structure group -> ion counts
     const grouped = d3.group(raw, d => d.group);
     const rootData = {
-      name: "", // keep empty, but we'll not render the root circle
+      name: "All",
       children: Array.from(grouped, ([group, rows]) => ({
         name: group,
         children: Array.from(
@@ -96,13 +96,14 @@ section3-classification/zoomable_circle_packing<!doctype html>
     const g = svg.append("g");
     const nodes = root.descendants();
 
-    // Circles (skip the root to avoid empty central space)
+    // Circles (include root, but render as outline only so the "main" boundary is visible)
     const circles = g.selectAll("circle")
-      .data(nodes.filter(d => d.depth > 0))
+      .data(nodes)
       .join("circle")
-        .attr("fill", d => d.children ? "#f3f3f3" : ionColor(d.data.name))
-        .attr("stroke", "rgba(0,0,0,0.2)")
-        .attr("stroke-width", d => d.children ? 1 : 0.75)
+        .attr("fill", d => d.depth === 0 ? "none" : (d.children ? "#f3f3f3" : ionColor(d.data.name)))
+        .attr("stroke", d => d.depth === 0 ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.2)")
+        .attr("stroke-width", d => d.depth === 0 ? 1.5 : (d.children ? 1 : 0.75))
+        .style("pointer-events", d => d.depth === 0 ? "none" : null)
         .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
 
     // GROUP LABELS (parents, depth > 0), positioned near top of circle
