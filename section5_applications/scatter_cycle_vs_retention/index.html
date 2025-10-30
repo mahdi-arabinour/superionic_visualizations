@@ -161,7 +161,7 @@ d3.csv(CSV_FILE).then(raw => {
   const getShape = t => shapes[(ionTypes.indexOf(t) >= 0 ? ionTypes.indexOf(t) : 0) % shapes.length];
 
   // Fixed log X from 10 to 20,000
-  const x = d3.scaleLinear().domain([0, 20000]).range([0, innerW]);
+  const x = d3.scaleLog().domain([0, 20000]).range([0, innerW]);
   const y = d3.scaleLinear().domain([0, 100]).range([innerH, 0]);
 
   const xTicks = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
