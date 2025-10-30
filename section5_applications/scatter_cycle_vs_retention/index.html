@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Cycle Life vs Retention % — Scatter (fixed layout)</title>
+<title>Cycle Life vs Retention % — Fixed 20k X-axis</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   :root { color-scheme: light; }
@@ -37,7 +37,7 @@
 <div class="wrap">
   <div id="chartPane">
     <svg id="chart" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet"></svg>
-    <div class="caption">Log-scale X axis; Retention clamped to 0–100%.</div>
+    <div class="caption">X-axis fixed to 20k (log scale). Retention clamped to 0–100%.</div>
   </div>
   <aside class="legends">
     <div class="card">
@@ -52,6 +52,7 @@
 </div>
 
 <script>
+// Use the user's uploaded filename. If you prefer 'data.csv', rename your file or update here.
 const CSV_FILE = "data.csv";
 
 const margin = {top: 24, right: 20, bottom: 60, left: 70};
@@ -77,7 +78,7 @@ const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("
 
 const fmtInt = d3.format(",");
 function firstNum(s) {
-  const m = String(s ?? "").replace(/,/g,"").match(/-?\d+(?:\.\d+)?/);
+  const m = String(s ?? "").replace(/,/g,"").match(/-?\\d+(?:\\.\\d+)?/);
   return m ? +m[0] : NaN;
 }
 function pick(cols, candidates) {
@@ -124,25 +125,30 @@ d3.csv(CSV_FILE).then(raw => {
     return;
   }
 
+  // Encodings
   const structureTypes = [...new Set(data.map(d => d.StructureType).filter(Boolean))];
   const ionTypes = [...new Set(data.map(d => d.IonType).filter(Boolean))];
   const color = d3.scaleOrdinal(d3.schemeTableau10).domain(structureTypes);
   const shapes = [d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, d3.symbolDiamond, d3.symbolCross, d3.symbolStar, d3.symbolWye];
   const getShape = t => shapes[(ionTypes.indexOf(t) >= 0 ? ionTypes.indexOf(t) : 0) % shapes.length];
 
-  const extentX = d3.extent(data, d => d.CycleLife);
-  const minPos = Math.max(1e-2, extentX[0]);
-  const maxPos = Math.max(extentX[1], minPos*10);
-  const x = d3.scaleLog().domain([minPos, maxPos]).nice().range([0, innerW]);
+  // Fixed log X from 10 to 20,000
+  const x = d3.scaleLog().domain([10, 20000]).range([0, innerW]);
   const y = d3.scaleLinear().domain([0, 100]).range([innerH, 0]).nice();
 
-  xAxisG.call(d3.axisBottom(x).ticks(10, "~s"));
+  // Readable tick labels (10, 100, 1k, 10k, 20k)
+  const xTicks = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+  xAxisG.call(d3.axisBottom(x)
+    .tickValues(xTicks.filter(t => t >= 10 && t <= 20000))
+    .tickFormat(d => d >= 1000 ? (d/1000) + "k" : d));
+
   yAxisG.call(d3.axisLeft(y).ticks(10).tickFormat(d => d + "%"));
 
+  // Points
   const S = 110;
   g.selectAll(".pt").data(data).join("path")
     .attr("class","pt")
-    .attr("transform", d => `translate(${x(d.CycleLife)},${y(d.Retention)})`)
+    .attr("transform", d => `translate(${x(Math.max(10, Math.min(20000, d.CycleLife)))},${y(d.Retention)})`)
     .attr("d", d => d3.symbol().type(getShape(d.IonType)).size(S)())
     .attr("fill", d => color(d.StructureType))
     .attr("stroke", "#111827").attr("stroke-width", 0.6).attr("opacity", 0.95)
@@ -151,7 +157,7 @@ d3.csv(CSV_FILE).then(raw => {
         <div><b>${d.Formula || "(unknown)"}<\/b></div>
         <div>Structure: ${d.StructureType || "—"}<\/div>
         <div>Ion: ${d.IonType || "—"}<\/div>
-        <div>Cycle Life: ${fmtInt(d.CycleLife)}<\/div>
+        <div>Cycle Life: ${d3.format(",")(d.CycleLife)}<\/div>
         <div>Retention: ${d.Retention}%<\/div>
       `);
     })
@@ -161,6 +167,7 @@ d3.csv(CSV_FILE).then(raw => {
     })
     .on("mouseout", () => tooltip.style("opacity", 0));
 
+  // Legends
   const colorItems = d3.select("#colorItems");
   structureTypes.forEach(s => {
     const item = colorItems.append("div").attr("class","legend-item");
