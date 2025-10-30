@@ -67,8 +67,8 @@ d3.csv("data.csv").then(data => {
   const rows = data.map(d => ({
     Ea: +d["Activation Energy Ea (eV)"],
     cond: +d["Conductivity σ (S·cm⁻¹) / Temp (°C) normalized"],
-    ion: (d["Ion Type"] ?? "").toString().trim() || "Unknown",
-    structure: (d["Structure Group"] ?? "").toString().trim() || "Others"
+    ion: (d["Ion Type"] || "Unknown").trim() || "Unknown",
+    structure: (d["Structure Group"] || "Others").trim() || "Others"
   })).filter(d => isFinite(d.Ea) && isFinite(d.cond) && d.cond > 0);
 
   const x = d3.scaleLinear()
@@ -83,7 +83,7 @@ d3.csv("data.csv").then(data => {
 
   const color = d3.scaleOrdinal()
     .domain(structureGroups)
-    .range(d3.schemeTableau10.slice(0, structureGroups.length));
+    .range(d3.schemeTableau10.concat(d3.schemeSet2).slice(0, structureGroups.length));
 
   const shapeFor = d3.scaleOrdinal()
     .domain(ionTypes)
@@ -105,17 +105,24 @@ d3.csv("data.csv").then(data => {
     .append("path")
     .attr("class","point")
     .attr("transform", d => `translate(${x(d.Ea)},${y(d.cond)})`)
-    .attr("d", d3.symbol().type(d => shapeFor(d.ion)).size(90)())
-    .attr("fill", d => color(d.structure));
+    .attr("d", d3.symbol().type(d => shapeFor(d.ion)).size(90))
+    .attr("fill", d => color(d.structure))
+    .on("mouseover", (e,d) => {
+      tooltip.style("opacity",1)
+        .html(`Ion: ${d.ion}<br>Structure: ${d.structure}<br>Ea: ${d.Ea}<br>σ: ${d.cond}`)
+        .style("left", (e.pageX+10)+"px")
+        .style("top", (e.pageY-20)+"px");
+    })
+    .on("mouseout", () => tooltip.style("opacity",0));
 
-  // === Legends (click to filter) ===
+  // Legends
   let activeStructures = new Set(structureGroups);
   let activeIons = new Set(ionTypes);
 
   function updateVisibility() {
-    points.attr("display", d => (
-      activeStructures.has(d.structure) && activeIons.has(d.ion)
-    ) ? null : "none");
+    points.attr("display", d =>
+      (activeStructures.has(d.structure) && activeIons.has(d.ion)) ? null : "none"
+    );
   }
 
   // Color legend
@@ -130,9 +137,7 @@ d3.csv("data.csv").then(data => {
     sv.append("rect").attr("width",14).attr("height",14)
       .attr("fill", color(s)).attr("stroke","#444");
     item.append("span").text(s);
-  });
-
-  colorItems.on("click", function(_, s){
+  }).on("click", function(_, s){
     if (activeStructures.has(s)) activeStructures.delete(s); else activeStructures.add(s);
     d3.select(this).classed("disabled", !activeStructures.has(s));
     updateVisibility();
@@ -162,9 +167,7 @@ d3.csv("data.csv").then(data => {
       .attr("d", d3.symbol().type(shapeFor(t)).size(120)())
       .attr("fill","#777").attr("stroke","#333");
     item.append("span").text(t);
-  });
-
-  shapeItems.on("click", function(_, t){
+  }).on("click", function(_, t){
     if (activeIons.has(t)) activeIons.delete(t); else activeIons.add(t);
     d3.select(this).classed("disabled", !activeIons.has(t));
     updateVisibility();
