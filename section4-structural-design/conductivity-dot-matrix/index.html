@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Conductivity by Structure × Dopant — Hard‑wired (Toolbar Legend, Scale 80)</title>
+<title>Conductivity by Structure × Dopant — Hard‑wired (Toolbar Legend v2)</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
@@ -12,12 +12,12 @@
   header { padding: 16px 20px 0 20px; }
   h1 { font-size: 20px; margin: 0 0 8px; }
   .sub { color:#4b5563; font-size:13px; margin-bottom: 12px; }
-  #controls { display:flex; gap:16px; align-items:center; flex-wrap: wrap; padding: 8px 20px 0 20px; color:#374151; font-size: 13px; }
+  #controls { display:flex; gap:12px; align-items:center; flex-wrap: wrap; padding: 8px 20px 0 20px; color:#374151; font-size: 13px; }
   #chart { width: 100%; height: 78vh; }
   .pill { padding:4px 10px; border:1px solid #e5e7eb; border-radius: 999px; background:#f9fafb; display:flex; align-items:center; gap:8px; }
   .status { padding: 8px 20px; color:#6b7280; font-size:12px;}
   .range input[type="range"]{ accent-color:#2563eb; }
-  .legend-inline { display:flex; align-items:center; gap:10px; }
+  .legend-inline { display:flex; align-items:center; gap:8px; }
   .legend-inline svg { overflow: visible; }
   button.reset { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:6px 10px; cursor:pointer; }
   button.reset:hover { background:#f3f4f6; }
@@ -42,9 +42,9 @@
 
     <!-- Inline horizontal size legend -->
     <div class="pill legend-inline" id="sizeLegend">
-      <span><b>Size legend:</b></span>
-      <svg id="sizeLegendSvg" width="320" height="48" aria-label="Bubble size legend">
-        <!-- Circles and labels populated by JS -->
+      <span><b>Size:</b></span>
+      <svg id="sizeLegendSvg" width="260" height="44" aria-label="Bubble size legend">
+        <!-- populated by JS -->
       </svg>
     </div>
   </div>
@@ -99,12 +99,16 @@ function buildSizeLegend(scale){
   const svg = document.getElementById("sizeLegendSvg");
   while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-  // layout circles horizontally
+  // auto-scale legend to a gentle fraction of main scale
+  const legendScale = Math.max(10, scale * 0.25); // 1/4 of chart scale, but at least 10
+  const maxDiameter = 44; // clamp so it never explodes
   let x = 24;
-  const y = 22;
+  const y = 18;
   for (const n of counts){
-    const diameter = Math.sqrt(n) * scale;
+    let diameter = Math.sqrt(n) * legendScale;
+    diameter = Math.min(diameter, maxDiameter);
     const r = diameter / 2;
+
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
 
     const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -117,27 +121,20 @@ function buildSizeLegend(scale){
 
     const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
     label.setAttribute("x", x + r);
-    label.setAttribute("y", y + r + 12);
+    label.setAttribute("y", y + r + 10);
     label.setAttribute("text-anchor", "middle");
     label.setAttribute("font-size", "11");
     label.setAttribute("fill", "#374151");
-    label.textContent = n + (n===1 ? " rec" : " recs");
+    label.textContent = String(n); // simple labels: 1 4 9 16
 
     g.appendChild(circle);
     g.appendChild(label);
     svg.appendChild(g);
 
-    x += Math.max(diameter + 30, 60); // spacing
+    // tighter spacing with a minimum padding
+    const spacing = Math.max(diameter + 16, 52);
+    x += spacing;
   }
-
-  // Title on left
-  const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  title.setAttribute("x", 0);
-  title.setAttribute("y", 12);
-  title.setAttribute("font-size", "12");
-  title.setAttribute("fill", "#111827");
-  title.textContent = "Bubble size ∝ √(count)";
-  svg.appendChild(title);
 }
 
 function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SCALE) {
@@ -283,7 +280,7 @@ document.getElementById("resetSize").addEventListener("click", ()=>{
   fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
 });
 
-// Initialize legend for first paint
+// Initial legend
 buildSizeLegend(DEFAULT_SCALE);
 </script>
 </body>
