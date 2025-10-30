@@ -132,13 +132,13 @@ d3.csv(CSV_FILE).then(raw => {
 
   const x = d3.scaleLinear().domain([0,2000]).range([0,innerW]);
   const y = d3.scaleLinear().domain([0,100]).range([innerH,0]);
-  const xTicks = [0,100,200,500,1000,2000,5000,10000,20000];
+  const xTicks = [0,100,200,500,1000,2000];
   xAxisG.call(d3.axisBottom(x).tickValues(xTicks).tickFormat(d => d>=1000 ? (d/1000)+"k" : d));
   yAxisG.call(d3.axisLeft(y).ticks(10).tickFormat(d => d+"%"));
 
   const points = g.selectAll(".pt").data(data).join("path")
     .attr("class","pt")
-    .attr("transform", d => `translate(${x(Math.max(0, Math.min(20000, d.CycleLife)))},${y(d.Retention)})`)
+    .attr("transform", d => `translate(${x(Math.max(0, Math.min(2000, d.CycleLife)))},${y(d.Retention)})`)
     .attr("d", d => d3.symbol().type(getShape(d.IonType)).size(110)())
     .attr("fill", d => color(d.StructureType))
     .attr("stroke","#111827").attr("stroke-width",0.6).attr("opacity",0.95)
