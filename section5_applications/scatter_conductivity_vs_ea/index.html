@@ -131,7 +131,7 @@ d3.csv("data.csv").then(raw => {
       .attr("transform", "rotate(-90)")
       .attr("x", -height/2).attr("y", -50)
       .attr("fill", "black").attr("text-anchor", "middle")
-      .text("log₁₀(Conductivity σ)");
+      .text("log₁₀(Conductivity σ (S·cm⁻¹) / Temp (°C) normalized)");
 
   // initial draw
   const points = svg.selectAll(".point")
