@@ -1,259 +1,259 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Box / Violin — log10(σ) by Structure (color = Ion)</title>
+<meta charset="UTF-8">
+<title>Grouped Violin — Conductivity by Ion × Structure</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  body { font-family: Arial, sans-serif; background:#fff; color:#111; margin:28px; }
-  h2 { margin:0 0 8px; }
-  .controls { margin: 8px 0 14px; display:flex; gap:12px; align-items:center; }
-  label, select { font-size:13px; }
-  svg { background:#fff; border:1px solid #ccc; border-radius:8px; }
-  .axis text { font-size:8px; fill:#111; }
-  .axis .domain, .axis line { stroke:#ccc; }
-  .box { fill-opacity:0.12; stroke-width:1; }
-  .median { stroke:#111; stroke-width:1.2; }
-  .violin { fill-opacity:0.2; stroke-width:0.8; }
-  .dot { opacity:0.35; }
-  .legend { display:flex; flex-wrap:wrap; gap:8px 12px; margin:10px 0 0; }
-  .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; }
-  .legend-swatch { width:12px; height:12px; border:1px solid #222; border-radius:3px; }
-  .status { font-size:12px; color:#333; margin-top:8px; }
-  .tooltip {
-    position:absolute; background:#fff; border:1px solid #ccc; border-radius:5px;
-    padding:6px 8px; font-size:11px; box-shadow:0 2px 6px rgba(0,0,0,.15); pointer-events:none;
-  }
+  :root { --side: 260px; }
+  body { font-family: 'Inter', system-ui, sans-serif; background:#fafafa; color:#111; margin:24px; }
+  h2 { margin:0 0 10px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin:10px 0 14px; }
+  .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; background:#fff; border:1px solid #ddd; border-radius:999px; font-size:13px;}
+  .wrap { display:grid; grid-template-columns: 1fr var(--side); gap:16px; align-items:start; }
+  svg { width: 980px; height: 640px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; }
+  .axis-label { font-size:14px; font-weight:600; fill:#222; }
+  .grid line { stroke:#eee; }
+  .violin { fill-opacity:.55; stroke:#222; stroke-width:.7px; }
+  .median { stroke:#e43; stroke-width:2px; }
+  .label-halo { fill:none; stroke:#fff; stroke-width:4px; paint-order:stroke; }
+  .median-text { fill:#111; font-size:11px; font-weight:600; text-anchor:middle; }
+  .side { position:sticky; top:16px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; padding:12px; }
+  .legend-title { font-weight:700; font-size:14px; margin:6px 0; }
+  .legend-controls { display:flex; gap:6px; margin: 4px 0 6px; }
+  .legend-controls button { font-size:12px; padding:2px 6px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:4px; }
+  .legend-item { display:flex; align-items:center; gap:6px; margin:4px 0; cursor:pointer; user-select:none; }
+  .legend-item.disabled { opacity:.35; text-decoration:line-through; }
+  .legend-symbol { width:18px; height:18px; border-radius:3px; border:1px solid #444; }
+  button.primary { padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer; }
 </style>
 </head>
 <body>
 
-<h2>log₁₀(σ) by Structure Type — color = Ion Type</h2>
-<div class="controls">
-  <label>Plot:</label>
-  <select id="mode">
-    <option value="box" selected>Box</option>
-    <option value="violin">Violin</option>
-  </select>
-  <label>Bandwidth (violin):</label>
-  <select id="bw">
-    <option value="0.4">0.4</option>
-    <option value="0.6" selected>0.6</option>
-    <option value="0.8">0.8</option>
-    <option value="1.0">1.0</option>
-  </select>
-  <span style="color:#666">x = Structure Type, y = log₁₀(σ), color = Ion Type</span>
+<h2>Distribution of Conductivity (S/cm) — grouped by Ion Type × Structure Group</h2>
+<div class="toolbar">
+  <label class="pill"><input id="logToggle" type="checkbox" checked> Log scale</label>
+  <button id="downloadBtn" class="primary">Download SVG</button>
 </div>
 
-<div id="legend" class="legend"></div>
-<svg id="chart" width="1300" height="720"></svg>
-<div id="status" class="status">Loading…</div>
-<div id="tt" class="tooltip" style="visibility:hidden"></div>
+<div class="wrap">
+  <svg></svg>
+
+  <div class="side">
+    <div class="legend-title">Structure Group (color)</div>
+    <div class="legend-controls">
+      <button id="color-show-all">Show all</button>
+      <button id="color-hide-all">Hide all</button>
+    </div>
+    <div id="legend-structures"></div>
+  </div>
+</div>
 
 <script>
-// ============ CONFIG ============
-const CSV_FILE = "data.csv"; // or "data_conductivity_normalized.csv"
-const margin = { top: 60, right: 20, bottom: 170, left: 80 },
-      outerW = 1300, outerH = 720,
-      width  = outerW - margin.left - margin.right,
-      height = outerH - margin.top - margin.bottom;
+const svg = d3.select("svg");
+const width = 980, height = 640;
+const margin = {top: 40, right: 30, bottom: 80, left: 90};
+const innerW = width - margin.left - margin.right;
+const innerH = height - margin.top - margin.bottom;
+const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-const svg = d3.select("#chart")
-  .attr("width", outerW).attr("height", outerH)
-  .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+// exact CSV columns
+const COL = {
+  ion: "Ion Type",
+  cond: "Conductivity σ (S·cm⁻¹) / Temp (°C) normalized",
+  struct: "Structure Group"
+};
 
-const statusEl = d3.select("#status");
-const tooltip  = d3.select("#tt");
-const color    = d3.scaleOrdinal(d3.schemeTableau10);
+d3.csv("data.csv").then(raw => {
+  // parse & clean
+  let data = raw.map(d => ({
+    ion: (d[COL.ion] || "Unknown").toString().trim() || "Unknown",
+    structure: (d[COL.struct] || "Others").toString().trim() || "Others",
+    cond: +d[COL.cond]
+  })).filter(d => Number.isFinite(d.cond) && d.cond > 0);
 
-// helpers
-function safe(s){ return (s ?? "").toString().replace(/\u00A0/g," ").trim(); }
-function jitter(amount){ return (Math.random()-0.5) * amount; }
+  const ions = Array.from(new Set(data.map(d => d.ion)));
+  const structures = Array.from(new Set(data.map(d => d.structure)));
 
-// violin helpers
-function kernelEpanechnikov(k){ return v => Math.abs(v) <= 1 ? 0.75*(1 - v*v)/k : 0; }
-function kde(kernel, thresholds, values){
-  return thresholds.map(t => [t, d3.mean(values, v => kernel((t - v) / 1))]);
-}
+  const countsByStruct = Object.fromEntries(structures.map(s => [s, data.filter(d => d.structure === s).length]));
 
-d3.csv(CSV_FILE).then(raw => {
-  // Coerce/prepare fields (file already contains numeric columns)
-  const rows = raw.map(d => {
-    // prefer provided log10(σ); fallback compute from σ if needed
-    const log10s = +d["log10(σ)"];
-    const sigma  = +d["σ (S/cm)"];
-    const log10sigma = Number.isFinite(log10s) ? log10s :
-                       (Number.isFinite(sigma) && sigma>0 ? Math.log10(sigma) : NaN);
-    return {
-      structure: safe(d["Structure Type"]),
-      ion      : safe(d["Ion Type"]),
-      formula  : safe(d["Formula (Chemical)"]),
-      sigma    : Number.isFinite(sigma) ? sigma : NaN,
-      log10sigma,
-      tempC    : +d["Temp (°C)"]
-    };
-  }).filter(r => Number.isFinite(r.log10sigma));
+  const color = d3.scaleOrdinal()
+    .domain(structures)
+    .range(d3.schemeTableau10.concat(d3.schemeSet2).slice(0, structures.length));
 
-  if (!rows.length){
-    statusEl.text("No usable rows — check CSV path and numeric columns.");
-    return;
-  }
+  // X scales: outer = Ion groups, inner = Structure within Ion
+  const xIon = d3.scaleBand().domain(ions).range([0, innerW]).padding(0.08);
+  const xStruct = d3.scaleBand().domain(structures).range([0, xIon.bandwidth()]).padding(0.15);
 
-  // Domains
-  const structures = Array.from(new Set(rows.map(r => r.structure))).sort(d3.ascending);
-  const ions       = Array.from(new Set(rows.map(r => r.ion))).sort(d3.ascending);
+  // Y scale (start log)
+  let y = d3.scaleLog()
+    .domain([d3.min(data, d => d.cond), d3.max(data, d => d.cond)])
+    .nice()
+    .range([innerH, 0]);
 
-  color.domain(ions);
+  // axes + grid
+  const xAxis = g.append("g").attr("transform", `translate(0,${innerH})`)
+    .call(d3.axisBottom(xIon))
+    .selectAll("text").attr("transform","rotate(-28)").style("text-anchor","end");
 
-  // Bands: fewer paddings for wider violins/boxes
-  const x0 = d3.scaleBand().domain(structures).range([0, width]).paddingInner(0.08);
-  const x1 = d3.scaleBand().domain(ions).range([0, x0.bandwidth()]).padding(0.15);
+  const yAxisG = g.append("g").call(d3.axisLeft(y).ticks(6,"~g"));
+  g.append("g").attr("class","grid").call(d3.axisLeft(y).ticks(6).tickSize(-innerW).tickFormat(""));
 
-  const y = d3.scaleLinear()
-    .domain(d3.extent(rows, d => d.log10sigma)).nice()
-    .range([height, 0]);
+  g.append("text").attr("class","axis-label")
+    .attr("x", innerW/2).attr("y", innerH+62).attr("text-anchor","middle")
+    .text("Ion Type");
+  g.append("text").attr("class","axis-label")
+    .attr("x", -innerH/2).attr("y", -64).attr("transform","rotate(-90)")
+    .attr("text-anchor","middle").text("Conductivity (S/cm)");
 
-  // Axes
-  svg.append("g").attr("transform", `translate(0,${height})`)
-    .attr("class","axis")
-    .call(d3.axisBottom(x0))
-    .selectAll("text")
-      .attr("transform","rotate(-40)")
-      .attr("text-anchor","end")
-      .attr("dx","-0.3em").attr("dy","0.2em")
-      .style("font-size","8px");
+  // --- helpers ---
+  const kde = (kernel, X) => V => X.map(x => [x, d3.mean(V, v => kernel(x - v))]);
+  const epan = k => v => { v/=k; return Math.abs(v)<=1 ? 0.75*(1 - v*v)/k : 0; };
 
-  svg.append("g").attr("class","axis").call(d3.axisLeft(y).ticks(8))
-    .append("text")
-      .attr("x", -height/2).attr("y", -55)
-      .attr("fill", "#111").attr("text-anchor","middle")
-      .attr("transform","rotate(-90)")
-      .text("log₁₀(σ) [S·cm⁻¹]");
+  function ticksForY(currY){ return currY.ticks ? currY.ticks(60) : d3.ticks(currY.domain()[0], currY.domain()[1], 60); }
 
-  // Legend
-  const legend = d3.select("#legend").html("");
-  ions.forEach(i => {
-    const item = legend.append("div").attr("class","legend-item");
-    item.append("span").attr("class","legend-swatch").style("background", color(i));
-    item.append("span").text(i);
-  });
-
-  // Grouped data cache for quick draw
-  const byStruct = d3.group(rows, d => d.structure);
-
-  const modeSel = document.getElementById("mode");
-  const bwSel   = document.getElementById("bw");
-
-  function draw(){
-    svg.selectAll(".layer").remove();
-    const mode = modeSel.value;
-    const bw   = +bwSel.value; // violin bandwidth (in log10 space units)
-    const layer = svg.append("g").attr("class","layer");
-
-    byStruct.forEach((arr, struct) => {
-      const g = layer.append("g").attr("transform", `translate(${x0(struct)},0)`);
-
-      ions.forEach(ion => {
-        const sub = arr.filter(d => d.ion === ion);
-        if (!sub.length) return;
-
-        const xC   = x1(ion);
-        const vals = sub.map(d => d.log10sigma).sort(d3.ascending);
-
-        if (mode === "box") {
-          // ----- BOX -----
-          const q1 = d3.quantile(vals, 0.25),
-                q2 = d3.quantile(vals, 0.50),
-                q3 = d3.quantile(vals, 0.75);
-          const iqr = q3 - q1;
-          const lo  = Math.max(d3.min(vals), q1 - 1.5 * iqr);
-          const hi  = Math.min(d3.max(vals), q3 + 1.5 * iqr);
-
-          // fat boxes
-          g.append("rect")
-            .attr("class","box")
-            .attr("x", xC)
-            .attr("width", x1.bandwidth())
-            .attr("y", y(q3))
-            .attr("height", Math.max(1, y(q1) - y(q3)))
-            .attr("fill", color(ion))
-            .attr("stroke", d3.color(color(ion)).darker(0.9));
-
-          // median
-          g.append("line")
-            .attr("class","median")
-            .attr("x1", xC).attr("x2", xC + x1.bandwidth())
-            .attr("y1", y(q2)).attr("y2", y(q2));
-
-          // whiskers
-          g.append("line").attr("x1", xC + x1.bandwidth()/2).attr("x2", xC + x1.bandwidth()/2)
-            .attr("y1", y(lo)).attr("y2", y(q1)).attr("stroke","#333");
-          g.append("line").attr("x1", xC + x1.bandwidth()/2).attr("x2", xC + x1.bandwidth()/2)
-            .attr("y1", y(q3)).attr("y2", y(hi)).attr("stroke","#333");
-
-          // caps
-          g.append("line").attr("x1", xC+2).attr("x2", xC + x1.bandwidth()-2)
-            .attr("y1", y(lo)).attr("y2", y(lo)).attr("stroke","#333");
-          g.append("line").attr("x1", xC+2).attr("x2", xC + x1.bandwidth()-2)
-            .attr("y1", y(hi)).attr("y2", y(hi)).attr("stroke","#333");
-
-        } else {
-          // ----- VIOLIN -----
-          const ymin = y.domain()[0], ymax = y.domain()[1];
-          const thresholds = d3.range(ymin, ymax, (ymax - ymin)/60);
-          const ker = v => kernelEpanechnikov(bw)(v);
-          const density = kde(ker, thresholds, vals);
-          const maxD = d3.max(density, d => d[1]) || 1;
-          // Make them wide (wider than default)
-          const widthScale = d3.scaleLinear().domain([0, maxD]).range([0, x1.bandwidth()/1.0]);
-
-          const area = d3.area()
-            .x0(d => xC + x1.bandwidth()/2 - widthScale(d[1]))
-            .x1(d => xC + x1.bandwidth()/2 + widthScale(d[1]))
-            .y (d => y(d[0]))
-            .curve(d3.curveCatmullRom);
-
-          g.append("path")
-            .datum(density)
-            .attr("class","violin")
-            .attr("d", area)
-            .attr("fill", color(ion))
-            .attr("stroke", d3.color(color(ion)).darker(0.9));
-        }
-
-        // raw points (both modes)
-        g.selectAll(`.dot-${ion.replace(/\W+/g,"")}`)
-          .data(sub)
-          .enter().append("circle")
-            .attr("class","dot")
-            .attr("cx", xC + x1.bandwidth()/2 + jitter(x1.bandwidth()*0.6))
-            .attr("cy", d => y(d.log10sigma))
-            .attr("r", 2.2)
-            .attr("fill", d3.color(color(ion)).darker(0.3))
-            .on("mouseover", (ev, d) => {
-              tooltip.style("visibility","visible").html(
-                `<b>${d.formula || "—"}</b><br>` +
-                `Structure: ${d.structure || "—"}<br>` +
-                `Ion: ${d.ion || "—"}<br>` +
-                `σ: ${Number.isFinite(d.sigma) ? d.sigma.toExponential(3) : "—"} S·cm⁻¹<br>` +
-                `log₁₀(σ): ${d.log10sigma.toFixed(3)}<br>` +
-                (Number.isFinite(d.tempC) ? `Temp: ${d.tempC} °C` : ``)
-              );
-            })
-            .on("mousemove", ev => tooltip.style("left",(ev.pageX+12)+"px").style("top",(ev.pageY-20)+"px"))
-            .on("mouseout", () => tooltip.style("visibility","hidden"));
+  function computeGroupsY(currY) {
+    const ticks = ticksForY(currY);
+    const estimator = kde(epan(0.2), ticks);
+    const groups = [];
+    ions.forEach(ion => {
+      structures.forEach(struct => {
+        const vals = data.filter(d => d.ion===ion && d.structure===struct).map(d => d.cond);
+        if (vals.length === 0) return;
+        const dens = estimator(vals);
+        const yMax = d3.max(dens, d => d[1]) || 0;
+        const xCenter = xIon(ion) + xStruct(struct) + xStruct.bandwidth()/2;
+        const xSpan = d3.scaleLinear().domain([-yMax, yMax]).range([xCenter - xStruct.bandwidth()/2, xCenter + xStruct.bandwidth()/2]);
+        const med = d3.quantileSorted(vals.sort(d3.ascending), 0.5);
+        groups.push({ ion, struct, density: dens, xSpan, xCenter, median: med, count: vals.length });
       });
     });
-
-    statusEl.text(`Rows: ${rows.length} | Structures: ${structures.length} | Ions: ${ions.length} | Mode: ${mode.toUpperCase()} | BW: ${bw}`);
+    return groups;
   }
 
-  draw();
-  modeSel.addEventListener("change", draw);
-  bwSel.addEventListener("change", draw);
-}).catch(err => {
-  statusEl.text("Failed to load CSV. Serve over http(s) and check console.");
-  console.error(err);
+  // “no scientific notation” formatter for labels
+  const fmtNoSci = v => {
+    if (v === 0) return "0";
+    const abs = Math.abs(v);
+    if (abs >= 0.001 && abs < 1_000_000) return d3.format(",.4f")(v).replace(/\.?0+$/,"");
+    return d3.format(",.4f")(v).replace(/\.?0+$/,""); // still no sci; adjust decimals as you like
+  };
+
+  let activeStructures = new Set(structures);
+
+  function render(currY) {
+    const groups = computeGroupsY(currY).filter(gd => activeStructures.has(gd.struct));
+
+    // JOIN
+    const violins = g.selectAll(".violin-group").data(groups, d => d.ion + "|" + d.struct);
+
+    // EXIT
+    violins.exit().remove();
+
+    // ENTER
+    const enter = violins.enter().append("g").attr("class","violin-group");
+
+    enter.append("path").attr("class","violin")
+      .attr("fill", d => color(d.struct))
+      .attr("d", d => d3.area()
+        .x0(v => d.xSpan(-v[1]))
+        .x1(v => d.xSpan(v[1]))
+        .y(v => currY(v[0]))
+        .curve(d3.curveCatmullRom)
+      (d.density));
+
+    enter.append("line").attr("class","median")
+      .attr("x1", d => d.xCenter - xStruct.bandwidth()*0.25)
+      .attr("x2", d => d.xCenter + xStruct.bandwidth()*0.25)
+      .attr("y1", d => currY(d.median))
+      .attr("y2", d => currY(d.median));
+
+    // median labels (halo + text)
+    enter.append("text").attr("class","label-halo")
+      .attr("x", d => d.xCenter)
+      .attr("y", d => currY(d.median) - 6)
+      .text(d => fmtNoSci(d.median));
+
+    enter.append("text").attr("class","median-text")
+      .attr("x", d => d.xCenter)
+      .attr("y", d => currY(d.median) - 6)
+      .text(d => fmtNoSci(d.median));
+
+    // UPDATE
+    violins.select(".violin").transition().duration(600)
+      .attr("fill", d => color(d.struct))
+      .attr("d", d => d3.area()
+        .x0(v => d.xSpan(-v[1]))
+        .x1(v => d.xSpan(v[1]))
+        .y(v => currY(v[0]))
+        .curve(d3.curveCatmullRom)
+      (d.density));
+
+    violins.select(".median").transition().duration(600)
+      .attr("x1", d => d.xCenter - xStruct.bandwidth()*0.25)
+      .attr("x2", d => d.xCenter + xStruct.bandwidth()*0.25)
+      .attr("y1", d => currY(d.median))
+      .attr("y2", d => currY(d.median));
+
+    violins.selectAll(".label-halo,.median-text").transition().duration(600)
+      .attr("x", d => d.xCenter)
+      .attr("y", d => currY(d.median) - 6)
+      .tween("text", function(d){
+        // keep text stable; no tweening content — just position moves
+        return t => {};
+      });
+  }
+
+  // initial render
+  render(y);
+
+  // legend (Structure Group) with counts and filters
+  const legend = d3.select("#legend-structures");
+  const items = legend.selectAll(".legend-item").data(structures).enter()
+    .append("div").attr("class","legend-item")
+    .classed("disabled", d => !activeStructures.has(d));
+
+  items.append("div").attr("class","legend-symbol")
+    .style("background", d => color(d));
+  items.append("span").text(d => `${d} (n=${countsByStruct[d] ?? 0})`);
+
+  items.on("click", function(_, s){
+    if (activeStructures.has(s)) activeStructures.delete(s); else activeStructures.add(s);
+    d3.select(this).classed("disabled", !activeStructures.has(s));
+    render(y);
+  });
+
+  d3.select("#color-show-all").on("click", () => {
+    activeStructures = new Set(structures);
+    items.classed("disabled", false);
+    render(y);
+  });
+  d3.select("#color-hide-all").on("click", () => {
+    activeStructures.clear();
+    items.classed("disabled", true);
+    render(y);
+  });
+
+  // log/linear toggle
+  document.getElementById("logToggle").addEventListener("change", (e) => {
+    const isLog = e.target.checked;
+    y = isLog
+      ? d3.scaleLog().domain([d3.min(data, d => d.cond), d3.max(data, d => d.cond)]).nice().range([innerH,0])
+      : d3.scaleLinear().domain(d3.extent(data, d => d.cond)).nice().range([innerH,0]);
+
+    yAxisG.transition().duration(500).call(d3.axisLeft(y).ticks(6,"~g"));
+    g.select(".grid").transition().duration(500).call(d3.axisLeft(y).ticks(6).tickSize(-innerW).tickFormat(""));
+    render(y);
+  });
+
+  // download SVG
+  document.getElementById("downloadBtn").addEventListener("click", () => {
+    const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
+    const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement("a"), {href:url, download:"grouped_violin.svg"});
+    a.click();
+  });
 });
 </script>
 </body>
