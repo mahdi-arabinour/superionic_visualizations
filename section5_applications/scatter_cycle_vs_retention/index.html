@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Cycle Life vs Retention % — Fixed 20k X-axis</title>
+<title>Cycle Life vs Retention % — Fixed 20k (data.csv)</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   :root { color-scheme: light; }
@@ -52,7 +52,6 @@
 </div>
 
 <script>
-// Use the user's uploaded filename. If you prefer 'data.csv', rename your file or update here.
 const CSV_FILE = "data.csv";
 
 const margin = {top: 24, right: 20, bottom: 60, left: 70};
@@ -77,23 +76,52 @@ g.append("text")
 const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
 
 const fmtInt = d3.format(",");
-function firstNum(s) {
-  const m = String(s ?? "").replace(/,/g,"").match(/-?\\d+(?:\\.\\d+)?/);
-  return m ? +m[0] : NaN;
+
+// Robust cycle-life parser (handles '1e4', '10^3', '20k', ranges '1k-2k', '~', '>' etc.)
+function parseCycleLife(s) {
+  if (s == null) return NaN;
+  let str = String(s).trim().toLowerCase().replace(/,/g, "");
+  if (!str) return NaN;
+  // ranges: take the max
+  const range = str.split(/[-–—to]+/i).map(x => x.trim());
+  if (range.length > 1) {
+    return d3.max(range.map(parseCycleLife));
+  }
+  // scientific like 1e4
+  if (/^[~>]*\s*\d*\.?\d+\s*e[-+]?\d+/.test(str)) {
+    const m = str.match(/(\d*\.?\d+)\s*e\s*([-+]?\d+)/);
+    if (m) return Number(m[1]) * Math.pow(10, Number(m[2]));
+  }
+  // 10^n
+  if (/10\^[-+]?\d+/.test(str)) {
+    const m = str.match(/10\^([-+]?\d+)/);
+    if (m) return Math.pow(10, Number(m[1]));
+  }
+  // suffix k / m
+  if (/^\s*[~>]*\s*\d*\.?\d+\s*[km]\b/.test(str)) {
+    const m = str.match(/(\d*\.?\d+)\s*([km])/);
+    if (m) {
+      const v = Number(m[1]);
+      return m[2] === "k" ? v * 1e3 : v * 1e6;
+    }
+  }
+  // plain number
+  const plain = str.match(/-?\d*\.?\d+/);
+  if (plain) return Number(plain[0]);
+  return NaN;
 }
-function pick(cols, candidates) {
-  for (const c of candidates) if (cols.includes(c)) return c;
-  return null;
-}
+
+// pick column helper
+function pick(cols, candidates) { for (const c of candidates) if (cols.includes(c)) return c; return null; }
 
 d3.csv(CSV_FILE).then(raw => {
   const cols = Object.keys(raw[0] || {});
 
   const C_FORMULA = pick(cols, ["Formula (Chemical)", "Formula"]);
-  const C_STRUCT  = pick(cols, ["Structure Group","StructureType"]);
-  const C_ION     = pick(cols, ["Ion Type","IonType"]);
-  const C_CYCLE   = pick(cols, ["Cycle Life normalized (cycles)","Cycle Life"]);
-  const C_RET     = pick(cols, ["Retention % normalized","Retention"]);
+  const C_STRUCT  = pick(cols, ["Structure Group","StructureType","Structure_Type"]);
+  const C_ION     = pick(cols, ["Ion Type","IonType","Ion_Type"]);
+  const C_CYCLE   = pick(cols, ["Cycle Life normalized (cycles)","Cycle Life","Cycle Life (N cycles or hours)"]);
+  const C_RET     = pick(cols, ["Retention % normalized","Retention","Retention %"]);
 
   const missing = [C_FORMULA,C_STRUCT,C_ION,C_CYCLE,C_RET].filter(v => !v);
   if (missing.length) {
@@ -104,14 +132,14 @@ d3.csv(CSV_FILE).then(raw => {
   }
 
   const data = raw.map(d => {
-    const cycle = (C_CYCLE === "Cycle Life") ? +d[C_CYCLE] : firstNum(d[C_CYCLE]);
-    const ret   = (C_RET   === "Retention") ? +d[C_RET]   : firstNum(String(d[C_RET]).replace(/%/g,""));
+    const cycle = parseCycleLife(d[C_CYCLE]);
+    const ret   = Number(String(d[C_RET]).replace(/%/g,""));
     return {
       Formula: (d[C_FORMULA] || "").trim(),
       StructureType: (d[C_STRUCT] || "").trim(),
       IonType: (d[C_ION] || "").trim(),
       CycleLife: cycle,
-      Retention: Math.max(0, Math.min(100, ret))
+      Retention: Math.max(0, Math.min(100, isFinite(ret) ? ret : NaN))
     };
   }).filter(d =>
     Number.isFinite(d.CycleLife) && d.CycleLife > 0 &&
@@ -136,10 +164,9 @@ d3.csv(CSV_FILE).then(raw => {
   const x = d3.scaleLog().domain([10, 20000]).range([0, innerW]);
   const y = d3.scaleLinear().domain([0, 100]).range([innerH, 0]).nice();
 
-  // Readable tick labels (10, 100, 1k, 10k, 20k)
   const xTicks = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
   xAxisG.call(d3.axisBottom(x)
-    .tickValues(xTicks.filter(t => t >= 10 && t <= 20000))
+    .tickValues(xTicks)
     .tickFormat(d => d >= 1000 ? (d/1000) + "k" : d));
 
   yAxisG.call(d3.axisLeft(y).ticks(10).tickFormat(d => d + "%"));
@@ -157,7 +184,7 @@ d3.csv(CSV_FILE).then(raw => {
         <div><b>${d.Formula || "(unknown)"}<\/b></div>
         <div>Structure: ${d.StructureType || "—"}<\/div>
         <div>Ion: ${d.IonType || "—"}<\/div>
-        <div>Cycle Life: ${d3.format(",")(d.CycleLife)}<\/div>
+        <div>Cycle Life: ${d3.format(",")(Math.round(d.CycleLife))}<\/div>
         <div>Retention: ${d.Retention}%<\/div>
       `);
     })
