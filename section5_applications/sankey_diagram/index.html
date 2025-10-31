@@ -14,7 +14,7 @@
   .note { font-size:12px; color:#64748b; }
 
   .wrap { display:grid; grid-template-columns: 1fr var(--side); gap:16px; align-items:start; }
-  svg { width: 1100px; height: 720px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; }
+  svg { width: 1100px; height: 720px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; overflow:visible; }
 
   .side { position:sticky; top:16px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; padding:12px; }
   .legend-title { font-weight:700; font-size:14px; margin:6px 0; }
@@ -27,7 +27,6 @@
   .node rect { stroke:#333; stroke-width:1px; }
   .node text { font-size:12px; pointer-events:none; }
   .link { fill:none; stroke-opacity:.35; }
-  .link.other { stroke-opacity:.25; }
   .link:hover { stroke-opacity:.7; }
 
   .tooltip {
@@ -44,7 +43,7 @@
   <h2>Sankey — Anode → Structure Group → Ion Type → Cathode</h2>
   <div class="toolbar">
     <button id="downloadBtn" class="primary">Download SVG</button>
-    <span class="note">Links colored by Structure Group; rare paths grouped into “Other …”; thickness = count.</span>
+    <span class="note">Color by Structure Group. Rare paths: <b>only Ion Type</b> is bucketed to “Other Ion Type”; thickness = count.</span>
   </div>
 
   <div class="wrap">
@@ -69,22 +68,23 @@ const COL = {
   cathode: "Cathode"
 };
 
-// ✅ Minimum path count; paths below this are folded into “Other …”
+// 🔧 Minimum count for a distinct path; else Ion Type → "Other Ion Type"
 const MIN_COUNT = 3;
 
 const svg   = d3.select("svg");
 const width = +svg.attr("width")  || 1100;
 const height= +svg.attr("height") || 720;
-const g     = svg.append("g").attr("transform","translate(10,10)");
+const leftMargin = 70, rightMargin = 70;  // extra for labels
+const g     = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 const tip   = d3.select("#tip");
 
-// Consistent palette with your other charts; “Others” = neutral gray
+// Consistent palette; “Others” is neutral gray
 const structureColors = d3.scaleOrdinal()
   .domain(["Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Others"])
   .range (["#f6bf26",   "#2196f3",        "#ab47bc",    "#26a69a","#66bb6a","#ef5350","#ff7043","#9e9e9e"]);
 
 d3.csv("data.csv").then(raw => {
-  // 1) Clean rows & handle half-cells
+  // 1) Normalize & half-cell handling
   const rows = raw.map(d => ({
     anode:   (d[COL.anode]   ?? "").toString().trim() || "No Anode",
     struct:  (d[COL.struct]  ?? "").toString().trim() || "Others",
@@ -92,22 +92,20 @@ d3.csv("data.csv").then(raw => {
     cathode: (d[COL.cathode] ?? "").toString().trim() || "No Cathode"
   }));
 
-  // 2) Aggregate FULL 4-step paths
+  // 2) Count full paths
   const pathMap = new Map(); // key = a|s|i|c -> count
   rows.forEach(r => {
     const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
     pathMap.set(key, (pathMap.get(key) || 0) + 1);
   });
 
-  // 3) Fold rare paths (< MIN_COUNT) into “Other …” buckets (keep Structure Group)
+  // 3) Option B: only bucket Ion Type on rare paths (keep anode/cathode/structure group)
   const folded = new Map();
   for (const [key, count] of pathMap.entries()) {
     let [a,s,i,c] = key.split("|");
     if (count < MIN_COUNT) {
-      // Keep the same Structure Group color dimension; fold other dims
-      if (!a || a === "No Anode") a = "No Anode"; else a = "Other Anode";
-      if (!i || i === "Unknown Ion Type") i = "Unknown Ion Type"; else i = "Other Ion Type";
-      if (!c || c === "No Cathode") c = "No Cathode"; else c = "Other Cathode";
+      // keep real Anode and Cathode labels; keep Structure Group; bucket ONLY ion
+      i = (i && i !== "Unknown Ion Type") ? "Other Ion Type" : "Unknown Ion Type";
     }
     const newKey = `${a}|${s}|${i}|${c}`;
     folded.set(newKey, (folded.get(newKey) || 0) + count);
@@ -118,17 +116,16 @@ d3.csv("data.csv").then(raw => {
     return { anode:a, struct:s, ion:i, cathode:c, value:v };
   });
 
-  // 4) Build links for each adjacent pair using folded paths
+  // 4) Build links between adjacent columns from folded paths
   function linksFromPaths(aKey, bKey) {
-    const m = new Map();
+    const m = new Map(); // (a,b,struct) -> sum
     paths.forEach(p => {
-      const a = p[aKey], b = p[bKey];
-      const sg = p.struct || "Others";
-      const k  = `${a}|${b}|${sg}`;
-      m.set(k, (m.get(k) || 0) + p.value);
+      const a = p[aKey], b = p[bKey], sg = p.struct || "Others";
+      const K = `${a}|${b}|${sg}`;
+      m.set(K, (m.get(K) || 0) + p.value);
     });
-    return [...m.entries()].map(([k,v]) => {
-      const [a,b,sg] = k.split("|");
+    return [...m.entries()].map(([K,v]) => {
+      const [a,b,sg] = K.split("|");
       return { sourceKey:`${aKey}:${a}`, targetKey:`${bKey}:${b}`, value:v, struct:sg };
     });
   }
@@ -138,7 +135,7 @@ d3.csv("data.csv").then(raw => {
   const L34 = linksFromPaths("ion","cathode");
   const allLinks = [...L12, ...L23, ...L34];
 
-  // 5) Create every node explicitly so nothing is missing
+  // 5) Create nodes
   const nodes = [];
   const nodeIndex = new Map();
   function addNode(key,label){
@@ -149,31 +146,28 @@ d3.csv("data.csv").then(raw => {
     }
   }
   paths.forEach(p => {
-    addNode(`anode:${p.anode}`, p.anode);
+    addNode(`anode:${p.anode}`,   p.anode);
     addNode(`struct:${p.struct}`, p.struct);
-    addNode(`ion:${p.ion}`, p.ion);
+    addNode(`ion:${p.ion}`,       p.ion);
     addNode(`cathode:${p.cathode}`, p.cathode);
   });
 
-  // 6) Build index-based links; filter missing endpoints
+  // 6) Index-based links (avoids nodeId mismatch)
   const links = allLinks
     .filter(l => nodeIndex.has(l.sourceKey) && nodeIndex.has(l.targetKey) && l.value > 0)
     .map(l => ({
       source: nodeIndex.get(l.sourceKey),
       target: nodeIndex.get(l.targetKey),
       value:  l.value,
-      struct: l.struct,
-      isOther: (l.struct === "Others") ||
-               l.sourceKey.includes("Other ") ||
-               l.targetKey.includes("Other ")
+      struct: l.struct
     }));
 
-  // 7) Sankey layout (index-based, no nodeId)
+  // 7) Sankey
   const sankey = d3.sankey()
     .nodeWidth(18)
     .nodePadding(18)
     .nodeAlign(d3.sankeyJustify)
-    .extent([[0,0],[width-40,height-40]]);
+    .extent([[0,0],[width - leftMargin - rightMargin - 40, height - 40]]);
 
   const graph = sankey({
     nodes: nodes.map(d => ({...d})),
@@ -185,7 +179,7 @@ d3.csv("data.csv").then(raw => {
     .selectAll("path")
     .data(graph.links)
     .join("path")
-      .attr("class", d => "link" + (d.isOther ? " other" : ""))
+      .attr("class","link")
       .attr("d", d3.sankeyLinkHorizontal())
       .attr("stroke", d => structureColors(d.struct))
       .attr("stroke-width", d => Math.max(1, d.width))
@@ -217,13 +211,13 @@ d3.csv("data.csv").then(raw => {
         : (d.label.startsWith("Other ") || d.label.startsWith("No ")) ? "#cfcfcf" : "#cccccc");
 
   node.append("text")
-      .attr("x", d => d.x0 < width/2 ? d.x1 + 6 : d.x0 - 6)
+      .attr("x", d => d.x0 < (width/2 - leftMargin) ? d.x1 + 6 : d.x0 - 6)
       .attr("y", d => (d.y0 + d.y1)/2)
       .attr("dy", "0.35em")
-      .attr("text-anchor", d => d.x0 < width/2 ? "start" : "end")
+      .attr("text-anchor", d => d.x0 < (width/2 - leftMargin) ? "start" : "end")
       .text(d => d.label);
 
-  // 10) Filter legend (Structure Group)
+  // 10) Legend (Structure Group)
   const structValues = Array.from(new Set(paths.map(p => p.struct)));
   const legend = d3.select("#legend");
   let active = new Set(structValues);
