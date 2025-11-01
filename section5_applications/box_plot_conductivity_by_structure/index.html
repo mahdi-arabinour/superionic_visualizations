@@ -2,161 +2,195 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Box plot — log10(σ) by Structure Group (stable dots)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conductivity by Structure Group — Box Plot</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  body{font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;margin:24px;background:#fafafa;color:#111}
-  h2{margin:0 0 10px}
-  .toolbar{display:flex;gap:10px;align-items:center;margin:8px 0 14px}
-  .note{font-size:12px;color:#64748b}
-  svg{width:1080px;height:680px;background:#fff;border:1px solid #e5e7eb;border-radius:12px}
-  .grid line{stroke:#eef2f7}
-  .axis-label{font-size:14px;font-weight:600;fill:#111}
-  .box{fill:#9aa3b2;fill-opacity:.35;stroke:#1f2937;stroke-width:1}
-  .whisker{stroke:#1f2937;stroke-width:1.2}
-  .median-line{stroke:#e43;stroke-width:2}
-  .dot{stroke:#111827;stroke-width:.35px;opacity:.85}
-  .legend{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0 0}
-  .legend-item{display:flex;align-items:center;gap:6px;padding:2px 6px;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;user-select:none}
-  .legend-item.disabled{opacity:.35;text-decoration:line-through}
-  .swatch{width:12px;height:12px;border-radius:3px;border:1px solid #111}
-  button{padding:6px 10px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
+  :root { --side: 260px; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#fafafa; color:#111; margin:24px; }
+  h2 { margin:0 0 10px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin:10px 0 14px; }
+  .wrap { display:grid; grid-template-columns: 1fr var(--side); gap:16px; align-items:start; }
+  svg { width: 980px; height: 640px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; }
+  .axis-label { font-size:14px; font-weight:600; fill:#222; }
+  .grid line { stroke:#eee; }
+  .box { fill:#9aa3b2; fill-opacity:.55; stroke:#222; stroke-width:.9px; }
+  .median { stroke:#e43; stroke-width:2px; }
+  .point { opacity:.8; stroke:#333; stroke-width:.4px; }
+  .side { position:sticky; top:16px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; padding:12px; }
+  .legend-title { font-weight:700; font-size:14px; margin:6px 0; }
+  .legend-controls { display:flex; gap:6px; margin: 4px 0 8px; }
+  .legend-controls button { font-size:12px; padding:2px 6px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:4px; }
+  .legend-item { display:flex; align-items:center; gap:8px; margin:6px 0; cursor:pointer; user-select:none; }
+  .legend-item.disabled { opacity:.35; text-decoration:line-through; }
+  .legend-swatch { width:14px; height:14px; border-radius:3px; border:1px solid #444; }
+  button.primary { padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+  .note { font-size:12px; color:#64748b; margin-top:6px; }
 </style>
 </head>
 <body>
 
-<h2>Box plot — log<sub>10</sub>(σ) by Structure Group (dots don’t move)</h2>
+<h2>Conductivity by Structure Group — Box Plot</h2>
 <div class="toolbar">
-  <button id="download">Download SVG</button>
-  <span class="note">Same data/axis as violin; deterministic per-point jitter.</span>
+  <button id="downloadBtn" class="primary">Download SVG</button>
+  <span class="note">Same data & layout as violin; deterministic per-point jitter; box shows IQR + median.</span>
 </div>
-<svg id="chart"></svg>
-<div class="legend" id="legend"></div>
+
+<div class="wrap">
+  <svg></svg>
+
+  <div class="side">
+    <div class="legend-title">Ion Type (filter points)</div>
+    <div class="legend-controls">
+      <button id="showAll">Show all</button>
+      <button id="hideAll">Hide all</button>
+    </div>
+    <div id="legend"></div>
+  </div>
+</div>
 
 <script>
-// ====== YOUR COLUMNS ======
 const COL = {
   struct: "Structure Group",
   ion:    "Ion Type",
   sigma:  "Conductivity σ (S·cm⁻¹) / Temp (°C) normalized"
 };
 
-// ====== deterministic jitter ======
+// deterministic jitter (same as violin)
 function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return (h^=h>>>16)>>>0;};}
 function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967295;};}
 function stableJitter(key,half){const seed=xmur3(key)();const rand=mulberry32(seed);return (rand()*2-1)*half;}
 
-const svg=d3.select("#chart");
-const W=+svg.attr("width"), H=+svg.attr("height");
-const margin={top:40,right:24,bottom:86,left:84};
-const innerW=W-margin.left-margin.right, innerH=H-margin.top-margin.bottom;
-const g=svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
+const svg = d3.select("svg");
+const width = 980, height = 640;
+const margin = {top: 40, right: 30, bottom: 80, left: 90};
+const innerW = width - margin.left - margin.right;
+const innerH = height - margin.top - margin.bottom;
+const g = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
 
-d3.csv("data.csv").then(rows=>{
-  // build data from your normalized sigma; compute log10
-  const data = rows.map(d=>{
-    const group=(d[COL.struct]??"Others").trim()||"Others";
-    const ion=(d[COL.ion]??"Unknown").trim()||"Unknown";
+d3.csv("data.csv").then(raw=>{
+  const rows = raw.map(d=>{
     const s=+d[COL.sigma];
-    const logv=(Number.isFinite(s)&&s>0)?Math.log10(s):null;
-    return {group,ion,logv,raw:s};
-  }).filter(d=>d.logv!==null);
+    return {
+      structure:(d[COL.struct]||"Others").trim()||"Others",
+      ion:(d[COL.ion]||"Unknown").trim()||"Unknown",
+      sigma:s,
+      logSig:(Number.isFinite(s)&&s>0)?Math.log10(s):null
+    };
+  }).filter(d=>d.logSig!==null);
 
-  if(!data.length){console.error("No data — check column names and positive σ values.");return;}
+  const structures=Array.from(new Set(rows.map(d=>d.structure)));
+  const ions=Array.from(new Set(rows.map(d=>d.ion)));
 
-  const groups=Array.from(new Set(data.map(d=>d.group)));
-  const ions=Array.from(new Set(data.map(d=>d.ion)));
-
-  const x=d3.scaleBand().domain(groups).range([0,innerW]).padding(0.18);
-  const y=d3.scaleLinear().domain(d3.extent(data,d=>d.logv)).nice().range([innerH,0]);
+  const x=d3.scaleBand().domain(structures).range([0,innerW]).padding(0.12);
+  const y=d3.scaleLinear().domain(d3.extent(rows,d=>d.logSig)).nice().range([innerH,0]);
 
   g.append("g").attr("transform",`translate(0,${innerH})`)
     .call(d3.axisBottom(x))
     .selectAll("text").attr("transform","rotate(-28)").style("text-anchor","end");
-  g.append("g").call(d3.axisLeft(y).ticks(10).tickFormat(v=>`10^${v}`));
-  g.append("g").attr("class","grid").call(d3.axisLeft(y).ticks(10).tickSize(-innerW).tickFormat(""));
+  g.append("g").call(d3.axisLeft(y).ticks(8).tickFormat(v=>`10^${v}`));
+  g.append("g").attr("class","grid").call(d3.axisLeft(y).ticks(8).tickSize(-innerW).tickFormat(""));
 
-  g.append("text").attr("class","axis-label").attr("x",innerW/2).attr("y",innerH+64).attr("text-anchor","middle").text("Structure Group");
-  g.append("text").attr("class","axis-label").attr("x",-innerH/2).attr("y",-64).attr("transform","rotate(-90)").attr("text-anchor","middle").text("log10(σ) (S·cm⁻¹)");
+  g.append("text").attr("class","axis-label")
+    .attr("x",innerW/2).attr("y",innerH+62).attr("text-anchor","middle").text("Structure Group");
+  g.append("text").attr("class","axis-label")
+    .attr("x",-innerH/2).attr("y",-64).attr("transform","rotate(-90)")
+    .attr("text-anchor","middle").text("log10(σ) (S/cm)");
 
-  // box stats (Tukey)
-  function boxStats(values){
-    const v=values.slice().sort(d3.ascending);
-    const q1=d3.quantileSorted(v,0.25), q2=d3.quantileSorted(v,0.50), q3=d3.quantileSorted(v,0.75);
-    const iqr=q3-q1, low=Math.max(d3.min(v), q1-1.5*iqr), high=Math.min(d3.max(v), q3+1.5*iqr);
-    return {q1,q2,q3,low,high,n:v.length};
+  const color=d3.scaleOrdinal().domain(ions).range(d3.schemeTableau10.slice(0,ions.length));
+
+  // --- compute boxplot stats ---
+  function boxStats(vals){
+    const v=vals.slice().sort(d3.ascending);
+    const q1=d3.quantileSorted(v,0.25);
+    const q2=d3.quantileSorted(v,0.5);
+    const q3=d3.quantileSorted(v,0.75);
+    const iqr=q3-q1;
+    const low=Math.max(d3.min(v),q1-1.5*iqr);
+    const high=Math.min(d3.max(v),q3+1.5*iqr);
+    return {q1,q2,q3,low,high};
   }
-  const stats=groups.map(gp=>{
-    const vals=data.filter(d=>d.group===gp).map(d=>d.logv);
-    return {group:gp, ...boxStats(vals)};
+
+  const grouped=d3.group(rows,d=>d.structure);
+  const boxes=structures.map(sg=>{
+    const vals=(grouped.get(sg)||[]).map(d=>d.logSig);
+    if(!vals.length)return {structure:sg,n:0};
+    return {structure:sg,...boxStats(vals),n:vals.length};
   });
 
-  // draw boxes
-  const boxWidth=x.bandwidth()*0.5, dotHalfWidth=x.bandwidth()*0.45;
+  const boxWidth=x.bandwidth()*0.5;
   const boxLayer=g.append("g"), whiskerLayer=g.append("g");
 
-  boxLayer.selectAll("rect.box").data(stats).join("rect")
+  boxLayer.selectAll("rect.box").data(boxes.filter(d=>d.n>0)).join("rect")
     .attr("class","box")
-    .attr("x",d=>x(d.group)+(x.bandwidth()-boxWidth)/2)
+    .attr("x",d=>x(d.structure)+(x.bandwidth()-boxWidth)/2)
     .attr("width",boxWidth)
     .attr("y",d=>y(d.q3))
-    .attr("height",d=>Math.max(1, y(d.q1)-y(d.q3)));
+    .attr("height",d=>Math.max(1,y(d.q1)-y(d.q3)));
 
-  whiskerLayer.selectAll("line.whisker").data(
-    stats.flatMap(d=>([{group:d.group,y1:d.high,y2:d.q3},{group:d.group,y1:d.q1,y2:d.low}]))
-  ).join("line")
-    .attr("class","whisker")
-    .attr("x1",d=>x(d.group)+x.bandwidth()/2).attr("x2",d=>x(d.group)+x.bandwidth()/2)
-    .attr("y1",d=>y(d.y1)).attr("y2",d=>y(d.y2));
-
-  whiskerLayer.selectAll("line.cap").data(
-    stats.flatMap(d=>([{group:d.group,y:d.high},{group:d.group,y:d.low}]))
-  ).join("line")
-    .attr("class","whisker")
-    .attr("x1",d=>x(d.group)+(x.bandwidth()-boxWidth)/2)
-    .attr("x2",d=>x(d.group)+(x.bandwidth()-boxWidth)/2+boxWidth)
-    .attr("y1",d=>y(d.y)).attr("y2",d=>y(d.y));
-
-  whiskerLayer.selectAll("line.median-line").data(stats).join("line")
-    .attr("class","median-line")
-    .attr("x1",d=>x(d.group)+(x.bandwidth()-boxWidth)/2)
-    .attr("x2",d=>x(d.group)+(x.bandwidth()-boxWidth)/2+boxWidth)
-    .attr("y1",d=>y(d.q2)).attr("y2",d=>y(d.q2));
-
-  // dots (stable jitter)
-  const color=d3.scaleOrdinal().domain(ions).range(d3.schemeTableau10);
-  const pts=g.append("g").selectAll("circle.dot")
-    .data(data, d=>`${d.group}|${d.ion}|${d.logv}|${d.raw}`)
-    .join("circle")
-      .attr("class","dot").attr("r",3)
-      .attr("cy",d=>y(d.logv))
-      .attr("cx",d=>{
-        const c=x(d.group)+x.bandwidth()/2;
-        const key=`${d.group}|${d.ion}|${d.raw}|${d.logv}`;
-        return c + stableJitter(key, dotHalfWidth);
-      })
-      .attr("fill",d=>color(d.ion));
-
-  // legend filter
-  const legend=d3.select("#legend");
-  let active=new Set(ions);
-  const items=legend.selectAll(".legend-item").data(ions).join("div")
-    .attr("class","legend-item")
-    .on("click",function(_,ion){
-      if(active.has(ion)) active.delete(ion); else active.add(ion);
-      d3.select(this).classed("disabled",!active.has(ion));
-      pts.attr("display",d=>active.has(d.ion)?null:"none");
+  whiskerLayer.selectAll(".whisker").data(boxes.filter(d=>d.n>0)).join("g")
+    .each(function(d){
+      const cx=x(d.structure)+x.bandwidth()/2;
+      const bw=boxWidth;
+      d3.select(this).append("line")
+        .attr("x1",cx).attr("x2",cx)
+        .attr("y1",y(d.high)).attr("y2",y(d.q3))
+        .attr("stroke","#222");
+      d3.select(this).append("line")
+        .attr("x1",cx).attr("x2",cx)
+        .attr("y1",y(d.low)).attr("y2",y(d.q1))
+        .attr("stroke","#222");
+      d3.select(this).append("line")
+        .attr("x1",cx-bw/2).attr("x2",cx+bw/2)
+        .attr("y1",y(d.high)).attr("y2",y(d.high))
+        .attr("stroke","#222");
+      d3.select(this).append("line")
+        .attr("x1",cx-bw/2).attr("x2",cx+bw/2)
+        .attr("y1",y(d.low)).attr("y2",y(d.low))
+        .attr("stroke","#222");
+      d3.select(this).append("line")
+        .attr("class","median")
+        .attr("x1",cx-bw/2).attr("x2",cx+bw/2)
+        .attr("y1",y(d.q2)).attr("y2",y(d.q2));
     });
-  items.append("div").attr("class","swatch").style("background",d=>color(d));
+
+  // points (same deterministic jitter)
+  const structCenter=Object.fromEntries(structures.map(sg=>[sg,x(sg)+x.bandwidth()/2]));
+  const structHalf=x.bandwidth()/2*0.8;
+
+  let activeIons=new Set(ions);
+  const pts=g.append("g").selectAll(".point").data(rows).join("circle")
+    .attr("class","point")
+    .attr("r",3)
+    .attr("cx",d=>{
+      const c=structCenter[d.structure],h=structHalf;
+      const key=`${d.structure}|${d.ion}|${d.sigma}|${d.logSig}`;
+      return c+stableJitter(key,h);
+    })
+    .attr("cy",d=>y(d.logSig))
+    .attr("fill",d=>color(d.ion))
+    .attr("display",d=>activeIons.has(d.ion)?null:"none");
+
+  // legend (unchanged)
+  const legend=d3.select("#legend");
+  const items=legend.selectAll(".legend-item").data(ions).enter().append("div").attr("class","legend-item");
+  items.append("div").attr("class","legend-swatch").style("background",d=>color(d));
   items.append("span").text(d=>d);
 
-  // download svg
-  document.getElementById("download").addEventListener("click",()=>{
+  function updatePoints(){pts.attr("display",d=>activeIons.has(d.ion)?null:"none");}
+  items.on("click",function(_,ion){
+    if(activeIons.has(ion))activeIons.delete(ion);else activeIons.add(ion);
+    d3.select(this).classed("disabled",!activeIons.has(ion));
+    updatePoints();
+  });
+  d3.select("#showAll").on("click",()=>{activeIons=new Set(ions);items.classed("disabled",false);updatePoints();});
+  d3.select("#hideAll").on("click",()=>{activeIons.clear();items.classed("disabled",true);updatePoints();});
+
+  // download button
+  document.getElementById("downloadBtn").addEventListener("click",()=>{
     const s=new XMLSerializer().serializeToString(document.querySelector("svg"));
     const blob=new Blob([s],{type:"image/svg+xml;charset=utf-8"});
     const url=URL.createObjectURL(blob);
-    const a=Object.assign(document.createElement("a"),{href:url,download:"boxplot_log10sigma.svg"});
+    const a=Object.assign(document.createElement("a"),{href:url,download:"boxplot_log10_sigma_by_structure.svg"});
     a.click();
   });
 });
