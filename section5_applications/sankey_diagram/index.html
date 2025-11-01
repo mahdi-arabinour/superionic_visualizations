@@ -1,3 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sankey — Anode → Structure Group → Ion Type → Cathode</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+<style>
+  :root { --side: 300px; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:#fafafa; color:#111; margin:24px; }
+  h2 { margin:0 0 10px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin:10px 0 14px; }
+  .note { font-size:12px; color:#64748b; }
+
+  .wrap { display:grid; grid-template-columns: 1fr var(--side); gap:16px; align-items:start; }
+  svg { width: 1100px; height: 720px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; overflow:visible; }
+
+  .side { position:sticky; top:16px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; padding:12px; }
+  .legend-title { font-weight:700; font-size:14px; margin:6px 0; }
+  .legend-controls { display:flex; gap:6px; margin:4px 0 6px; }
+  .legend-controls button, button.primary { font-size:12px; padding:6px 10px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:8px; }
+  .legend-item { display:flex; align-items:center; gap:8px; margin:6px 0; cursor:pointer; user-select:none; }
+  .legend-item.disabled { opacity:.35; text-decoration:line-through; }
+  .legend-swatch { width:16px; height:16px; border-radius:3px; border:1px solid #444; }
+
+  .node rect { stroke:#333; stroke-width:1px; }
+  .node text { font-size:10px; pointer-events:none; }
+  .link { fill:none; }
+  .link:hover { stroke-opacity:.75; }
+
+  .tooltip {
+    position:fixed; pointer-events:none; opacity:0; z-index:10;
+    background:#fff; border:1px solid #e5e5e5; border-radius:8px;
+    padding:8px 10px; font-size:12px; color:#111;
+    box-shadow:0 6px 18px rgba(0,0,0,.08);
+  }
+
+  @media (max-width:1300px){ svg{ width:100%; height:660px; } :root{ --side: 260px; } }
+</style>
+</head>
+<body>
+  <h2>Sankey — Anode → Structure Group → Ion Type → Cathode</h2>
+  <div class="toolbar">
+    <button id="downloadBtn" class="primary">Download SVG</button>
+    <span class="note">Color by Structure Group. Bucketing is <b>disabled</b>; link thickness scales with <b>count</b>. Labels auto-fit margins.</span>
+  </div>
+
+  <div class="wrap">
+    <svg></svg>
+    <div class="side">
+      <div class="legend-title">Structure Group (color)</div>
+      <div class="legend-controls">
+        <button id="showAll">Show all</button>
+        <button id="hideAll">Hide all</button>
+      </div>
+      <div id="legend"></div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tip"></div>
+
 <script>
 const COL = {
   anode:   "Anode",
@@ -6,7 +68,7 @@ const COL = {
   cathode: "Cathode"
 };
 
-// No bucketing
+// Bucketing disabled
 const MIN_COUNT = 1;
 
 const svg   = d3.select("svg");
@@ -14,16 +76,16 @@ const width = +svg.attr("width")  || 1100;
 const height= +svg.attr("height") || 720;
 const tip   = d3.select("#tip");
 
-// Color palette for Structure Group (+ Others gray)
+// Structure Group palette (+ Others gray)
 const structureColors = d3.scaleOrdinal()
   .domain(["Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Others"])
   .range (["#f6bf26",   "#2196f3",        "#ab47bc",    "#26a69a","#66bb6a","#ef5350","#ff7043","#9e9e9e"]);
 
-// quick text width estimator for 10px font (rough but reliable enough)
-const estTextWidth = s => (s ? s.length : 0) * 6.2; // ~6.2px per char at 10px
+// Rough text width estimator for 10px font
+const estTextWidth = s => (s ? s.length : 0) * 6.2; // ~6.2 px/char
 
 d3.csv("data.csv").then(raw => {
-  // 1) Normalize rows
+  // 1) Normalize rows (fallbacks)
   const rows = raw.map(d => ({
     anode:   (d[COL.anode]   ?? "").toString().trim() || "No Anode",
     struct:  (d[COL.struct]  ?? "").toString().trim() || "Others",
@@ -31,16 +93,14 @@ d3.csv("data.csv").then(raw => {
     cathode: (d[COL.cathode] ?? "").toString().trim() || "No Cathode"
   }));
 
-  // 2) Dynamic margins based on longest labels (10px font)
+  // 2) Dynamic margins from longest labels
   const maxAnode   = d3.max(rows, d => estTextWidth(d.anode))   || 0;
   const maxCathode = d3.max(rows, d => estTextWidth(d.cathode)) || 0;
+  const leftMargin  = Math.min(320, Math.max(90,  maxAnode   + 20)); // clamp 90–320
+  const rightMargin = Math.min(320, Math.max(90,  maxCathode + 20)); // clamp 90–320
 
-  const leftMargin  = Math.min(280, Math.max(90,  maxAnode + 20));   // clamp 90–280
-  const rightMargin = Math.min(280, Math.max(90,  maxCathode + 20)); // clamp 90–280
-
-  // clear any previous group (in case of hot reload)
+  // Clear any prior drawing & set group with dynamic margin
   svg.selectAll("g").remove();
-
   const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 
   // 3) Count full 4-step paths
@@ -113,14 +173,14 @@ d3.csv("data.csv").then(raw => {
     links: links.map(d => ({...d}))
   });
 
-  // === Force stroke width to reflect raw counts ===
+  // 8) Force stroke width to reflect raw counts
   const maxValue = d3.max(graph.links, d => d.value) || 1;
   const minValue = d3.min(graph.links, d => d.value) || 1;
   const widthScale = d3.scaleSqrt()
     .domain([minValue, maxValue])
-    .range([1, 30]); // increase 30 for stronger contrast
+    .range([1, 30]); // increase upper bound for more contrast
 
-  // 8) Draw links
+  // 9) Draw links
   const link = g.append("g")
     .selectAll("path")
     .data(graph.links)
@@ -138,11 +198,11 @@ d3.csv("data.csv").then(raw => {
         )
         .style("opacity",1)
         .style("left",(ev.pageX+14)+"px")
-        .style("top", (ev.pageY+14)+"px");
+        .style("top",(ev.pageY+14)+"px");
       })
       .on("mouseleave", () => tip.style("opacity",0));
 
-  // 9) Draw nodes
+  // 10) Draw nodes
   const node = g.append("g")
     .selectAll("g")
     .data(graph.nodes)
@@ -157,7 +217,7 @@ d3.csv("data.csv").then(raw => {
         ? structureColors(d.label)
         : (d.label.startsWith("Other ") || d.label.startsWith("No ")) ? "#cfcfcf" : "#cccccc");
 
-  // 10) Labels: anode left, cathode right, middle right
+  // 11) Labels: anode left, cathode right, middle right
   node.append("text")
       .attr("x", d => {
         if (d.name.startsWith("anode:"))   return d.x0 - 8;
@@ -174,7 +234,7 @@ d3.csv("data.csv").then(raw => {
       .style("font-size","10px")
       .text(d => d.label);
 
-  // 11) Legend (Structure Group) — click = isolate; click again = restore all
+  // 12) Legend (Structure Group) — click = isolate; click again = restore all
   const structValues = Array.from(new Set(paths.map(p => p.struct)));
   const legend = d3.select("#legend");
   let active = new Set(structValues);
@@ -210,7 +270,7 @@ d3.csv("data.csv").then(raw => {
     link.attr("display", "none");
   });
 
-  // 12) Download SVG
+  // 13) Download SVG
   document.getElementById("downloadBtn").addEventListener("click", () => {
     const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
     const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
@@ -220,3 +280,5 @@ d3.csv("data.csv").then(raw => {
   });
 });
 </script>
+</body>
+</html>
