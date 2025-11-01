@@ -43,7 +43,7 @@
   <h2>Sankey — Anode → Structure Group → Ion Type → Cathode</h2>
   <div class="toolbar">
     <button id="downloadBtn" class="primary">Download SVG</button>
-    <span class="note">Color by Structure Group. Bucketing is <b>disabled</b>; link thickness scales with <b>count</b>. Labels auto-fit margins.</span>
+    <span class="note">Color by Structure Group. Link thickness = count. Longer flows via EXTRA_WIDTH and STRETCH.</span>
   </div>
 
   <div class="wrap">
@@ -61,6 +61,14 @@
   <div class="tooltip" id="tip"></div>
 
 <script>
+/* ========================== Tweakables ========================== */
+const EXTRA_WIDTH      = 240;   // adds more inner width (pushes columns apart)
+const STRETCH          = 1.20;  // post-layout horizontal stretch (1.0 = none)
+const ANODE_LABEL_DX   = -8;    // negative = left of node (closer = -4, further = -15)
+const MIDDLE_LABEL_DX  =  6;    // right of node (middle columns)
+const CATHODE_LABEL_DX =  8;    // right of node (cathode column)
+/* ================================================================ */
+
 const COL = {
   anode:   "Anode",
   struct:  "Structure Group",
@@ -96,8 +104,8 @@ d3.csv("data.csv").then(raw => {
   // 2) Dynamic margins from longest labels
   const maxAnode   = d3.max(rows, d => estTextWidth(d.anode))   || 0;
   const maxCathode = d3.max(rows, d => estTextWidth(d.cathode)) || 0;
-  const leftMargin  = Math.min(320, Math.max(90,  maxAnode   + 20)); // clamp 90–320
-  const rightMargin = Math.min(320, Math.max(90,  maxCathode + 20)); // clamp 90–320
+  const leftMargin  = Math.min(380, Math.max(90,  maxAnode   + 20)); // clamp 90–380
+  const rightMargin = Math.min(380, Math.max(90,  maxCathode + 20)); // clamp 90–380
 
   // Clear any prior drawing & set group with dynamic margin
   svg.selectAll("g").remove();
@@ -161,26 +169,35 @@ d3.csv("data.csv").then(raw => {
       struct: l.struct
     }));
 
-  // 7) Sankey layout with dynamic margins
+  // 7) Sankey layout with EXTRA_WIDTH
   const sankey = d3.sankey()
     .nodeWidth(18)
     .nodePadding(18)
     .nodeAlign(d3.sankeyJustify)
-    .extent([[0,0],[width - leftMargin - rightMargin - 40, height - 40]]);
+    .extent([[0,0],[width - leftMargin - rightMargin - 40 + EXTRA_WIDTH, height - 40]]);
 
   const graph = sankey({
     nodes: nodes.map(d => ({...d})),
     links: links.map(d => ({...d}))
   });
 
-  // 8) Force stroke width to reflect raw counts
+  // 8) Optional post-layout horizontal stretch
+  if (STRETCH !== 1) {
+    graph.nodes.forEach(d => {
+      d.x0 *= STRETCH;
+      d.x1 *= STRETCH;
+    });
+    // links use node x positions via the path generator; no change needed for links
+  }
+
+  // 9) Link width scales by count (sqrt)
   const maxValue = d3.max(graph.links, d => d.value) || 1;
   const minValue = d3.min(graph.links, d => d.value) || 1;
   const widthScale = d3.scaleSqrt()
     .domain([minValue, maxValue])
-    .range([1, 30]); // increase upper bound for more contrast
+    .range([1, 30]);
 
-  // 9) Draw links
+  // 10) Draw links
   const link = g.append("g")
     .selectAll("path")
     .data(graph.links)
@@ -202,7 +219,7 @@ d3.csv("data.csv").then(raw => {
       })
       .on("mouseleave", () => tip.style("opacity",0));
 
-  // 10) Draw nodes
+  // 11) Draw nodes
   const node = g.append("g")
     .selectAll("g")
     .data(graph.nodes)
@@ -217,12 +234,12 @@ d3.csv("data.csv").then(raw => {
         ? structureColors(d.label)
         : (d.label.startsWith("Other ") || d.label.startsWith("No ")) ? "#cfcfcf" : "#cccccc");
 
-  // 11) Labels: anode left, cathode right, middle right
+  // 12) Labels: anode left, cathode right, middle right (offsets configurable)
   node.append("text")
       .attr("x", d => {
-        if (d.name.startsWith("anode:"))   return d.x0 - 8;
-        if (d.name.startsWith("cathode:")) return d.x1 + 8;
-        return d.x1 + 6;
+        if (d.name.startsWith("anode:"))   return d.x0 + ANODE_LABEL_DX;
+        if (d.name.startsWith("cathode:")) return d.x1 + CATHODE_LABEL_DX;
+        return d.x1 + MIDDLE_LABEL_DX;
       })
       .attr("y", d => (d.y0 + d.y1)/2)
       .attr("dy", "0.35em")
@@ -234,7 +251,7 @@ d3.csv("data.csv").then(raw => {
       .style("font-size","10px")
       .text(d => d.label);
 
-  // 12) Legend (Structure Group) — click = isolate; click again = restore all
+  // 13) Legend (Structure Group) — click to isolate, click again to restore
   const structValues = Array.from(new Set(paths.map(p => p.struct)));
   const legend = d3.select("#legend");
   let active = new Set(structValues);
@@ -270,7 +287,7 @@ d3.csv("data.csv").then(raw => {
     link.attr("display", "none");
   });
 
-  // 13) Download SVG
+  // 14) Download SVG
   document.getElementById("downloadBtn").addEventListener("click", () => {
     const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
     const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
