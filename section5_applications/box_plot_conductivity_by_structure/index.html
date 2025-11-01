@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Box plot — log10(σ) by Structure Group</title>
+<title>Box plot — log10(σ) by Structure Group (stable dots + mean)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
@@ -10,7 +10,8 @@
   h2{margin:0 0 10px}
   .toolbar{display:flex;gap:10px;align-items:center;margin:8px 0 14px}
   .note{font-size:12px;color:#64748b}
-  svg{width:1080px;height:680px;background:#fff;border:1px solid #e5e7eb;border-radius:12px}
+  /* we’ll also set explicit width/height as attributes in JS */
+  svg{width:980px;height:640px;background:#fff;border:1px solid #e5e7eb;border-radius:12px}
   .grid line{stroke:#eef2f7}
   .axis-label{font-size:14px;font-weight:600;fill:#111}
 
@@ -35,7 +36,7 @@
 <h2>Box plot — log<sub>10</sub>(σ) by Structure Group</h2>
 <div class="toolbar">
   <button id="download">Download SVG</button>
-  <span class="note">Same data/axis as violin; deterministic per-point jitter; blue dots show the mean σ per group.</span>
+  <span class="note">Same data/axis as violin; deterministic per-point jitter; blue dots = mean σ per group.</span>
 </div>
 <svg id="chart"></svg>
 <div class="legend" id="legend"></div>
@@ -54,6 +55,9 @@ function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>
 function stableJitter(key,half){const seed=xmur3(key)();const rand=mulberry32(seed);return (rand()*2-1)*half;}
 
 const svg = d3.select("#chart");
+// --- FIX: ensure width/height exist as SVG *attributes* (not only CSS) ---
+svg.attr("width", 980).attr("height", 640);
+
 const W = +svg.attr("width"), H = +svg.attr("height");
 const margin = {top: 40, right: 24, bottom: 86, left: 84};
 const innerW = W - margin.left - margin.right;
@@ -61,7 +65,6 @@ const innerH = H - margin.top - margin.bottom;
 const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
 const fmtSci = d3.format(".2e"); // for σ labels
-const fmtPow  = x => `10^${d3.format(".2f")(x)}`;
 
 d3.csv("data.csv").then(rows => {
   // Build data from normalized σ; compute log10(σ)
@@ -117,7 +120,7 @@ d3.csv("data.csv").then(rows => {
   const grouped = d3.group(data, d => d.group);
   const stats = groups.map(gp => {
     const valsLog = (grouped.get(gp) || []).map(d => d.logv);
-    const valsLin = valsLog.map(v => Math.pow(10, v));          // linear σ for mean
+    const valsLin = valsLog.map(v => Math.pow(10, v));  // linear σ
     const s = valsLog.length ? boxStats(valsLog) : null;
     const meanLinear = d3.mean(valsLin);
     const meanLog = meanLinear > 0 ? Math.log10(meanLinear) : null;
@@ -163,7 +166,7 @@ d3.csv("data.csv").then(rows => {
           .attr("x1",cx-bw/2).attr("x2",cx+bw/2).attr("y1",y(d.q2)).attr("y2",y(d.q2));
       });
 
-  // Mean marker (blue dot) — mean computed in linear σ, positioned at log10(mean σ)
+  // Mean marker (blue dot): mean of σ in linear space, positioned at log10(mean σ)
   const meanLayer = g.append("g");
   meanLayer.selectAll("circle.mean-dot")
     .data(stats)
@@ -175,7 +178,7 @@ d3.csv("data.csv").then(rows => {
       .append("title")
         .text(d => `Mean σ: ${fmtSci(d.meanLinear)} S·cm⁻¹ (log10=${d3.format(".2f")(d.meanLog)})`);
 
-  // Optional text label above the dot — comment out if you don’t want it
+  // Optional label above the mean dot
   meanLayer.selectAll("text.mean-label")
     .data(stats)
     .join("text")
