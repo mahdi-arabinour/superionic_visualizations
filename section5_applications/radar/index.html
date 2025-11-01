@@ -2,33 +2,47 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>D3 Radar — Cycle Life normalized to 0–1</title>
+<title>Radar</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  :root{ --bg:#f7f7fb; --panel:#fff; --grid:#e7e9ef; --axis:#b4bac8; --text:#101828; }
-  body{ margin:0; background:var(--bg); color:var(--text);
-        font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; }
-  .wrap{ max-width:1100px; margin:28px auto; padding:0 18px; }
-  h1{ margin:0 0 14px; font-size:20px; font-weight:600; }
-  .card{ background:#fff; border-radius:16px; padding:18px;
-         box-shadow:0 10px 30px rgba(12,17,29,0.08);
-         display:flex; flex-direction:column; align-items:center; }
-  .gridCircle{ fill:none; stroke:#e7e9ef }
-  .axis line{ stroke:#b4bac8; stroke-width:1 }
-  .axisLabel{ fill:#374151; font-size:12px; font-weight:500 }
-  .levelLabel{ font-size:12px; font-weight:700; fill:#0f172a;
-               paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round; }
-  .value-label{ font-size:11px; fill:#111827;
-                paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round; }
-  #legend{ display:flex; flex-wrap:wrap; justify-content:center; gap:16px; margin-top:18px; }
-  #legend .item{ display:flex; align-items:center; gap:6px; font-size:13px }
-  .swatch{ width:14px; height:14px; border-radius:3px; display:inline-block }
+  :root{
+    --bg:#f7f7fb; --panel:#fff; --grid:#e7e9ef; --axis:#b4bac8; --text:#101828; --muted:#6b7280;
+  }
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;
+  }
+  .wrap{max-width:1100px;margin:28px auto;padding:0 18px;}
+  h1{margin:0 0 14px;font-size:20px;font-weight:600;}
+  .card{
+    background:var(--panel);border-radius:16px;padding:18px;
+    box-shadow:0 10px 30px rgba(12,17,29,0.08);
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .gridCircle{fill:none;stroke:var(--grid)}
+  .axis line{stroke:var(--axis);stroke-width:1}
+  .axisLabel{fill:#374151;font-size:12px;font-weight:500}
+  .levelLabel{
+    font-size:12px;font-weight:700;fill:#0f172a;
+    paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;
+    text-shadow:0 1px 2px rgba(255,255,255,0.9);
+  }
+  .value-label{
+    font-size:11px;fill:#111827;
+    paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;
+  }
+  #legend{
+    display:flex;flex-wrap:wrap;justify-content:center;align-items:center;
+    gap:16px;margin-top:18px;
+  }
+  #legend .item{display:flex;align-items:center;gap:6px;font-size:13px}
+  .swatch{width:14px;height:14px;border-radius:3px;display:inline-block}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Radar — Cycle Life scaled 0–1 (others assumed already normalized)</h1>
+  <h1>Radar”</h1>
   <div class="card">
     <svg id="radar" width="900" height="640" role="img" aria-label="Radar chart"></svg>
     <div id="legend"></div>
@@ -36,7 +50,7 @@
 </div>
 
 <script>
-const CSV_PATH = "data.csv";
+const CSV_PATH = "data_with_structure_clean.csv";   // your cleaned data with Structure_Type
 const svg = d3.select("#radar");
 const legend = d3.select("#legend");
 
@@ -45,156 +59,144 @@ const margin = {top:60,right:70,bottom:60,left:70};
 const cx = W/2, cy = H/2;
 const radius = Math.min(W, H)/2 - Math.max(margin.left, margin.top);
 
-// Config
+// Fixed 0..1 rings
 const levelTicks = [0.2, 0.4, 0.6, 0.8, 1.0];
 const levelLabelAngleDeg = -120;
 const axisLabelOffset = 20;
 
-// Label jitter
+// Axes in desired order (six, including Cycle Life)
+const desiredAxes = ["log₁₀(σ)","1/Ea","log₁₀(N)","Retention %","Synthesis Simplicity","Cycle Life"];
+
+// Label jitter controls (to avoid overlap)
 const LABEL_JITTER_DEG = 2, NEAR_EPS_FRAC = 0.01, CLUSTER_STEP_DEG = 0.6;
 
 d3.csv(CSV_PATH).then(rawOrig => {
-  // Trim headers
-  const origCols = rawOrig.columns ?? Object.keys(rawOrig[0]);
-  const trim = s => (s ?? "").replace(/^\s+|\s+$/g, "");
-  const cols = origCols.map(trim);
-
-  // Rebuild rows with trimmed keys
-  const raw = rawOrig.map(row => {
-    const r = {}; cols.forEach((c,i) => r[c] = row[origCols[i]]); return r;
+  // Trim column names and coerce numerics
+  const raw = rawOrig.map(d => {
+    const o = {};
+    Object.keys(d).forEach(k => { o[k.trim()] = d[k]; });
+    return o;
   });
-  raw.columns = cols;
 
-  const groupKey = cols[0];
-
-  // Desired axes (assumed already 0–1 unless Cycle Life needs scaling)
-  const desired = [
-    "Structure_Type",
-    "log₁₀(σ)",
-    "1/Ea",
-    "log₁₀(N)",
-    "Retention %",
-    "Synthesis Simplicity"
-  ];
-  const cycleKeys = ["Cycle Life normalized (cycles)", "Cycle Life"];
-  const foundCycle = cycleKeys.find(k => cols.includes(k));
-  if (foundCycle) desired.push(foundCycle);
-
-  const categories = desired.filter(c => cols.includes(c));
-
-  // Coerce numeric
-  raw.forEach(r => categories.forEach(c => r[c] = +r[c]));
-
-  // ---- Normalize Cycle Life to 0–1 (divide by max) ----
-  if (foundCycle) {
-    const maxCycle = d3.max(raw, r => r[foundCycle]) || 1;
-    raw.forEach(r => r[foundCycle] = (r[foundCycle] || 0) / maxCycle);
+  const cols = raw.length ? Object.keys(raw[0]) : [];
+  if (!cols.includes("Structure_Type")) {
+    console.error("Structure_Type column not found in CSV.");
   }
 
-  // ---- Global scale fixed to [0,1] ----
-  const rScale = d3.scaleLinear().domain([0, 1]).range([0, radius]);
-  const angleSlice = (Math.PI*2)/categories.length;
-  const color = d3.scaleOrdinal(d3.schemeTableau10);
-  const fmtValue = d3.format(",.2~f");
+  // Keep only present axes
+  const axes = desiredAxes.filter(a => cols.includes(a));
 
-  // GRID
+  // Coerce numerics for axes, keep Structure_Type as is
+  raw.forEach(r => axes.forEach(a => r[a] = +r[a]));
+
+  // ---- GROUP & AVERAGE by Structure_Type ----
+  const byStruct = d3.group(raw, d => d.Structure_Type);
+  let rows = Array.from(byStruct, ([stype, items]) => {
+    const out = { Structure_Type: stype };
+    axes.forEach(a => {
+      const vals = items.map(x => +x[a]).filter(v => Number.isFinite(v));
+      out[a] = vals.length ? d3.mean(vals) : NaN;
+    });
+    return out;
+  });
+
+  // ---- Min–max normalize each axis across structures to 0..1 ----
+  axes.forEach(a => {
+    const vals = rows.map(r => r[a]).filter(v => Number.isFinite(v));
+    const mn = d3.min(vals), mx = d3.max(vals);
+    rows.forEach(r => {
+      if (!Number.isFinite(r[a])) r[a] = 0;
+      else r[a] = (mx > mn) ? (r[a] - mn) / (mx - mn) : 0;
+    });
+  });
+
+  // Sort structures for stable color mapping
+  rows.sort((a,b) => d3.ascending(a.Structure_Type, b.Structure_Type));
+  const domain = rows.map(r => r.Structure_Type);
+
+  // ----- SCALES & COLORS -----
+  const rScale = d3.scaleLinear().domain([0,1]).range([0, radius]);
+  const angleSlice = (Math.PI*2)/axes.length;
+  const color = d3.scaleOrdinal().domain(domain).range(d3.schemeTableau10);
+
+  // ---------- GRID ----------
   const gGrid = svg.append("g");
-  levelTicks.forEach(t => gGrid.append("circle").attr("class","gridCircle")
-    .attr("cx",cx).attr("cy",cy).attr("r",rScale(t)));
-  const a = levelLabelAngleDeg * Math.PI / 180;
   levelTicks.forEach(t => {
-    const r = rScale(t), lx = cx + Math.cos(a) * r, ly = cy + Math.sin(a) * r;
+    gGrid.append("circle").attr("class","gridCircle").attr("cx",cx).attr("cy",cy).attr("r",rScale(t));
+  });
+  const a0 = levelLabelAngleDeg * Math.PI/180;
+  levelTicks.forEach(t => {
+    const r = rScale(t);
+    const lx = cx + Math.cos(a0)*r, ly = cy + Math.sin(a0)*r;
     gGrid.append("text").attr("class","levelLabel").attr("x",lx).attr("y",ly)
-      .attr("text-anchor", Math.cos(a) > 0.35 ? "start" : (Math.cos(a) < -0.35 ? "end" : "middle"))
+      .attr("text-anchor", Math.cos(a0)>0.35 ? "start" : (Math.cos(a0)<-0.35 ? "end" : "middle"))
       .attr("dominant-baseline","middle").text(d3.format(",")(t));
   });
 
-  // AXES
+  // ---------- AXES ----------
   const gAxis = svg.append("g").attr("class","axis");
-  categories.forEach((cat, i) => {
+  axes.forEach((cat,i) => {
     const ang = angleSlice*i - Math.PI/2;
     const x = cx + Math.cos(ang)*radius, y = cy + Math.sin(ang)*radius;
     gAxis.append("line").attr("x1",cx).attr("y1",cy).attr("x2",x).attr("y2",y);
+
     const lx = cx + Math.cos(ang)*(radius + axisLabelOffset);
     const ly = cy + Math.sin(ang)*(radius + axisLabelOffset);
-    gAxis.append("text").attr("class","axisLabel").attr("x",lx).attr("y",ly)
-      .attr("text-anchor", Math.abs(Math.cos(ang)) < 0.35 ? "middle" : (Math.cos(ang) > 0 ? "start" : "end"))
-      .attr("dy", Math.abs(Math.sin(ang)) < 0.35 ? "0.35em" : (Math.sin(ang) > 0 ? "0.9em" : "-0.4em"))
+    gAxis.append("text").attr("class","axisLabel").attr("x", lx).attr("y", ly)
+      .attr("text-anchor", Math.abs(Math.cos(ang))<0.35 ? "middle" : (Math.cos(ang)>0 ? "start" : "end"))
+      .attr("dy", Math.abs(Math.sin(ang))<0.35 ? "0.35em" : (Math.sin(ang)>0 ? "0.9em" : "-0.4em"))
       .text(cat);
   });
 
-  // De-overlap label offsets along rings
-  const NEAR_EPS = 0.01; // since scale is 0..1 now
-  const extraDeg = Array.from({length: categories.length}, () => ({}));
-  categories.forEach((c, j) => {
-    const items = raw.map((row, si) => ({ si, value: row[c] })).sort((a,b) => a.value - b.value);
+  // ---------- PRECOMPUTE jitter for near-duplicates ----------
+  const NEAR_EPS = 1 * NEAR_EPS_FRAC;
+  const extraDeg = Array.from({length: axes.length}, () => ({}));
+  axes.forEach((c, j) => {
+    const items = rows.map((row, si) => ({ si, value: row[c] })).sort((a,b) => a.value - b.value);
     let cluster = [items[0]];
-    for (let k = 1; k < items.length; k++) {
+    for (let k=1; k<items.length; k++){
       if (Math.abs(items[k].value - items[k-1].value) <= NEAR_EPS) cluster.push(items[k]);
       else { assignClusterOffsets(cluster, extraDeg[j]); cluster = [items[k]]; }
     }
     assignClusterOffsets(cluster, extraDeg[j]);
   });
   function assignClusterOffsets(cluster, outMap){
-    if (!cluster || !cluster.length) return;
-    const n = cluster.length;
+    const n = cluster.length; if (!n) return;
     const base = (n % 2 === 0) ? (-(n-1)/2 + 0.5) : (-(n-1)/2);
-    for (let idx = 0; idx < n; idx++) {
-      const off = (base + idx) * CLUSTER_STEP_DEG;
-      outMap[cluster[idx].si] = (outMap[cluster[idx].si] || 0) + off;
-    }
+    for (let i=0;i<n;i++){ const off=(base+i)*CLUSTER_STEP_DEG; outMap[cluster[i].si]=(outMap[cluster[i].si]||0)+off; }
   }
 
-  // RADAR plots
-  const line = d3.lineRadial()
-    .radius(d => rScale(d.value))
-    .angle((d,i) => i*angleSlice)
-    .curve(d3.curveLinearClosed);
+  // ---------- RADAR SHAPES ----------
+  const line = d3.lineRadial().radius(d => rScale(d.value)).angle((d,i)=>i*angleSlice).curve(d3.curveLinearClosed);
 
-  raw.forEach((row, si) => {
-    const series = categories.map((c, j) => ({ axis:c, value:+row[c], j, angle:j*angleSlice }));
+  rows.forEach((row, si) => {
+    const series = axes.map((c, j) => ({ axis:c, value:+row[c], j, angle:j*angleSlice }));
 
-    svg.append("path").datum(series)
-      .attr("transform", `translate(${cx},${cy})`)
-      .attr("fill", color(si)).attr("fill-opacity", 0.15)
-      .attr("stroke", color(si)).attr("stroke-width", 2)
+    svg.append("path").datum(series).attr("transform",`translate(${cx},${cy})`)
+      .attr("fill", color(row.Structure_Type)).attr("fill-opacity",0.15)
+      .attr("stroke", color(row.Structure_Type)).attr("stroke-width",2)
       .attr("d", line);
 
-    const g = svg.append("g").attr("transform", `translate(${cx},${cy})`);
-    const half = (raw.length - 1) / 2;
-    const baseSeriesDeg = (si - half) * LABEL_JITTER_DEG;
-    const jitteredAngle = (d) => {
-      const deg = baseSeriesDeg + (extraDeg[d.j][si] || 0);
-      return (d.angle - Math.PI/2) + (deg * Math.PI / 180);
-    };
+    const g = svg.append("g").attr("transform",`translate(${cx},${cy})`);
+    const half = (rows.length-1)/2; const baseDeg = (si - half)*LABEL_JITTER_DEG;
+    const jit = d => (d.angle - Math.PI/2) + ((baseDeg + (extraDeg[d.j][si]||0)) * Math.PI/180);
 
-    // points
-    g.selectAll("circle.point").data(series).enter().append("circle")
-      .attr("r",3.2)
-      .attr("cx", d => Math.cos(jitteredAngle(d)) * rScale(d.value))
-      .attr("cy", d => Math.sin(jitteredAngle(d)) * rScale(d.value))
-      .attr("fill", color(si));
-
-    // labels
+    // vertices & labels
     const fmt = d3.format(",.2~f");
-    g.selectAll("text.value-label").data(series).enter().append("text")
-      .attr("class","value-label")
-      .attr("x", d => Math.cos(jitteredAngle(d)) * rScale(d.value))
-      .attr("y", d => Math.sin(jitteredAngle(d)) * rScale(d.value))
-      .attr("text-anchor", d => {
-        const ux = Math.cos(jitteredAngle(d));
-        if (Math.abs(ux) < 0.35) return "middle";
-        return ux > 0 ? "start" : "end";
-      })
-      .attr("dy", "0.35em")
-      .text(d => fmt(d.value));
+    g.selectAll("circle.p").data(series).enter().append("circle")
+      .attr("r",3.2).attr("cx",d=>Math.cos(jit(d))*rScale(d.value)).attr("cy",d=>Math.sin(jit(d))*rScale(d.value))
+      .attr("fill", color(row.Structure_Type));
+    g.selectAll("text.val").data(series).enter().append("text")
+      .attr("class","value-label").attr("x",d=>Math.cos(jit(d))*rScale(d.value)).attr("y",d=>Math.sin(jit(d))*rScale(d.value))
+      .attr("text-anchor", d=>{ const ux=Math.cos(jit(d)); return Math.abs(ux)<0.35?'middle':(ux>0?'start':'end'); })
+      .attr("dy","0.35em").text(d=>fmt(d.value));
   });
 
-  // Legend
-  raw.forEach((row,i)=>{
+  // ---------- LEGEND ----------
+  domain.forEach(name => {
     const it = legend.append("div").attr("class","item");
-    it.append("span").attr("class","swatch").style("background", color(i));
-    it.append("span").text(row[groupKey]);
+    it.append("span").attr("class","swatch").style("background", d3.schemeTableau10[domain.indexOf(name)%10]);
+    it.append("span").text(name);
   });
 });
 </script>
