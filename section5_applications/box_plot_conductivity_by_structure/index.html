@@ -29,197 +29,134 @@
 <h2>Box plot — log<sub>10</sub>(σ) by Structure Group (dots don’t move)</h2>
 <div class="toolbar">
   <button id="download">Download SVG</button>
-  <span class="note">Same data, same axis, stable per-point jitter for dots.</span>
+  <span class="note">Same data/axis as violin; deterministic per-point jitter.</span>
 </div>
 <svg id="chart"></svg>
 <div class="legend" id="legend"></div>
 
 <script>
-// ======== CONFIG: columns in your CSV ========
+// ====== YOUR COLUMNS ======
 const COL = {
-  group: "Structure Group",
-  ion:   "Ion Type",
-  // one of these must exist:
-  rawSigma: "Conductivity σ (S·cm⁻¹) / Temp (°C)",
-  logCol:   "log10_sigma"  // optional precomputed
+  struct: "Structure Group",
+  ion:    "Ion Type",
+  sigma:  "Conductivity σ (S·cm⁻¹) / Temp (°C) normalized"
 };
 
-// ======== Deterministic jitter helpers (stable per point) ========
-function xmur3(str){
-  let h = 1779033703 ^ str.length;
-  for (let i=0; i<str.length; i++){
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  return function(){
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    return (h ^= h >>> 16) >>> 0;
-  };
-}
-function mulberry32(a){
-  return function(){
-    let t = a += 0x6D2B79F5;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967295;
-  };
-}
-function stableJitter(key, half){  // [-half, +half]
-  const seed = xmur3(key)();
-  const rand = mulberry32(seed);
-  return (rand()*2 - 1) * half;
-}
+// ====== deterministic jitter ======
+function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return (h^=h>>>16)>>>0;};}
+function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967295;};}
+function stableJitter(key,half){const seed=xmur3(key)();const rand=mulberry32(seed);return (rand()*2-1)*half;}
 
-const svg = d3.select("#chart");
-const W = +svg.attr("width"), H = +svg.attr("height");
-const margin = {top: 40, right: 24, bottom: 86, left: 84};
-const innerW = W - margin.left - margin.right;
-const innerH = H - margin.top - margin.bottom;
-const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+const svg=d3.select("#chart");
+const W=+svg.attr("width"), H=+svg.attr("height");
+const margin={top:40,right:24,bottom:86,left:84};
+const innerW=W-margin.left-margin.right, innerH=H-margin.top-margin.bottom;
+const g=svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
 
-d3.csv("data.csv").then(rows => {
-  // Coerce and compute log10(σ)
-  const data = rows.map(d => {
-    const group = (d[COL.group] ?? "Others").trim() || "Others";
-    const ion   = (d[COL.ion]   ?? "Unknown").trim() || "Unknown";
-    let logv = null;
-    if (COL.logCol in d && d[COL.logCol] !== undefined && d[COL.logCol] !== ""){
-      const v = +d[COL.logCol];
-      logv = Number.isFinite(v) ? v : null;
-    } else if (COL.rawSigma in d){
-      const raw = +d[COL.rawSigma];
-      logv = (Number.isFinite(raw) && raw > 0) ? Math.log10(raw) : null;
-    }
-    return {group, ion, logv, raw: d[COL.rawSigma]};
-  }).filter(d => d.logv !== null);
+d3.csv("data.csv").then(rows=>{
+  // build data from your normalized sigma; compute log10
+  const data = rows.map(d=>{
+    const group=(d[COL.struct]??"Others").trim()||"Others";
+    const ion=(d[COL.ion]??"Unknown").trim()||"Unknown";
+    const s=+d[COL.sigma];
+    const logv=(Number.isFinite(s)&&s>0)?Math.log10(s):null;
+    return {group,ion,logv,raw:s};
+  }).filter(d=>d.logv!==null);
 
-  const groups = Array.from(new Set(data.map(d => d.group)));
-  const ions = Array.from(new Set(data.map(d => d.ion)));
+  if(!data.length){console.error("No data — check column names and positive σ values.");return;}
 
-  // Scales
-  const x = d3.scaleBand().domain(groups).range([0, innerW]).padding(0.18);
-  const y = d3.scaleLinear().domain(d3.extent(data, d => d.logv)).nice().range([innerH, 0]);
+  const groups=Array.from(new Set(data.map(d=>d.group)));
+  const ions=Array.from(new Set(data.map(d=>d.ion)));
 
-  // Axes + grid
-  g.append("g").attr("transform", `translate(0,${innerH})`)
+  const x=d3.scaleBand().domain(groups).range([0,innerW]).padding(0.18);
+  const y=d3.scaleLinear().domain(d3.extent(data,d=>d.logv)).nice().range([innerH,0]);
+
+  g.append("g").attr("transform",`translate(0,${innerH})`)
     .call(d3.axisBottom(x))
     .selectAll("text").attr("transform","rotate(-28)").style("text-anchor","end");
+  g.append("g").call(d3.axisLeft(y).ticks(10).tickFormat(v=>`10^${v}`));
+  g.append("g").attr("class","grid").call(d3.axisLeft(y).ticks(10).tickSize(-innerW).tickFormat(""));
 
-  g.append("g").call(d3.axisLeft(y).ticks(10).tickFormat(v => `10^${v}`));
-  g.append("g").attr("class","grid")
-    .call(d3.axisLeft(y).ticks(10).tickSize(-innerW).tickFormat(""));
+  g.append("text").attr("class","axis-label").attr("x",innerW/2).attr("y",innerH+64).attr("text-anchor","middle").text("Structure Group");
+  g.append("text").attr("class","axis-label").attr("x",-innerH/2).attr("y",-64).attr("transform","rotate(-90)").attr("text-anchor","middle").text("log10(σ) (S·cm⁻¹)");
 
-  g.append("text").attr("class","axis-label")
-    .attr("x", innerW/2).attr("y", innerH+64).attr("text-anchor","middle")
-    .text("Structure Group");
-  g.append("text").attr("class","axis-label")
-    .attr("x", -innerH/2).attr("y", -64).attr("transform","rotate(-90)")
-    .attr("text-anchor","middle").text("log10(σ) (S·cm⁻¹)");
-
-  // Compute box stats per group
+  // box stats (Tukey)
   function boxStats(values){
-    const v = values.slice().sort(d3.ascending);
-    const q1 = d3.quantileSorted(v, 0.25);
-    const q2 = d3.quantileSorted(v, 0.50);
-    const q3 = d3.quantileSorted(v, 0.75);
-    const iqr = q3 - q1;
-    // Tukey whiskers
-    const low = d3.max([d3.min(v), q1 - 1.5*iqr]);
-    const high = d3.min([d3.max(v), q3 + 1.5*iqr]);
+    const v=values.slice().sort(d3.ascending);
+    const q1=d3.quantileSorted(v,0.25), q2=d3.quantileSorted(v,0.50), q3=d3.quantileSorted(v,0.75);
+    const iqr=q3-q1, low=Math.max(d3.min(v), q1-1.5*iqr), high=Math.min(d3.max(v), q3+1.5*iqr);
     return {q1,q2,q3,low,high,n:v.length};
   }
-
-  const stats = groups.map(gp => {
-    const vals = data.filter(d => d.group === gp).map(d => d.logv);
-    return {group: gp, ...boxStats(vals)};
+  const stats=groups.map(gp=>{
+    const vals=data.filter(d=>d.group===gp).map(d=>d.logv);
+    return {group:gp, ...boxStats(vals)};
   });
 
-  // Draw boxes
-  const boxLayer = g.append("g");
-  const whiskerLayer = g.append("g");
-  const boxWidth = x.bandwidth()*0.5;        // box width
-  const dotHalfWidth = x.bandwidth()*0.45;   // jitter range for dots
+  // draw boxes
+  const boxWidth=x.bandwidth()*0.5, dotHalfWidth=x.bandwidth()*0.45;
+  const boxLayer=g.append("g"), whiskerLayer=g.append("g");
 
-  boxLayer.selectAll("rect.box")
-    .data(stats)
-    .join("rect")
-      .attr("class","box")
-      .attr("x", d => x(d.group) + (x.bandwidth()-boxWidth)/2)
-      .attr("width", boxWidth)
-      .attr("y", d => y(d.q3))
-      .attr("height", d => Math.max(1, y(d.q1) - y(d.q3)));
+  boxLayer.selectAll("rect.box").data(stats).join("rect")
+    .attr("class","box")
+    .attr("x",d=>x(d.group)+(x.bandwidth()-boxWidth)/2)
+    .attr("width",boxWidth)
+    .attr("y",d=>y(d.q3))
+    .attr("height",d=>Math.max(1, y(d.q1)-y(d.q3)));
 
-  // Whiskers
-  whiskerLayer.selectAll("line.whisker")
-    .data(stats.flatMap(d => ([
-      {group:d.group, y1:d.high, y2:d.q3},
-      {group:d.group, y1:d.q1,   y2:d.low}
-    ])))
-    .join("line")
-      .attr("class","whisker")
-      .attr("x1", d => x(d.group) + x.bandwidth()/2)
-      .attr("x2", d => x(d.group) + x.bandwidth()/2)
-      .attr("y1", d => y(d.y1))
-      .attr("y2", d => y(d.y2));
+  whiskerLayer.selectAll("line.whisker").data(
+    stats.flatMap(d=>([{group:d.group,y1:d.high,y2:d.q3},{group:d.group,y1:d.q1,y2:d.low}]))
+  ).join("line")
+    .attr("class","whisker")
+    .attr("x1",d=>x(d.group)+x.bandwidth()/2).attr("x2",d=>x(d.group)+x.bandwidth()/2)
+    .attr("y1",d=>y(d.y1)).attr("y2",d=>y(d.y2));
 
-  // Whisker caps
-  whiskerLayer.selectAll("line.cap")
-    .data(stats.flatMap(d => ([
-      {group:d.group, y:d.high},
-      {group:d.group, y:d.low}
-    ])))
-    .join("line")
-      .attr("class","whisker")
-      .attr("x1", d => x(d.group) + (x.bandwidth()-boxWidth)/2)
-      .attr("x2", d => x(d.group) + (x.bandwidth()-boxWidth)/2 + boxWidth)
-      .attr("y1", d => y(d.y))
-      .attr("y2", d => y(d.y));
+  whiskerLayer.selectAll("line.cap").data(
+    stats.flatMap(d=>([{group:d.group,y:d.high},{group:d.group,y:d.low}]))
+  ).join("line")
+    .attr("class","whisker")
+    .attr("x1",d=>x(d.group)+(x.bandwidth()-boxWidth)/2)
+    .attr("x2",d=>x(d.group)+(x.bandwidth()-boxWidth)/2+boxWidth)
+    .attr("y1",d=>y(d.y)).attr("y2",d=>y(d.y));
 
-  // Median line
-  whiskerLayer.selectAll("line.median-line")
-    .data(stats)
-    .join("line")
-      .attr("class","median-line")
-      .attr("x1", d => x(d.group) + (x.bandwidth()-boxWidth)/2)
-      .attr("x2", d => x(d.group) + (x.bandwidth()-boxWidth)/2 + boxWidth)
-      .attr("y1", d => y(d.q2))
-      .attr("y2", d => y(d.q2));
+  whiskerLayer.selectAll("line.median-line").data(stats).join("line")
+    .attr("class","median-line")
+    .attr("x1",d=>x(d.group)+(x.bandwidth()-boxWidth)/2)
+    .attr("x2",d=>x(d.group)+(x.bandwidth()-boxWidth)/2+boxWidth)
+    .attr("y1",d=>y(d.q2)).attr("y2",d=>y(d.q2));
 
-  // Points (deterministic jitter in the same band)
-  const color = d3.scaleOrdinal().domain(ions).range(d3.schemeTableau10);
-  const pts = g.append("g").selectAll("circle.dot")
-    .data(data, d => `${d.group}|${d.ion}|${d.logv}|${d.raw}`)
+  // dots (stable jitter)
+  const color=d3.scaleOrdinal().domain(ions).range(d3.schemeTableau10);
+  const pts=g.append("g").selectAll("circle.dot")
+    .data(data, d=>`${d.group}|${d.ion}|${d.logv}|${d.raw}`)
     .join("circle")
-      .attr("class","dot")
-      .attr("r", 3)
-      .attr("cy", d => y(d.logv))
-      .attr("cx", d => {
-        const c = x(d.group) + x.bandwidth()/2;
-        const key = `${d.group}|${d.ion}|${d.raw}|${d.logv}`;
+      .attr("class","dot").attr("r",3)
+      .attr("cy",d=>y(d.logv))
+      .attr("cx",d=>{
+        const c=x(d.group)+x.bandwidth()/2;
+        const key=`${d.group}|${d.ion}|${d.raw}|${d.logv}`;
         return c + stableJitter(key, dotHalfWidth);
       })
-      .attr("fill", d => color(d.ion));
+      .attr("fill",d=>color(d.ion));
 
-  // Legend with filter (positions stay the same)
-  const legend = d3.select("#legend");
-  let active = new Set(ions);
-  const items = legend.selectAll(".legend-item").data(ions).join("div")
+  // legend filter
+  const legend=d3.select("#legend");
+  let active=new Set(ions);
+  const items=legend.selectAll(".legend-item").data(ions).join("div")
     .attr("class","legend-item")
-    .on("click", function(_, ion){
-      if (active.has(ion)) active.delete(ion); else active.add(ion);
-      d3.select(this).classed("disabled", !active.has(ion));
-      pts.attr("display", d => active.has(d.ion) ? null : "none");
+    .on("click",function(_,ion){
+      if(active.has(ion)) active.delete(ion); else active.add(ion);
+      d3.select(this).classed("disabled",!active.has(ion));
+      pts.attr("display",d=>active.has(d.ion)?null:"none");
     });
-  items.append("div").attr("class","swatch").style("background", d => color(d));
-  items.append("span").text(d => d);
+  items.append("div").attr("class","swatch").style("background",d=>color(d));
+  items.append("span").text(d=>d);
 
-  // Download SVG
-  document.getElementById("download").addEventListener("click", () => {
-    const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
-    const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement("a"), {href:url, download:"boxplot_log10sigma.svg"});
+  // download svg
+  document.getElementById("download").addEventListener("click",()=>{
+    const s=new XMLSerializer().serializeToString(document.querySelector("svg"));
+    const blob=new Blob([s],{type:"image/svg+xml;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=Object.assign(document.createElement("a"),{href:url,download:"boxplot_log10sigma.svg"});
     a.click();
   });
 });
