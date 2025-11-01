@@ -43,7 +43,7 @@
   <h2>Sankey — Anode → Structure Group → Ion Type → Cathode</h2>
   <div class="toolbar">
     <button id="downloadBtn" class="primary">Download SVG</button>
-    <span class="note">Color by Structure Group. Rare paths: <b>only Ion Type</b> bucketed to “Other Ion Type”; thickness = count.</span>
+    <span class="note">Color by Structure Group. Bucketing is <b>disabled</b>; thickness = count.</span>
   </div>
 
   <div class="wrap">
@@ -61,6 +61,7 @@
   <div class="tooltip" id="tip"></div>
 
 <script>
+/* === Column names in your data.csv === */
 const COL = {
   anode:   "Anode",
   struct:  "Structure Group",
@@ -68,8 +69,8 @@ const COL = {
   cathode: "Cathode"
 };
 
-// Minimum count to keep Ion Type as-is; otherwise bucket only Ion Type
-const MIN_COUNT = 3;
+/* No bucketing — keep this at 1 and do not group anything */
+const MIN_COUNT = 1;
 
 const svg   = d3.select("svg");
 const width = +svg.attr("width")  || 1100;
@@ -78,13 +79,13 @@ const leftMargin = 90, rightMargin = 90; // extra space for outward labels
 const g     = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 const tip   = d3.select("#tip");
 
-// Structure Group palette (+ Others gray)
+/* Structure Group palette (+ Others gray) */
 const structureColors = d3.scaleOrdinal()
   .domain(["Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Others"])
   .range (["#f6bf26",   "#2196f3",        "#ab47bc",    "#26a69a","#66bb6a","#ef5350","#ff7043","#9e9e9e"]);
 
 d3.csv("data.csv").then(raw => {
-  // 1) Normalize rows
+  // 1) Normalize rows (fallbacks if blank)
   const rows = raw.map(d => ({
     anode:   (d[COL.anode]   ?? "").toString().trim() || "No Anode",
     struct:  (d[COL.struct]  ?? "").toString().trim() || "Others",
@@ -92,25 +93,15 @@ d3.csv("data.csv").then(raw => {
     cathode: (d[COL.cathode] ?? "").toString().trim() || "No Cathode"
   }));
 
-  // 2) Count full 4-step paths
+  // 2) Count full 4-step paths (no bucketing applied)
   const pathMap = new Map();
   rows.forEach(r => {
     const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
     pathMap.set(key, (pathMap.get(key) || 0) + 1);
   });
 
-  // 3) Bucket only Ion Type for rare paths (Option B)
-  const folded = new Map();
-  for (const [key, count] of pathMap.entries()) {
-    let [a,s,i,c] = key.split("|");
-    if (count < MIN_COUNT) {
-      i = (i && i !== "Unknown Ion Type") ? "Other Ion Type" : "Unknown Ion Type";
-    }
-    const nk = `${a}|${s}|${i}|${c}`;
-    folded.set(nk, (folded.get(nk) || 0) + count);
-  }
-
-  const paths = [...folded.entries()].map(([k,v]) => {
+  // 3) Keep all paths as-is (no “Other Ion Type” collapsing)
+  const paths = [...pathMap.entries()].map(([k,v]) => {
     const [a,s,i,c] = k.split("|");
     return { anode:a, struct:s, ion:i, cathode:c, value:v };
   });
@@ -153,7 +144,7 @@ d3.csv("data.csv").then(raw => {
 
   // 6) Index links
   const links = allLinks
-    .filter(l => nodeIndex.has(l.sourceKey) && nodeIndex.has(l.targetKey) && l.value > 0)
+    .filter(l => nodeIndex.has(l.sourceKey) && nodeIndex.has(l.targetKey) && l.value >= MIN_COUNT)
     .map(l => ({
       source: nodeIndex.get(l.sourceKey),
       target: nodeIndex.get(l.targetKey),
@@ -209,10 +200,10 @@ d3.csv("data.csv").then(raw => {
         ? structureColors(d.label)
         : (d.label.startsWith("Other ") || d.label.startsWith("No ")) ? "#cfcfcf" : "#cccccc");
 
-  /* 🔧 Label placement:
-     - anode:*  → label to LEFT of node (x0 - 8), anchor 'end'
-     - cathode:*→ label to RIGHT of node (x1 + 8), anchor 'start'
-     - middle   → to the right of node (x1 + 6), anchor 'start'
+  /* Label placement:
+     - anode:*   → left of node (x0 - 8), anchor 'end'
+     - cathode:* → right of node (x1 + 8), anchor 'start'
+     - middle    → right of node (x1 + 6), anchor 'start'
   */
   node.append("text")
       .attr("x", d => {
