@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Box Plot + Points — log10(σ) by Structure Group (points colored by Ion Type)</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root { --side: 260px; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#fafafa; color:#111; margin:24px; }
+  h2 { margin:0 0 10px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin:10px 0 14px; }
+  .wrap { display:grid; grid-template-columns: 1fr var(--side); gap:16px; align-items:start; }
+  svg { width: 980px; height: 640px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; }
+  .axis-label { font-size:14px; font-weight:600; fill:#222; }
+  .grid line { stroke:#eee; }
+  .box { fill:#9aa3b2; fill-opacity:.45; stroke:#222; stroke-width:1px; }
+  .median { stroke:#e43; stroke-width:2px; }
+  .whisker { stroke:#222; stroke-width:1px; }
+  .cap { stroke:#222; stroke-width:1.2px; }
+  .label-halo { fill:none; stroke:#fff; stroke-width:4px; paint-order:stroke; }
+  .median-text { fill:#111; font-size:11px; font-weight:700; text-anchor:middle; }
+  .point { opacity:.8; stroke:#333; stroke-width:.4px; }
+  .side { position:sticky; top:16px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; padding:12px; }
+  .legend-title { font-weight:700; font-size:14px; margin:6px 0; }
+  .legend-controls { display:flex; gap:6px; margin: 4px 0 8px; }
+  .legend-controls button { font-size:12px; padding:2px 6px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:4px; }
+  .legend-item { display:flex; align-items:center; gap:8px; margin:6px 0; cursor:pointer; user-select:none; }
+  .legend-item.disabled { opacity:.35; text-decoration:line-through; }
+  .legend-swatch { width:14px; height:14px; border-radius:3px; border:1px solid #444; }
+  button.primary { padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+  .note { font-size:12px; color:#64748b; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<h2>Box Plot + Points — log10(σ) by Structure Group</h2>
+<div class="toolbar">
+  <button id="downloadBtn" class="primary">Download SVG</button>
+  <span class="note">Points colored by Ion Type; box shows median & IQR; whiskers use Tukey's rule (1.5×IQR).</span>
+</div>
+
+<div class="wrap">
+  <svg></svg>
+
+  <div class="side">
+    <div class="legend-title">Ion Type (filter points)</div>
+    <div class="legend-controls">
+      <button id="showAll">Show all</button>
+      <button id="hideAll">Hide all</button>
+    </div>
+    <div id="legend"></div>
+  </div>
+</div>
+
+<script>
+const COL = {
+  struct: "Structure Group",
+  ion:    "Ion Type",
+  sigma:  "Conductivity σ (S·cm⁻¹) / Temp (°C) normalized"
+};
+
+const svg = d3.select("svg");
+const width = 980, height = 640;
+const margin = {top: 40, right: 30, bottom: 80, left: 90};
+const innerW = width - margin.left - margin.right;
+const innerH = height - margin.top - margin.bottom;
+const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+// format helper for labels
+const fmt = d3.format(".4f");
+
+d3.csv("data.csv").then(raw => {
+  // Parse rows and compute log10(sigma) for stats & axis
+  const rows = raw.map(d => {
+    const s = +d[COL.sigma];
+    return {
+      structure: (d[COL.struct] || "Others").trim() || "Others",
+      ion: (d[COL.ion] || "Unknown").trim() || "Unknown",
+      sigma: s,
+      logSig: Number.isFinite(s) && s > 0 ? Math.log10(s) : null
+    };
+  }).filter(d => d.logSig !== null);
+
+  const structures = Array.from(new Set(rows.map(d => d.structure)));
+  const ions = Array.from(new Set(rows.map(d => d.ion)));
+
+  // Scales
+  const x = d3.scaleBand().domain(structures).range([0, innerW]).padding(0.18);
+
+  // Linear scale in log space (y = log10 σ)
+  const y = d3.scaleLinear()
+    .domain(d3.extent(rows, d => d.logSig)).nice()
+    .range([innerH, 0]);
+
+  // Axes & grid
+  g.append("g").attr("transform", `translate(0,${innerH})`)
+    .call(d3.axisBottom(x))
+    .selectAll("text").attr("transform","rotate(-28)").style("text-anchor","end");
+
+  const yAxis = d3.axisLeft(y)
+    .ticks(8)
+    .tickFormat(v => `10^${v}`);
+  g.append("g").call(yAxis);
+  g.append("g").attr("class","grid")
+    .call(d3.axisLeft(y).ticks(8).tickSize(-innerW).tickFormat(""));
+
+  g.append("text").attr("class","axis-label")
+    .attr("x", innerW/2).attr("y", innerH+62).attr("text-anchor","middle")
+    .text("Structure Group");
+  g.append("text").attr("class","axis-label")
+    .attr("x", -innerH/2).attr("y", -64).attr("transform","rotate(-90)")
+    .attr("text-anchor","middle").text("log10(σ) (S/cm)");
+
+  // Colors for points (Ion Type)
+  const color = d3.scaleOrdinal().domain(ions).range(d3.schemeTableau10.slice(0, ions.length));
+
+  // Group rows by structure and compute boxplot stats in log space
+  const grouped = d3.group(rows, d => d.structure);
+
+  function boxStats(values) {
+    const v = values.slice().sort(d3.ascending);
+    const q1 = d3.quantileSorted(v, 0.25);
+    const med = d3.quantileSorted(v, 0.50);
+    const q3 = d3.quantileSorted(v, 0.75);
+    const iqr = q3 - q1;
+    // Tukey whiskers
+    const lo = q1 - 1.5 * iqr;
+    const hi = q3 + 1.5 * iqr;
+    // Clip to min/max data within whisker range
+    let loVal = v.find(d => d >= lo);
+    let hiVal = [...v].reverse().find(d => d <= hi);
+    // Fallbacks in case of single point
+    if (loVal === undefined) loVal = v[0];
+    if (hiVal === undefined) hiVal = v[v.length-1];
+    return {q1, med, q3, iqr, lo: loVal, hi: hiVal, n: v.length};
+  }
+
+  const boxes = structures.map(sg => {
+    const vals = (grouped.get(sg) || []).map(d => d.logSig);
+    if (!vals.length) return {structure: sg, stats: null};
+    return {structure: sg, stats: boxStats(vals)};
+  });
+
+  // Draw boxes, whiskers, medians
+  const boxLayer = g.append("g");
+  const whiskerLayer = g.append("g");
+  const medianLayer = g.append("g");
+
+  const boxWidth = x.bandwidth() * 0.5;
+
+  boxes.forEach(bx => {
+    if (!bx.stats) return;
+    const s = bx.stats;
+    const xCenter = x(bx.structure) + x.bandwidth()/2;
+
+    // Whiskers
+    whiskerLayer.append("line")
+      .attr("class", "whisker")
+      .attr("x1", xCenter).attr("x2", xCenter)
+      .attr("y1", y(s.lo)).attr("y2", y(s.q1));
+    whiskerLayer.append("line")
+      .attr("class", "whisker")
+      .attr("x1", xCenter).attr("x2", xCenter)
+      .attr("y1", y(s.q3)).attr("y2", y(s.hi));
+
+    // Caps
+    whiskerLayer.append("line")
+      .attr("class", "cap")
+      .attr("x1", xCenter - boxWidth/3).attr("x2", xCenter + boxWidth/3)
+      .attr("y1", y(s.lo)).attr("y2", y(s.lo));
+    whiskerLayer.append("line")
+      .attr("class", "cap")
+      .attr("x1", xCenter - boxWidth/3).attr("x2", xCenter + boxWidth/3)
+      .attr("y1", y(s.hi)).attr("y2", y(s.hi));
+
+    // Box (IQR)
+    boxLayer.append("rect")
+      .attr("class", "box")
+      .attr("x", xCenter - boxWidth/2)
+      .attr("y", y(s.q3))
+      .attr("width", boxWidth)
+      .attr("height", Math.max(1, y(s.q1) - y(s.q3)));
+
+    // Median line
+    medianLayer.append("line")
+      .attr("class", "median")
+      .attr("x1", xCenter - boxWidth/2)
+      .attr("x2", xCenter + boxWidth/2)
+      .attr("y1", y(s.med))
+      .attr("y2", y(s.med));
+
+    // Median label (convert back from log10 to linear for readability)
+    medianLayer.append("text")
+      .attr("class","label-halo")
+      .attr("x", xCenter)
+      .attr("y", y(s.med) - 6)
+      .text(fmt(Math.pow(10, s.med)));
+    medianLayer.append("text")
+      .attr("class","median-text")
+      .attr("x", xCenter)
+      .attr("y", y(s.med) - 6)
+      .text(fmt(Math.pow(10, s.med)));
+  });
+
+  // Points with jitter, colored by Ion Type — same as your violin version
+  const structCenter = Object.fromEntries(structures.map(sg => [sg, x(sg) + x.bandwidth()/2]));
+  const structHalf = Object.fromEntries(boxes.map(b => [b.structure, (boxWidth/2) * 0.95]));
+
+  let activeIons = new Set(ions);
+
+  const pts = g.append("g")
+    .selectAll(".point")
+    .data(rows)
+    .join("circle")
+      .attr("class","point")
+      .attr("r", 3)
+      .attr("cx", d => {
+        const c = structCenter[d.structure], h = structHalf[d.structure] || x.bandwidth()/2;
+        return c + (Math.random()*2 - 1) * h; // jitter within box width
+      })
+      .attr("cy", d => y(d.logSig))
+      .attr("fill", d => color(d.ion))
+      .attr("display", d => activeIons.has(d.ion) ? null : "none");
+
+  // Legend – filter points by Ion Type
+  const legend = d3.select("#legend");
+  const items = legend.selectAll(".legend-item").data(ions).enter()
+    .append("div").attr("class","legend-item");
+  items.append("div").attr("class","legend-swatch")
+    .style("background", d => color(d));
+  items.append("span").text(d => d);
+
+  function updatePoints(){
+    pts.attr("display", d => activeIons.has(d.ion) ? null : "none");
+  }
+
+  items.on("click", function(_, ion){
+    if (activeIons.has(ion)) activeIons.delete(ion); else activeIons.add(ion);
+    d3.select(this).classed("disabled", !activeIons.has(ion));
+    updatePoints();
+  });
+
+  d3.select("#showAll").on("click", () => {
+    activeIons = new Set(ions);
+    items.classed("disabled", false);
+    updatePoints();
+  });
+  d3.select("#hideAll").on("click", () => {
+    activeIons.clear();
+    items.classed("disabled", true);
+    updatePoints();
+  });
+
+  // Download SVG
+  document.getElementById("downloadBtn").addEventListener("click", () => {
+    const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
+    const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement("a"), {href:url, download:"boxplot_log10_sigma_by_structure.svg"});
+    a.click();
+  });
+});
+</script>
+</body>
+</html>
