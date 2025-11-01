@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Box plot — log10(σ) by Structure Group (stable dots + mean)</title>
+<title>Box plot — log10(σ) by Structure Group (median label on red line)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
@@ -10,14 +10,13 @@
   h2{margin:0 0 10px}
   .toolbar{display:flex;gap:10px;align-items:center;margin:8px 0 14px}
   .note{font-size:12px;color:#64748b}
-  /* we’ll also set explicit width/height as attributes in JS */
   svg{width:980px;height:640px;background:#fff;border:1px solid #e5e7eb;border-radius:12px}
   .grid line{stroke:#eef2f7}
   .axis-label{font-size:14px;font-weight:600;fill:#111}
 
-  .box{fill:#9aa3b2;fill-opacity:.35;stroke:#1f2937;stroke-width:1}
+  .box{fill:#cbd5e1;fill-opacity:.55;stroke:#1f2937;stroke-width:1}
   .whisker{stroke:#1f2937;stroke-width:1.2}
-  .median-line{stroke:#e43;stroke-width:2}
+  .median-line{stroke:#e11d48;stroke-width:2}
 
   .dot{stroke:#111827;stroke-width:.35px;opacity:.85}
   .legend{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0 0}
@@ -28,7 +27,10 @@
 
   /* Mean marker */
   .mean-dot{ fill:#2563eb; stroke:#fff; stroke-width:1.5px; }
-  .mean-label{ font: 11px/1.2 ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; fill:#111; text-anchor:middle; }
+
+  /* Median label on the red line (with white halo like the violin) */
+  .label-halo{fill:#111;font-weight:700;font-size:12px;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+  .label-top{fill:#111;font-weight:700;font-size:12px}
 </style>
 </head>
 <body>
@@ -36,7 +38,7 @@
 <h2>Box plot — log<sub>10</sub>(σ) by Structure Group</h2>
 <div class="toolbar">
   <button id="download">Download SVG</button>
-  <span class="note">Same data/axis as violin; deterministic per-point jitter; blue dots = mean σ per group.</span>
+  <span class="note">Red line = median; label shows median σ (linear) like the violin. Dots are deterministic; blue dot = mean.</span>
 </div>
 <svg id="chart"></svg>
 <div class="legend" id="legend"></div>
@@ -49,22 +51,21 @@ const COL = {
   sigma:  "Conductivity σ (S·cm⁻¹) / Temp (°C) normalized"
 };
 
-// ====== Deterministic jitter (stable per point) ======
+// ====== Deterministic jitter ======
 function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return (h^=h>>>16)>>>0;};}
 function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967295;};}
 function stableJitter(key,half){const seed=xmur3(key)();const rand=mulberry32(seed);return (rand()*2-1)*half;}
 
 const svg = d3.select("#chart");
-// --- FIX: ensure width/height exist as SVG *attributes* (not only CSS) ---
-svg.attr("width", 980).attr("height", 640);
-
+svg.attr("width", 980).attr("height", 640); // ensure attributes exist
 const W = +svg.attr("width"), H = +svg.attr("height");
 const margin = {top: 40, right: 24, bottom: 86, left: 84};
 const innerW = W - margin.left - margin.right;
 const innerH = H - margin.top - margin.bottom;
 const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-const fmtSci = d3.format(".2e"); // for σ labels
+const fmtSci  = d3.format(".3~e");    // 0.00210 -> 2.10e-3
+const fmtFix4 = d3.format(".4f");     // for fallback
 
 d3.csv("data.csv").then(rows => {
   // Build data from normalized σ; compute log10(σ)
@@ -108,7 +109,7 @@ d3.csv("data.csv").then(rows => {
   function boxStats(values){
     const v = values.slice().sort(d3.ascending);
     const q1 = d3.quantileSorted(v, 0.25);
-    const q2 = d3.quantileSorted(v, 0.50);
+    const q2 = d3.quantileSorted(v, 0.50); // median in log10 space
     const q3 = d3.quantileSorted(v, 0.75);
     const iqr = q3 - q1;
     const low  = Math.max(d3.min(v), q1 - 1.5 * iqr);
@@ -120,9 +121,9 @@ d3.csv("data.csv").then(rows => {
   const grouped = d3.group(data, d => d.group);
   const stats = groups.map(gp => {
     const valsLog = (grouped.get(gp) || []).map(d => d.logv);
-    const valsLin = valsLog.map(v => Math.pow(10, v));  // linear σ
     const s = valsLog.length ? boxStats(valsLog) : null;
-    const meanLinear = d3.mean(valsLin);
+    // mean in linear σ (blue dot), plotted at log10(mean σ)
+    const meanLinear = d3.mean(valsLog.map(v => Math.pow(10, v)));
     const meanLog = meanLinear > 0 ? Math.log10(meanLinear) : null;
     return { group: gp, n: valsLog.length, ...s, meanLinear, meanLog };
   }).filter(d => d.n > 0);
@@ -141,7 +142,8 @@ d3.csv("data.csv").then(rows => {
       .attr("y", d => y(d.q3))
       .attr("height", d => Math.max(1, y(d.q1) - y(d.q3)));
 
-  // Whiskers + median
+  // Whiskers + median line + median label (linear σ)
+  const medLayer = g.append("g");
   whiskerLayer.selectAll("g.whisk")
     .data(stats)
     .join("g")
@@ -161,12 +163,27 @@ d3.csv("data.csv").then(rows => {
         d3.select(this).append("line") // cap low
           .attr("class","whisker")
           .attr("x1",cx-bw/2).attr("x2",cx+bw/2).attr("y1",y(d.low)).attr("y2",y(d.low));
-        d3.select(this).append("line") // median
+        d3.select(this).append("line") // median line (red)
           .attr("class","median-line")
           .attr("x1",cx-bw/2).attr("x2",cx+bw/2).attr("y1",y(d.q2)).attr("y2",y(d.q2));
+
+        // ---- Median label like the violin: show σ_median in linear space ----
+        const medianLinear = Math.pow(10, d.q2);
+        const label = medianLinear < 0.001 ? fmtSci(medianLinear) : fmtFix4(medianLinear);
+        // halo + text, centered on the red line
+        medLayer.append("text")
+          .attr("class","label-halo")
+          .attr("x", cx)
+          .attr("y", y(d.q2) - 6)
+          .text(label);
+        medLayer.append("text")
+          .attr("class","label-top")
+          .attr("x", cx)
+          .attr("y", y(d.q2) - 6)
+          .text(label);
       });
 
-  // Mean marker (blue dot): mean of σ in linear space, positioned at log10(mean σ)
+  // Mean marker (blue dot), keep dot only (no label)
   const meanLayer = g.append("g");
   meanLayer.selectAll("circle.mean-dot")
     .data(stats)
@@ -176,16 +193,7 @@ d3.csv("data.csv").then(rows => {
       .attr("cx", d => x(d.group) + x.bandwidth()/2)
       .attr("cy", d => y(d.meanLog))
       .append("title")
-        .text(d => `Mean σ: ${fmtSci(d.meanLinear)} S·cm⁻¹ (log10=${d3.format(".2f")(d.meanLog)})`);
-
-  // Optional label above the mean dot
-  meanLayer.selectAll("text.mean-label")
-    .data(stats)
-    .join("text")
-      .attr("class","mean-label")
-      .attr("x", d => x(d.group) + x.bandwidth()/2)
-      .attr("y", d => y(d.meanLog) - 6)
-      .text(d => fmtSci(d.meanLinear));
+        .text(d => `Mean σ: ${fmtSci(d.meanLinear)} S·cm⁻¹`);
 
   // Dots with deterministic jitter (same as violin)
   const color = d3.scaleOrdinal().domain(ions).range(d3.schemeTableau10);
@@ -204,7 +212,7 @@ d3.csv("data.csv").then(rows => {
       })
       .attr("fill", d => color(d.ion));
 
-  // Legend filter (positions remain the same)
+  // Legend filter
   const legend = d3.select("#legend");
   let active = new Set(ions);
   const items = legend.selectAll(".legend-item").data(ions).join("div")
@@ -222,7 +230,7 @@ d3.csv("data.csv").then(rows => {
     const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
     const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
     const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement("a"), {href:url, download:"boxplot_log10sigma_mean.svg"});
+    const a = Object.assign(document.createElement("a"), {href:url, download:"boxplot_log10sigma_medianlabel.svg"});
     a.click();
   });
 });
