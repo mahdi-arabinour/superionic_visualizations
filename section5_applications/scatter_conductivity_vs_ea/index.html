@@ -64,7 +64,7 @@ const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.t
 const xAxisG = g.append("g").attr("class", "axis").attr("transform", `translate(0,${innerH})`);
 const yAxisG = g.append("g").attr("class", "axis");
 
-g.append("text").attr("x", innerW/2).attr("y", innerH + 46).attr("text-anchor","middle").attr("fill", "#111827").attr("font-size", 13).text("Conductivity σ (S·cm⁻¹) / Temp (°C) normalized");
+g.append("text").attr("x", innerW/2).attr("y", innerH + 46).attr("text-anchor","middle").attr("fill", "#111827").attr("font-size", 13).text("Conductivity σ (S·cm⁻¹)");
 g.append("text").attr("transform","rotate(-90)").attr("x", -innerH/2).attr("y", -50).attr("text-anchor","middle").attr("fill", "#111827").attr("font-size", 13).text("Activation Energy Ea (eV)");
 
 const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
