@@ -23,7 +23,6 @@
     align-items:center;
     margin:10px 0 14px;
   }
-  .note { font-size:12px; color:#64748b; }
 
   .wrap {
     display:grid;
@@ -119,8 +118,7 @@
 <script>
 /* ========================== Tweakables ========================== */
 const EXTRA_WIDTH      = 240;
-const STRETCH_X        = 1.20;   // horizontal stretch of nodes (x only)
-const VISUAL_Y_SCALE   = 1.35;   // <— scale the whole chart vertically (links + nodes) to restore "chunky" look
+const STRETCH_X        = 1.20;   // horizontal stretch of nodes (x only); keeps your original feel
 const ANODE_LABEL_DX   = -8;
 const MIDDLE_LABEL_DX  =  6;
 const CATHODE_LABEL_DX =  8;
@@ -159,14 +157,9 @@ d3.csv("data.csv").then(raw => {
   const rightMargin = Math.min(380, Math.max(90,  maxCathode + 20));
 
   svg.selectAll("g").remove();
+  const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 
-  // Outer group: translate, then scale Y to keep link widths "chunky" while preserving math
-  const outer = svg.append("g")
-    .attr("transform",`translate(${leftMargin},10) scale(1, ${VISUAL_Y_SCALE})`);
-
-  const g = outer.append("g"); // inner content group
-
-  // Count unique A→S→I→C paths
+  // Count unique A→S→I→C paths (value = count)
   const pathMap = new Map();
   rows.forEach(r => {
     const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
@@ -219,19 +212,23 @@ d3.csv("data.csv").then(raw => {
     .nodeWidth(18)
     .nodePadding(18)
     .nodeAlign(d3.sankeyJustify)
-    .extent([[0,0],[ (width-leftMargin-rightMargin-40)+240, (height-40)/VISUAL_Y_SCALE ]]);// compensate for outer Y scale
+    .extent([[0,0],[ (width-leftMargin-rightMargin-40)+EXTRA_WIDTH, height-40 ]]);
 
   const graph = sankey({nodes:nodes.map(d=>({...d})),links:links.map(d=>({...d}))});
 
-  // Optional horizontal stretch only (kept from your original)
+  // Optional horizontal stretch only
   if(STRETCH_X!==1){ graph.nodes.forEach(d=>{ d.x0*=STRETCH_X; d.x1*=STRETCH_X; }); }
 
-  // === Links: use layout-computed width (directly tied to counts) ===
+  // === Restore your count-based visual thickness (sqrt scale) ===
+  const maxValue = d3.max(graph.links, d => d.value) || 1;
+  const minValue = d3.min(graph.links, d => d.value) || 1;
+  const widthScale = d3.scaleSqrt().domain([minValue, maxValue]).range([1, 30]);
+
   const link = g.append("g").selectAll("path").data(graph.links).join("path")
     .attr("class","link")
     .attr("d", d3.sankeyLinkHorizontal())
     .attr("stroke", d => structureColors(d.struct))
-    .attr("stroke-width", d => Math.max(1, d.width)) // value→width; sums at nodes match node height
+    .attr("stroke-width", d => widthScale(d.value)) // <-- back to your visual mapping
     .attr("stroke-opacity", 0.35)
     .on("mousemove",(ev,d)=>{
       tip.html(`<div><b>${d.source.label}</b> → <b>${d.target.label}</b></div>
@@ -245,6 +242,7 @@ d3.csv("data.csv").then(raw => {
 
   const node=g.append("g").selectAll("g").data(graph.nodes).join("g").attr("class","node");
 
+  // Nodes: height is determined by sankey (sum of connected link counts)
   node.append("rect")
       .attr("x",d=>d.x0).attr("y",d=>d.y0)
       .attr("height",d=>Math.max(1,d.y1-d.y0))
@@ -267,6 +265,7 @@ d3.csv("data.csv").then(raw => {
       .style("font-size","10px")
       .text(d=>d.label);
 
+  // Legend/filter
   const structValues=Array.from(new Set(paths.map(p=>p.struct)));
   const legend=d3.select("#legend");
   let active=new Set(structValues);
