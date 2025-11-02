@@ -116,16 +116,19 @@
 
 <script>
 /* ========================== Tweakables ========================== */
-const EXTRA_WIDTH      = 240;
-const NODE_WIDTH       = 18;
-const NODE_PADDING     = 0;   // keep zero so counts map directly to pixels
-const TOP_BOTTOM_PAD   = 20;  // breathing room
-const LEFT_MARGIN_MIN  = 90;
-const RIGHT_MARGIN_MIN = 90;
+const EXTRA_WIDTH        = 240;
+const NODE_WIDTH         = 18;
+const KY_PIXELS_PER_UNIT = 1;   // exact mapping: 1 count = 1 pixel
+const COLUMN_GAP         = 3;   // vertical gap between nodes in the same column
+const TOP_BOTTOM_PAD     = 20;  // outer breathing room
+const LEFT_MARGIN_MIN    = 90;
+const RIGHT_MARGIN_MIN   = 90;
 
-const ANODE_LABEL_DX   = -8;
-const MIDDLE_LABEL_DX  =  6;
-const CATHODE_LABEL_DX =  8;
+const ANODE_LABEL_DX     = -8;
+const MIDDLE_LABEL_DX    =  6;
+const CATHODE_LABEL_DX   =  8;
+
+const MIN_LABEL_HEIGHT   = 12;  // hide labels on very thin nodes
 /* ================================================================ */
 
 const COL = {
@@ -153,7 +156,7 @@ d3.csv("data.csv").then(raw => {
     cathode: (d[COL.cathode] ?? "").trim() || "No Cathode"
   }));
 
-  // Dynamic margins for labels
+  // Dynamic margins from label lengths
   const maxAnode   = d3.max(rows, d => estTextWidth(d.anode))   || 0;
   const maxCathode = d3.max(rows, d => estTextWidth(d.cathode)) || 0;
   const leftMargin  = Math.min(380, Math.max(LEFT_MARGIN_MIN,  maxAnode   + 20));
@@ -161,7 +164,7 @@ d3.csv("data.csv").then(raw => {
 
   svg.selectAll("g").remove();
 
-  // Count unique A→S→I→C paths (value is COUNT)
+  // Aggregate unique A→S→I→C paths (value = COUNT)
   const pathMap = new Map();
   rows.forEach(r => {
     const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
@@ -206,35 +209,49 @@ d3.csv("data.csv").then(raw => {
     addNode(`cathode:${p.cathode}`,p.cathode);
   });
 
+  // Force fixed column order: anode → struct → ion → cathode
+  const COLUMN_INDEX = { anode: 0, struct: 1, ion: 2, cathode: 3 };
+  nodes.forEach(n => {
+    const prefix = n.name.split(":")[0];
+    n.layer = COLUMN_INDEX[prefix];
+  });
+
   const links = allLinks
     .filter(l=>nodeIndex.has(l.sourceKey)&&nodeIndex.has(l.targetKey)&&l.value>=MIN_COUNT)
     .map(l=>({source:nodeIndex.get(l.sourceKey),target:nodeIndex.get(l.targetKey),value:l.value,struct:l.struct}));
 
-  // === Compute height so 1 value = 1 pixel ===
+  // === Compute height so 1 value = 1 pixel, plus gaps ===
   const totalsByColumn = [
-    d3.sum(L12, d=>d.value) || 0, // anode col total
-    d3.sum(L23, d=>d.value) || 0, // struct col total
-    d3.sum(L34, d=>d.value) || 0, // ion col total
-    d3.sum(L34, d=>d.value) || 0  // cathode col total
+    d3.sum(L12, d=>d.value) || 0, // anode totals
+    d3.sum(L23, d=>d.value) || 0, // struct totals
+    d3.sum(L34, d=>d.value) || 0, // ion totals
+    d3.sum(L34, d=>d.value) || 0  // cathode totals (same as prev)
   ];
   const maxFlow = d3.max(totalsByColumn) || 0;
 
-  // innerHeight is just counts plus breathing room (no padding gaps)
-  const innerHeight = maxFlow + TOP_BOTTOM_PAD*2;
+  const nodesByColumn = [
+    nodes.filter(n=>n.name.startsWith("anode:")).length,
+    nodes.filter(n=>n.name.startsWith("struct:")).length,
+    nodes.filter(n=>n.name.startsWith("ion:")).length,
+    nodes.filter(n=>n.name.startsWith("cathode:")).length
+  ];
+  const maxNodes = d3.max(nodesByColumn) || 1;
 
-  // Set SVG height
-  const svgHeight = innerHeight + 40; // extra bottom room
+  const innerHeight = (maxFlow * KY_PIXELS_PER_UNIT)
+                    + COLUMN_GAP * Math.max(0, maxNodes - 1)
+                    + TOP_BOTTOM_PAD * 2;
+
+  const svgHeight = innerHeight + 40;
   svg.attr("height", svgHeight);
   const width = +svg.attr("width");
 
-  // Root group
   const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 
-  // Sankey layout
+  // Sankey with custom align by fixed layer
   const sankey = d3.sankey()
     .nodeWidth(NODE_WIDTH)
-    .nodePadding(NODE_PADDING)         // 0 padding so counts map directly
-    .nodeAlign(d3.sankeyJustify)
+    .nodePadding(0)                       // we'll add our own gaps
+    .nodeAlign(d => d.layer)              // lock columns
     .extent([[0,0],[ (width-leftMargin-rightMargin-40)+EXTRA_WIDTH, innerHeight ]]);
 
   const graph = sankey({
@@ -242,11 +259,27 @@ d3.csv("data.csv").then(raw => {
     links: links.map(d=>({...d}))
   });
 
-  // === Force 1 count = 1 pixel ===
-  // Links
-  graph.links.forEach(l => { l.width = l.value; });
-  // Nodes (node.value is sum of incident link values)
-  graph.nodes.forEach(n => { n.y1 = n.y0 + n.value; });
+  // === Force exact pixel mapping ===
+  graph.links.forEach(l => { l.width = l.value * KY_PIXELS_PER_UNIT; });
+  graph.nodes.forEach(n => { n.y1 = n.y0 + n.value * KY_PIXELS_PER_UNIT; });
+
+  // === Re-pack per column with constant gaps, then update links ===
+  const columns = d3.groups(graph.nodes, d => d.layer)
+                    .sort((a,b)=>a[0]-b[0])
+                    .map(gp => gp[1]);
+
+  columns.forEach(colNodes => {
+    colNodes.sort((a,b)=>a.y0 - b.y0);
+    let y = TOP_BOTTOM_PAD;
+    colNodes.forEach(n => {
+      const h = n.y1 - n.y0;
+      n.y0 = y;
+      n.y1 = y + h;
+      y = n.y1 + COLUMN_GAP;
+    });
+  });
+
+  sankey.update(graph); // re-route links after node repositioning
 
   // Render links
   const link = g.append("g").selectAll("path").data(graph.links).join("path")
@@ -270,7 +303,7 @@ d3.csv("data.csv").then(raw => {
 
   node.append("rect")
       .attr("x",d=>d.x0).attr("y",d=>d.y0)
-      .attr("height",d=>Math.max(1,d.y1-d.y0)) // == sum of connected link counts
+      .attr("height",d=>Math.max(1,d.y1-d.y0)) // exact sum of counts
       .attr("width",d=>d.x1-d.x0)
       .attr("fill",d=>d.name.startsWith("struct:")?structureColors(d.label):(d.label.startsWith("Other ")||d.label.startsWith("No "))?"#cfcfcf":"#cccccc");
 
@@ -288,6 +321,7 @@ d3.csv("data.csv").then(raw => {
         return "start";
       })
       .style("font-size","10px")
+      .style("display", d => (d.y1 - d.y0) >= MIN_LABEL_HEIGHT ? null : "none")
       .text(d=>d.label);
 
   // Legend/filter
