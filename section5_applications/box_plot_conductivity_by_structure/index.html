@@ -37,7 +37,6 @@
 <h2>Conductivity by Structure Group — Box Plot</h2>
 <div class="toolbar">
   <button id="downloadBtn" class="primary">Download SVG</button>
-  <span class="note">Same chart as before; only change is color palette applied to structure groups.</span>
 </div>
 
 <div class="wrap">
@@ -68,7 +67,7 @@ const innerW = width - margin.left - margin.right;
 const innerH = height - margin.top - margin.bottom;
 const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-// deterministic jitter functions
+// deterministic jitter
 function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return (h^=h>>>16)>>>0;};}
 function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967295;};}
 function stableJitter(key,half){const seed=xmur3(key)();const rand=mulberry32(seed);return (rand()*2-1)*half;}
@@ -76,7 +75,7 @@ function stableJitter(key,half){const seed=xmur3(key)();const rand=mulberry32(se
 const fmtSci = d3.format(".3~e");
 const fmtFix4 = d3.format(".4f");
 
-// ✅ Structure color palette
+// Structure color palette (unchanged)
 const structureColors = {
   "Others": "#9e9e9e",
   "Polymeric": "#ff7043",
@@ -86,6 +85,16 @@ const structureColors = {
   "NASICON": "#66bb6a",
   "Anti-perovskite": "#2196f3",
   "Spinel": "#8d6e63"
+};
+
+// ✅ Ion color palette from your message
+const ionColors = {
+  "Li+":  "#8e24aa",
+  "Na+":  "#e53935",
+  "K+":   "#3949ab",
+  "Ag+":  "#00897b",
+  "O2-":  "#fdd835",
+  "Zn2+": "#5e35b1"
 };
 
 d3.csv("data.csv").then(raw => {
@@ -113,8 +122,7 @@ d3.csv("data.csv").then(raw => {
   g.append("text").attr("class","axis-label").attr("x",innerW/2).attr("y",innerH+62).attr("text-anchor","middle").text("Structure Group");
   g.append("text").attr("class","axis-label").attr("x",-innerH/2).attr("y",-64).attr("transform","rotate(-90)").attr("text-anchor","middle").text("log10(σ) (S·cm)");
 
-  const colorIon = d3.scaleOrdinal().domain(ions).range(d3.schemeTableau10.slice(0,ions.length));
-
+  // box stats
   function boxStats(values){
     const v = values.slice().sort(d3.ascending);
     const q1=d3.quantileSorted(v,0.25);
@@ -137,7 +145,7 @@ d3.csv("data.csv").then(raw => {
   const whiskerLayer = g.append("g");
   const labelLayer = g.append("g");
 
-  // Apply structure color fill
+  // structure-colored boxes
   boxLayer.selectAll("rect.violin")
     .data(boxes)
     .join("rect")
@@ -180,6 +188,12 @@ d3.csv("data.csv").then(raw => {
 
   const structCenter=Object.fromEntries(structures.map(sg=>[sg,x(sg)+x.bandwidth()/2]));
   const dotHalf=x.bandwidth()/2*0.92;
+
+  // ✅ Ion colors applied here
+  const colorIon = d3.scaleOrdinal()
+    .domain(ions)
+    .range(ions.map(t => ionColors[t] || "#6b7280"));
+
   let activeIons=new Set(ions);
 
   const pts=g.append("g").selectAll(".point").data(rows).join("circle")
@@ -194,6 +208,7 @@ d3.csv("data.csv").then(raw => {
     .attr("fill",d=>colorIon(d.ion))
     .attr("display",d=>activeIons.has(d.ion)?null:"none");
 
+  // Ion legend uses ion colors
   const legend=d3.select("#legend");
   const items=legend.selectAll(".legend-item").data(ions).enter().append("div").attr("class","legend-item");
   items.append("div").attr("class","legend-swatch").style("background",d=>colorIon(d));
