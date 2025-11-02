@@ -308,7 +308,7 @@
   const FALLBACK_ION    = '#8884d8';
   const FALLBACK_STRUCT = '#82ca9d';
 
-  function normName(s){ return (s ?? '').trim(); }
+  function norm(s){ return (s ?? '').trim(); }
   
 function getIonColor(name){
   const key = norm(name);
@@ -342,18 +342,22 @@ function getStructColor(name){
   }
   // Derive distinct, related colors for strategy/formula from their parent STRUCT color
   
+
 function deriveForStrat(hex) {
   const c0 = d3.hsl(d3.color(hex));
   const c  = d3.hsl((c0.h + 18) % 360, Math.max(0, c0.s * 0.9), Math.min(1, c0.l * 1.25));
   return c.formatHex();
 }
 
+
   
+
 function deriveForFormula(hex) {
   const c0 = d3.hsl(d3.color(hex));
   const c  = d3.hsl((c0.h + 42) % 360, Math.max(0, c0.s * 0.75), Math.min(1, c0.l * 1.4));
   return c.formatHex();
 }
+
 
   function nodeFill(d){
     const lvl = levelOf(d);
