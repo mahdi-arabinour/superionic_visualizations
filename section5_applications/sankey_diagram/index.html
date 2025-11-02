@@ -218,6 +218,7 @@ d3.csv("data.csv").then(raw => {
   const graph = sankey({nodes:nodes.map(d=>({...d})),links:links.map(d=>({...d}))});
   if(STRETCH!==1){ graph.nodes.forEach(d=>{d.x0*=STRETCH; d.x1*=STRETCH;}); }
 
+  // LINKS: your original sqrt scale (unchanged)
   const maxValue=d3.max(graph.links,d=>d.value)||1;
   const minValue=d3.min(graph.links,d=>d.value)||1;
   const widthScale=d3.scaleSqrt().domain([minValue,maxValue]).range([1,30]);
@@ -240,34 +241,33 @@ d3.csv("data.csv").then(raw => {
 
   const node=g.append("g").selectAll("g").data(graph.nodes).join("g").attr("class","node");
 
-  /* ---------- ONLY CHANGE: make node bar height = sum of counts of connected links ---------- */
+  /* ---------- FIX: compute counts by node object (not by index) ---------- */
 
-  // 1) Sum counts per node from incident links (incoming+outgoing)
-  const nodeCounts = new Map(graph.nodes.map((n,i)=>[i,0]));
+  // 1) Sum counts per node using node objects as keys
+  const countsByNode = new Map(graph.nodes.map(n => [n, 0]));
   graph.links.forEach(l=>{
-    nodeCounts.set(l.source.index, nodeCounts.get(l.source.index) + l.value);
-    nodeCounts.set(l.target.index, nodeCounts.get(l.target.index) + l.value);
+    countsByNode.set(l.source, countsByNode.get(l.source) + l.value);
+    countsByNode.set(l.target, countsByNode.get(l.target) + l.value);
   });
-  // Sankey already computed n.value as that same sum; keep it as source of truth if present
-  graph.nodes.forEach((n,i)=>{ if (n.value != null) nodeCounts.set(i, n.value); });
+  // Prefer sankey's node.value if present
+  graph.nodes.forEach(n => { if (n.value != null) countsByNode.set(n, n.value); });
 
-  // 2) Use the layout’s vertical scale (ky) so bars fit in their existing slots:
-  //    ky ~= (any node's slot height) / (its count). It’s constant across the graph.
+  // 2) Use the layout’s vertical scale so bars sit naturally in their slots,
+  //    but now the value we apply is the correct per-node sum
   const ky = d3.median(graph.nodes, n => (n.value ? (n.y1 - n.y0) / n.value : 1));
 
-  // 3) Draw bars centered on the original node midpoints so links/labels stay aligned
+  // 3) Draw bars centered on the original slot
   node.append("rect")
       .attr("x",d=>d.x0)
       .attr("y",d=>{
-        const barH = Math.max(1, nodeCounts.get(d.index) * ky);
+        const barH = Math.max(1, countsByNode.get(d) * ky);
         const mid  = (d.y0 + d.y1) / 2;
         return mid - barH/2;
       })
-      .attr("height",d=>Math.max(1, nodeCounts.get(d.index) * ky))
+      .attr("height",d=>Math.max(1, countsByNode.get(d) * ky))
       .attr("width",d=>d.x1-d.x0)
       .attr("fill",d=>d.name.startsWith("struct:")?structureColors(d.label):(d.label.startsWith("Other ")||d.label.startsWith("No "))?"#cfcfcf":"#cccccc");
 
-  // (Labels remain where they were—only the bar height changed)
   node.append("text")
       .attr("x",d=>{
         if(d.name.startsWith("anode:")) return d.x0+ANODE_LABEL_DX;
@@ -284,7 +284,7 @@ d3.csv("data.csv").then(raw => {
       .style("font-size","10px")
       .text(d=>d.label);
 
-  /* ----------------------------------------------------------------------------------------- */
+  /* ----------------------------------------------------------------------- */
 
   const structValues=Array.from(new Set(paths.map(p=>p.struct)));
   const legend=d3.select("#legend");
