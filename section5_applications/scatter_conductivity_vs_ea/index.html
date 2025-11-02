@@ -69,6 +69,17 @@ const SHAPES = [
   d3.symbolDiamond, d3.symbolCross, d3.symbolStar, d3.symbolWye
 ];
 
+// ✅ Custom structure colors
+const structureColors = {
+  "Others": "#9e9e9e",
+  "Polymeric": "#ff7043",
+  "Argyrodite": "#ab47bc",
+  "Halide": "#26a69a",
+  "Amorphous": "#f6bf26",
+  "NASICON": "#66bb6a",
+  "Anti-perovskite": "#2196f3"
+};
+
 d3.csv("data.csv").then(data => {
   const rows = data.map(d => ({
     Ea: +d["Activation Energy Ea (eV)"],
@@ -89,7 +100,7 @@ d3.csv("data.csv").then(data => {
 
   const color = d3.scaleOrdinal()
     .domain(structureGroups)
-    .range(d3.schemeTableau10.concat(d3.schemeSet2).slice(0, structureGroups.length));
+    .range(structureGroups.map(s => structureColors[s] || "#9e9e9e"));
 
   const shapeFor = d3.scaleOrdinal().domain(ionTypes).range(SHAPES);
 
