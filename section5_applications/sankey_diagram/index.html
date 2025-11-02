@@ -8,7 +8,6 @@
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 <style>
   :root { --side: 180px; }
-
   body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#fafafa;color:#111;margin:24px}
   h2{margin:0 0 10px}
   .toolbar{display:flex;gap:10px;align-items:center;margin:10px 0 14px}
@@ -51,12 +50,12 @@
 
 <script>
 /* ========================== Tweakables ========================== */
-const EXTRA_WIDTH        = 240;   // keep your extra width space
-const STRETCH            = 1.20;  // horizontal stretch you were using
+const EXTRA_WIDTH        = 240;
+const STRETCH            = 1.20;
 const ANODE_LABEL_DX     = -8;
 const MIDDLE_LABEL_DX    =  6;
 const CATHODE_LABEL_DX   =  8;
-const LAYOUT_VALUE_MULT  = 6;     // <<< amplify counts for layout ONLY (improves visible height difference)
+const LAYOUT_VALUE_MULT  = 6;     // layout-only amplification so node heights show differences
 /* ================================================================ */
 
 const COL = { anode:"Anode", struct:"Structure Group", ion:"Ion Type", cathode:"Cathode" };
@@ -67,7 +66,6 @@ const width  = +svg.attr("width")  || 1100;
 const height = +svg.attr("height") || 720;
 const tip = d3.select("#tip");
 
-// Structure Group palette (keep yours)
 const structureColors = d3.scaleOrdinal()
   .domain(["Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Others"])
   .range (["#f6bf26","#2196f3","#ab47bc","#26a69a","#66bb6a","#ef5350","#ff7043","#9e9e9e"]);
@@ -88,7 +86,7 @@ d3.csv("data.csv").then(raw => {
   svg.selectAll("*").remove();
   const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 
-  // ---- Aggregate full paths to counts ----
+  // Aggregate full paths to counts
   const pathMap = new Map();
   rows.forEach(r => {
     const k = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
@@ -99,9 +97,9 @@ d3.csv("data.csv").then(raw => {
     return { anode:a, struct:s, ion:i, cathode:c, count:v };
   });
 
-  // ---- Aggregate between adjacent levels (counts) ----
+  // Aggregate between adjacent levels
   function linksBetween(fromKey,toKey){
-    const m = new Map(); // "from|to|struct" -> count
+    const m = new Map();
     paths.forEach(p => {
       const from = p[fromKey], to = p[toKey], sg = p.struct || "Others";
       const K = `${from}|${to}|${sg}`;
@@ -118,7 +116,7 @@ d3.csv("data.csv").then(raw => {
   const L34 = linksBetween("ion","cathode");
   const allLinks = [...L12, ...L23, ...L34];
 
-  // ---- Nodes (preserve your order/labels) ----
+  // Nodes
   const nodes = [];
   const nodeIndex = new Map();
   function addNode(key,label){
@@ -131,26 +129,23 @@ d3.csv("data.csv").then(raw => {
     addNode(`cathode:${p.cathode}`,p.cathode);
   });
 
-  // ---- Links for Sankey
-  // value  = count * LAYOUT_VALUE_MULT  -> drives node height & link width inside layout
-  // count  = true count                  -> used for tooltip & explicit widthScale below (unchanged semantics)
+  // Links for Sankey: keep true count and amplified value for layout
   const links = allLinks
     .filter(l => nodeIndex.has(l.fromKey) && nodeIndex.has(l.toKey) && l.value >= MIN_COUNT)
     .map(l => ({
       source: nodeIndex.get(l.fromKey),
       target: nodeIndex.get(l.toKey),
-      value:  l.value * LAYOUT_VALUE_MULT, // layout-only amplification
-      count:  l.value,
+      value:  l.value * LAYOUT_VALUE_MULT, // layout
+      count:  l.value,                      // true count
       struct: l.struct
     }));
 
-  // ---- Sankey layout
+  // Sankey (IMPORTANT: no nodeId, because we use numeric indices)
   const sankey = d3.sankey()
-    .nodeId(d => d.name)
     .nodeWidth(18)
-    .nodePadding(10) // smaller padding so value-driven heights have more vertical space
+    .nodePadding(10)
     .nodeAlign(d3.sankeyJustify)
-    .extent([[0,0],[width-leftMargin-rightMargin-40+EXTRA_WIDTH, height-40]]);
+    .extent([[0,0],[width-leftMargin-rightMargin-40+240, height-40]]);
 
   const graph = sankey({
     nodes: nodes.map(d => ({...d})),
@@ -159,7 +154,7 @@ d3.csv("data.csv").then(raw => {
 
   if (STRETCH !== 1) graph.nodes.forEach(d => { d.x0 *= STRETCH; d.x1 *= STRETCH; });
 
-  // ---- Link rendering (stroke width uses TRUE counts so numbers stay honest)
+  // Links (stroke width from TRUE counts)
   const maxCount = d3.max(links, d => d.count) || 1;
   const minCount = d3.min(links, d => d.count) || 1;
   const widthScale = d3.scaleSqrt().domain([minCount, maxCount]).range([1, 30]);
@@ -168,7 +163,7 @@ d3.csv("data.csv").then(raw => {
     .attr("class","link")
     .attr("d", d3.sankeyLinkHorizontal())
     .attr("stroke", d => structureColors(d.struct))
-    .attr("stroke-width", d => widthScale(d.count))   // <- true count for visible stroke
+    .attr("stroke-width", d => widthScale(d.count))
     .on("mousemove",(ev,d)=>{
       tip.html(`<div><b>${d.source.label}</b> → <b>${d.target.label}</b></div>
                 <div>Structure Group: <b>${d.struct}</b></div>
@@ -179,7 +174,7 @@ d3.csv("data.csv").then(raw => {
     })
     .on("mouseleave",()=>tip.style("opacity",0));
 
-  // ---- Node compositions for multicolor Anodes/Cathodes (use TRUE counts)
+  // Node compositions (TRUE counts)
   const outComp = new Map(), inComp = new Map();
   function addTo(map, idx, key, v){
     const m = map.get(idx) || new Map();
@@ -211,14 +206,14 @@ d3.csv("data.csv").then(raw => {
     return `url(#${id})`;
   }
 
-  // ---- Nodes (height = layout span -> sum of amplified counts; labels unchanged)
+  // Nodes (height = layout span)
   const node = g.append("g").selectAll("g").data(graph.nodes).join("g").attr("class","node");
 
   node.append("rect")
     .attr("x", d => d.x0)
     .attr("y", d => d.y0)
     .attr("width",  d => d.x1 - d.x0)
-    .attr("height", d => Math.max(2, d.y1 - d.y0)) // ← thickness reflects sum of counts
+    .attr("height", d => Math.max(2, d.y1 - d.y0))
     .attr("fill", function(d){
       if (d.x0 === minX0) {
         const ent = Array.from(outComp.get(d.index) || []);
@@ -242,7 +237,7 @@ d3.csv("data.csv").then(raw => {
                            : d.name.startsWith("cathode:") ? "start" : "start")
     .text(d => d.label);
 
-  // ---- Legend + simple SG filter (links only)
+  // Legend + simple filter
   const structValues = Array.from(new Set(paths.map(p => p.struct)));
   const legend = d3.select("#legend");
   let active = new Set(structValues);
@@ -272,7 +267,7 @@ d3.csv("data.csv").then(raw => {
     active.clear(); items.classed("disabled", true); link.attr("display", "none");
   });
 
-  // ---- Download
+  // Download
   document.getElementById("downloadBtn").addEventListener("click",()=>{
     const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
     const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
