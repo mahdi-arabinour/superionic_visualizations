@@ -7,7 +7,7 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 <style>
-  :root { --side: 180px; } /* narrower legend box */
+  :root { --side: 180px; }
 
   body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -25,11 +25,10 @@
   }
   .note { font-size:12px; color:#64748b; }
 
-  /* Main grid: SVG + Legend */
   .wrap {
     display:grid;
     grid-template-columns: 1fr var(--side);
-    gap:50px; /* wider gap pushes legend to the right */
+    gap:50px;
     align-items:start;
   }
 
@@ -93,7 +92,7 @@
 
   @media (max-width:1300px){
     svg{ width:100%; height:660px; }
-    :root{ --side: 180px; } /* narrower on small screens */
+    :root{ --side: 180px; }
   }
 </style>
 </head>
@@ -120,7 +119,8 @@
 <script>
 /* ========================== Tweakables ========================== */
 const EXTRA_WIDTH      = 240;
-const STRETCH          = 1.20;
+const STRETCH_X        = 1.20;   // horizontal stretch of nodes (x only)
+const VISUAL_Y_SCALE   = 1.35;   // <— scale the whole chart vertically (links + nodes) to restore "chunky" look
 const ANODE_LABEL_DX   = -8;
 const MIDDLE_LABEL_DX  =  6;
 const CATHODE_LABEL_DX =  8;
@@ -159,8 +159,14 @@ d3.csv("data.csv").then(raw => {
   const rightMargin = Math.min(380, Math.max(90,  maxCathode + 20));
 
   svg.selectAll("g").remove();
-  const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 
+  // Outer group: translate, then scale Y to keep link widths "chunky" while preserving math
+  const outer = svg.append("g")
+    .attr("transform",`translate(${leftMargin},10) scale(1, ${VISUAL_Y_SCALE})`);
+
+  const g = outer.append("g"); // inner content group
+
+  // Count unique A→S→I→C paths
   const pathMap = new Map();
   rows.forEach(r => {
     const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
@@ -213,17 +219,19 @@ d3.csv("data.csv").then(raw => {
     .nodeWidth(18)
     .nodePadding(18)
     .nodeAlign(d3.sankeyJustify)
-    .extent([[0,0],[width-leftMargin-rightMargin-40+EXTRA_WIDTH,height-40]]);
+    .extent([[0,0],[ (width-leftMargin-rightMargin-40)+240, (height-40)/VISUAL_Y_SCALE ]]);// compensate for outer Y scale
 
   const graph = sankey({nodes:nodes.map(d=>({...d})),links:links.map(d=>({...d}))});
-  if(STRETCH!==1){ graph.nodes.forEach(d=>{d.x0*=STRETCH; d.x1*=STRETCH;}); }
 
-  /* --- CHANGED: use layout-computed link width --- */
+  // Optional horizontal stretch only (kept from your original)
+  if(STRETCH_X!==1){ graph.nodes.forEach(d=>{ d.x0*=STRETCH_X; d.x1*=STRETCH_X; }); }
+
+  // === Links: use layout-computed width (directly tied to counts) ===
   const link = g.append("g").selectAll("path").data(graph.links).join("path")
     .attr("class","link")
     .attr("d", d3.sankeyLinkHorizontal())
     .attr("stroke", d => structureColors(d.struct))
-    .attr("stroke-width", d => Math.max(1, d.width))   // <-- key change
+    .attr("stroke-width", d => Math.max(1, d.width)) // value→width; sums at nodes match node height
     .attr("stroke-opacity", 0.35)
     .on("mousemove",(ev,d)=>{
       tip.html(`<div><b>${d.source.label}</b> → <b>${d.target.label}</b></div>
