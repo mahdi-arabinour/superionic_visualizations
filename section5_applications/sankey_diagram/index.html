@@ -32,8 +32,7 @@
   }
 
   svg {
-    width: 1100px;
-    /* height will be set dynamically to make ky = 1 */
+    width: 1100px; /* height set dynamically */
     background:#fff;
     border:1px solid #e5e5e5;
     border-radius:10px;
@@ -88,6 +87,11 @@
     color:#111;
     box-shadow:0 6px 18px rgba(0,0,0,.08);
   }
+
+  @media (max-width:1300px){
+    svg{ width:100%; }
+    :root{ --side: 180px; }
+  }
 </style>
 </head>
 <body>
@@ -114,10 +118,11 @@
 /* ========================== Tweakables ========================== */
 const EXTRA_WIDTH      = 240;
 const NODE_WIDTH       = 18;
-const NODE_PADDING     = 18;   // used in both layout and our ky=1 height calc
-const TOP_BOTTOM_PAD   = 20;   // top+bottom breathing room inside the extent
+const NODE_PADDING     = 0;   // keep zero so counts map directly to pixels
+const TOP_BOTTOM_PAD   = 20;  // breathing room
 const LEFT_MARGIN_MIN  = 90;
 const RIGHT_MARGIN_MIN = 90;
+
 const ANODE_LABEL_DX   = -8;
 const MIDDLE_LABEL_DX  =  6;
 const CATHODE_LABEL_DX =  8;
@@ -148,13 +153,15 @@ d3.csv("data.csv").then(raw => {
     cathode: (d[COL.cathode] ?? "").trim() || "No Cathode"
   }));
 
-  // Dynamic left/right margins from longest labels (keeps labels readable)
+  // Dynamic margins for labels
   const maxAnode   = d3.max(rows, d => estTextWidth(d.anode))   || 0;
   const maxCathode = d3.max(rows, d => estTextWidth(d.cathode)) || 0;
   const leftMargin  = Math.min(380, Math.max(LEFT_MARGIN_MIN,  maxAnode   + 20));
   const rightMargin = Math.min(380, Math.max(RIGHT_MARGIN_MIN, maxCathode + 20));
 
-  // Aggregate unique A→S→I→C paths (value = COUNT)
+  svg.selectAll("g").remove();
+
+  // Count unique A→S→I→C paths (value is COUNT)
   const pathMap = new Map();
   rows.forEach(r => {
     const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
@@ -165,7 +172,7 @@ d3.csv("data.csv").then(raw => {
     return { anode:a, struct:s, ion:i, cathode:c, value:v };
   });
 
-  // Build links per adjacent pair
+  // Build links for adjacent columns
   function linksFromPaths(aKey,bKey){
     const m = new Map();
     paths.forEach(p=>{
@@ -203,56 +210,50 @@ d3.csv("data.csv").then(raw => {
     .filter(l=>nodeIndex.has(l.sourceKey)&&nodeIndex.has(l.targetKey)&&l.value>=MIN_COUNT)
     .map(l=>({source:nodeIndex.get(l.sourceKey),target:nodeIndex.get(l.targetKey),value:l.value,struct:l.struct}));
 
-  // === Compute the inner height we need so that ky = 1 (1 pixel per count) ===
-  // For each column, total flow equals the sum of link counts out of that column.
+  // === Compute height so 1 value = 1 pixel ===
   const totalsByColumn = [
-    d3.sum(L12, d=>d.value) || 0, // anode column total
-    d3.sum(L23, d=>d.value) || 0, // struct column total
-    d3.sum(L34, d=>d.value) || 0, // ion column total
-    d3.sum(L34, d=>d.value) || 0  // cathode column total (same as previous)
+    d3.sum(L12, d=>d.value) || 0, // anode col total
+    d3.sum(L23, d=>d.value) || 0, // struct col total
+    d3.sum(L34, d=>d.value) || 0, // ion col total
+    d3.sum(L34, d=>d.value) || 0  // cathode col total
   ];
   const maxFlow = d3.max(totalsByColumn) || 0;
 
-  // Node counts per column (for padding slots)
-  const nodesByColumn = [
-    nodes.filter(n=>n.name.startsWith("anode:")).length,
-    nodes.filter(n=>n.name.startsWith("struct:")).length,
-    nodes.filter(n=>n.name.startsWith("ion:")).length,
-    nodes.filter(n=>n.name.startsWith("cathode:")).length
-  ];
-  const maxNodesInAColumn = d3.max(nodesByColumn) || 1;
+  // innerHeight is just counts plus breathing room (no padding gaps)
+  const innerHeight = maxFlow + TOP_BOTTOM_PAD*2;
 
-  // innerHeight = (max flow in counts) + total paddings between nodes in the most crowded column
-  const innerHeight = maxFlow + NODE_PADDING * Math.max(0, maxNodesInAColumn - 1) + TOP_BOTTOM_PAD*2;
-
-  // Set SVG height to accommodate that inner height + top margin in our translate
-  const svgHeight = innerHeight + 40; // +40 for bottom breathing room
+  // Set SVG height
+  const svgHeight = innerHeight + 40; // extra bottom room
   svg.attr("height", svgHeight);
-
   const width = +svg.attr("width");
 
-  // Draw group with left margin (top margin is handled by extent origin y=0)
-  svg.selectAll("g").remove();
+  // Root group
   const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 
-  // Sankey layout sized so ky = 1
+  // Sankey layout
   const sankey = d3.sankey()
     .nodeWidth(NODE_WIDTH)
-    .nodePadding(NODE_PADDING)
+    .nodePadding(NODE_PADDING)         // 0 padding so counts map directly
     .nodeAlign(d3.sankeyJustify)
-    .extent([[0,0],[ (width-leftMargin-rightMargin-40)+EXTRA_WIDTH, innerHeight ]]); // <= sets availableHeight = innerHeight
+    .extent([[0,0],[ (width-leftMargin-rightMargin-40)+EXTRA_WIDTH, innerHeight ]]);
 
   const graph = sankey({
     nodes: nodes.map(d=>({...d})),
     links: links.map(d=>({...d}))
   });
 
-  // === Links use layout-computed width; with ky=1 this equals the raw count ===
+  // === Force 1 count = 1 pixel ===
+  // Links
+  graph.links.forEach(l => { l.width = l.value; });
+  // Nodes (node.value is sum of incident link values)
+  graph.nodes.forEach(n => { n.y1 = n.y0 + n.value; });
+
+  // Render links
   const link = g.append("g").selectAll("path").data(graph.links).join("path")
     .attr("class","link")
     .attr("d", d3.sankeyLinkHorizontal())
     .attr("stroke", d => structureColors(d.struct))
-    .attr("stroke-width", d => Math.max(1, d.width)) // d.width == d.value when ky = 1
+    .attr("stroke-width", d => Math.max(1, d.width)) // == count
     .attr("stroke-opacity", 0.35)
     .on("mousemove",(ev,d)=>{
       tip.html(`<div><b>${d.source.label}</b> → <b>${d.target.label}</b></div>
@@ -264,12 +265,12 @@ d3.csv("data.csv").then(raw => {
     })
     .on("mouseleave",()=>tip.style("opacity",0));
 
-  // Nodes: height equals node.value * ky; with ky=1, that's the sum of connected link counts
+  // Render nodes
   const node=g.append("g").selectAll("g").data(graph.nodes).join("g").attr("class","node");
 
   node.append("rect")
       .attr("x",d=>d.x0).attr("y",d=>d.y0)
-      .attr("height",d=>Math.max(1,d.y1-d.y0)) // == sum of counts (pixels)
+      .attr("height",d=>Math.max(1,d.y1-d.y0)) // == sum of connected link counts
       .attr("width",d=>d.x1-d.x0)
       .attr("fill",d=>d.name.startsWith("struct:")?structureColors(d.label):(d.label.startsWith("Other ")||d.label.startsWith("No "))?"#cfcfcf":"#cccccc");
 
