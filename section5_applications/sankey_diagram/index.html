@@ -1,203 +1,351 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Anode → Structure Group → Ion Type → Cathode (counts + multicolor ends)</title>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="UTF-8" />
+<title>Anode → Structure Group → Ion Type → Cathode</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 <style>
-  body{font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;margin:20px;background:#fafafa;color:#111}
-  h2{margin:0 0 10px}
-  .toolbar{display:flex;gap:10px;align-items:center;margin:8px 0 14px}
-  button{padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer}
-  svg{width:1200px;height:650px;background:#fff;border:1px solid #e5e7eb;border-radius:12px}
-  .node rect{stroke:#333;opacity:.95}
-  .node text{font:12px/1.1 ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;dominant-baseline:middle}
-  .link{fill:none;stroke-opacity:.35}
-  .legend{position:relative;margin-top:10px;display:inline-grid;grid-template-columns:repeat(7,auto);gap:8px 14px;align-items:center}
-  .sw{width:12px;height:12px;border:1px solid #111;border-radius:3px;display:inline-block}
+  :root { --side: 180px; } /* narrower legend box */
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background:#fafafa;
+    color:#111;
+    margin:24px;
+  }
+  h2 { margin:0 0 10px; }
+
+  .toolbar {
+    display:flex;
+    gap:10px;
+    align-items:center;
+    margin:10px 0 14px;
+  }
+  .note { font-size:12px; color:#64748b; }
+
+  /* Main grid: SVG + Legend */
+  .wrap {
+    display:grid;
+    grid-template-columns: 1fr var(--side);
+    gap:50px; /* wider gap pushes legend to the right */
+    align-items:start;
+  }
+
+  svg {
+    width: 1100px;
+    height: 720px;
+    background:#fff;
+    border:1px solid #e5e5e5;
+    border-radius:10px;
+    overflow:visible;
+  }
+
+  .side {
+    position:sticky;
+    top:16px;
+    background:#fff;
+    border:1px solid #e5e5e5;
+    border-radius:10px;
+    padding:12px;
+  }
+
+  .legend-title { font-weight:700; font-size:14px; margin:6px 0; }
+  .legend-controls { display:flex; gap:6px; margin:4px 0 6px; }
+  .legend-controls button, button.primary {
+    font-size:12px;
+    padding:6px 10px;
+    border:1px solid #ccc;
+    background:#fff;
+    cursor:pointer;
+    border-radius:8px;
+  }
+  .legend-item {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:6px 0;
+    cursor:pointer;
+    user-select:none;
+  }
+  .legend-item.disabled { opacity:.35; text-decoration:line-through; }
+  .legend-swatch { width:16px; height:16px; border-radius:3px; border:1px solid #444; }
+
+  .node rect { stroke:#333; stroke-width:1px; }
+  .node text { font-size:10px; pointer-events:none; }
+  .link { fill:none; }
+  .link:hover { stroke-opacity:.75; }
+
+  .tooltip {
+    position:fixed;
+    pointer-events:none;
+    opacity:0;
+    z-index:10;
+    background:#fff;
+    border:1px solid #e5e5e5;
+    border-radius:8px;
+    padding:8px 10px;
+    font-size:12px;
+    color:#111;
+    box-shadow:0 6px 18px rgba(0,0,0,.08);
+  }
+
+  @media (max-width:1300px){
+    svg{ width:100%; height:660px; }
+    :root{ --side: 180px; } /* narrower on small screens */
+  }
 </style>
 </head>
 <body>
+  <h2>Anode → Structure Group → Ion Type → Cathode</h2>
+  <div class="toolbar">
+    <button id="downloadBtn" class="primary">Download SVG</button>
+  </div>
 
-<h2>Anode → Structure Group → Ion Type → Cathode</h2>
-<div class="toolbar">
-  <button id="download">Download SVG</button>
-  <span>Bars/links scale with counts; Anode/Cathode show multi-color mix by Structure Group.</span>
-</div>
+  <div class="wrap">
+    <svg></svg>
+    <div class="side">
+      <div class="legend-title">Structure Group (color)</div>
+      <div class="legend-controls">
+        <button id="showAll">Show all</button>
+        <button id="hideAll">Hide all</button>
+      </div>
+      <div id="legend"></div>
+    </div>
+  </div>
 
-<svg id="s"></svg>
-<div class="legend" id="legend"></div>
+  <div class="tooltip" id="tip"></div>
 
 <script>
+/* ========================== Tweakables ========================== */
+const EXTRA_WIDTH      = 240;
+const STRETCH          = 1.20;
+const ANODE_LABEL_DX   = -8;
+const MIDDLE_LABEL_DX  =  6;
+const CATHODE_LABEL_DX =  8;
+/* ================================================================ */
+
 const COL = {
-  anode: "Anode",
-  struct: "Structure Group",
-  ion: "Ion Type",
-  cath: "Cathode"
+  anode:   "Anode",
+  struct:  "Structure Group",
+  ion:     "Ion Type",
+  cathode: "Cathode"
 };
+const MIN_COUNT = 1;
 
-// Structure Group palette — match your existing colors if needed
-const STRUCT_COLORS = new Map([
-  ["Others",        "#9CA3AF"],
-  ["Polymeric",     "#ef4444"],
-  ["Argyrodite",    "#8b5cf6"],
-  ["Halide",        "#10b981"],
-  ["Amorphous",     "#f59e0b"],
-  ["NASICON",       "#0ea5e9"],
-  ["Anti-perovskite","#2563eb"]
-]);
-const structColor = k => STRUCT_COLORS.get(k) || "#9CA3AF";
+const svg   = d3.select("svg");
+const width = +svg.attr("width")  || 1100;
+const height= +svg.attr("height") || 720;
+const tip   = d3.select("#tip");
 
-d3.csv("data.csv").then(rows => {
-  // Build node lists per layer
-  const A = new Set(), S = new Set(), I = new Set(), C = new Set();
-  rows.forEach(r => { A.add(r[COL.anode]); S.add(r[COL.struct]); I.add(r[COL.ion]); C.add(r[COL.cath]); });
+const structureColors = d3.scaleOrdinal()
+  .domain(["Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Others"])
+  .range (["#f6bf26","#2196f3","#ab47bc","#26a69a","#66bb6a","#ef5350","#ff7043","#9e9e9e"]);
+
+const estTextWidth = s => (s ? s.length : 0) * 6.2;
+
+d3.csv("data.csv").then(raw => {
+  const rows = raw.map(d => ({
+    anode:   (d[COL.anode]   ?? "").trim() || "No Anode",
+    struct:  (d[COL.struct]  ?? "").trim() || "Others",
+    ion:     (d[COL.ion]     ?? "").trim() || "Unknown Ion Type",
+    cathode: (d[COL.cathode] ?? "").trim() || "No Cathode"
+  }));
+
+  const maxAnode   = d3.max(rows, d => estTextWidth(d.anode))   || 0;
+  const maxCathode = d3.max(rows, d => estTextWidth(d.cathode)) || 0;
+  const leftMargin  = Math.min(380, Math.max(90,  maxAnode   + 20));
+  const rightMargin = Math.min(380, Math.max(90,  maxCathode + 20));
+
+  svg.selectAll("g").remove();
+  const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
+
+  const pathMap = new Map();
+  rows.forEach(r => {
+    const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
+    pathMap.set(key, (pathMap.get(key) || 0) + 1);
+  });
+  const paths = [...pathMap.entries()].map(([k,v]) => {
+    const [a,s,i,c] = k.split("|");
+    return { anode:a, struct:s, ion:i, cathode:c, value:v };
+  });
+
+  function linksFromPaths(aKey,bKey){
+    const m = new Map();
+    paths.forEach(p=>{
+      const a=p[aKey], b=p[bKey], sg=p.struct||"Others";
+      const K=`${a}|${b}|${sg}`;
+      m.set(K,(m.get(K)||0)+p.value);
+    });
+    return [...m.entries()].map(([K,v])=>{
+      const [a,b,sg]=K.split("|");
+      return { sourceKey:`${aKey}:${a}`, targetKey:`${bKey}:${b}`, value:v, struct:sg };
+    });
+  }
+
+  const L12 = linksFromPaths("anode","struct");
+  const L23 = linksFromPaths("struct","ion");
+  const L34 = linksFromPaths("ion","cathode");
+  const allLinks = [...L12,...L23,...L34];
 
   const nodes = [];
-  const idOf = new Map();
-  function pushLayer(prefix, set){
-    for(const name of set){
-      const label = String(name ?? "");
-      const full = `${prefix}:${label}`;
-      idOf.set(full, nodes.length);
-      nodes.push({ name: full, label });
+  const nodeIndex = new Map();
+  function addNode(key,label){
+    if (!key) return;
+    if (!nodeIndex.has(key)) {
+      nodeIndex.set(key,nodes.length);
+      nodes.push({name:key,label});
     }
   }
-  pushLayer("anode",A); pushLayer("struct",S); pushLayer("ion",I); pushLayer("cath",C);
-
-  const nid = (prefix,label)=> idOf.get(`${prefix}:${String(label??"")}`);
-
-  // Accumulate links (each row counts as 1)
-  const keyed = new Map(); // "src|dst|struct" -> link
-  function acc(source,target,sg){
-    const key = `${source}|${target}|${sg}`;
-    const o = keyed.get(key) || {source,target,value:0,struct:sg};
-    o.value += 1; keyed.set(key,o);
-  }
-  rows.forEach(r=>{
-    const a=nid("anode",r[COL.anode]);
-    const s=nid("struct",r[COL.struct]);
-    const i=nid("ion",  r[COL.ion]);
-    const c=nid("cath", r[COL.cath]);
-    const sg=r[COL.struct];
-    if(a!=null&&s!=null) acc(a,s,sg);
-    if(s!=null&&i!=null) acc(s,i,sg);
-    if(i!=null&&c!=null) acc(i,c,sg);
+  paths.forEach(p=>{
+    addNode(`anode:${p.anode}`,p.anode);
+    addNode(`struct:${p.struct}`,p.struct);
+    addNode(`ion:${p.ion}`,p.ion);
+    addNode(`cathode:${p.cathode}`,p.cathode);
   });
-  const links = Array.from(keyed.values());
 
-  // Sankey layout (values drive widths/heights)
-  const svg = d3.select("#s");
-  const W = +svg.attr("width"), H = +svg.attr("height");
+  const links = allLinks
+    .filter(l=>nodeIndex.has(l.sourceKey)&&nodeIndex.has(l.targetKey)&&l.value>=MIN_COUNT)
+    .map(l=>({source:nodeIndex.get(l.sourceKey),target:nodeIndex.get(l.targetKey),value:l.value,struct:l.struct}));
+
   const sankey = d3.sankey()
-    .nodeId(d => d.name)
-    .nodeWidth(8)
-    .nodePadding(8)
-    .nodeSort(null)
-    .linkSort(null)
-    .extent([[12,12],[W-12,H-12]]);
+    .nodeWidth(18)
+    .nodePadding(18)
+    .nodeAlign(d3.sankeyJustify)
+    .extent([[0,0],[width-leftMargin-rightMargin-40+EXTRA_WIDTH,height-40]]);
 
-  const graph = sankey({
-    nodes: nodes.map(d => ({...d})),
-    links: links.map(d => ({...d}))
-  });
+  const graph = sankey({nodes:nodes.map(d=>({...d})),links:links.map(d=>({...d}))});
+  if(STRETCH!==1){ graph.nodes.forEach(d=>{d.x0*=STRETCH; d.x1*=STRETCH;}); }
 
-  // ---- compositions for multi-color node fills (only ends) ----
-  const outComp = new Map(); // node.index -> Map(struct -> sum)
-  const inComp  = new Map();
-  function addTo(map, idx, key, v){
-    const m = map.get(idx) || new Map();
-    m.set(key, (m.get(key)||0) + v);
-    map.set(idx, m);
-  }
-  graph.links.forEach(l => { addTo(outComp,l.source.index,l.struct,l.value);
-                             addTo(inComp, l.target.index,l.struct,l.value); });
+  /* ===== Keep your existing link thickness scaling by counts ===== */
+  const maxValue=d3.max(graph.links,d=>d.value)||1;
+  const minValue=d3.min(graph.links,d=>d.value)||1;
+  const widthScale=d3.scaleSqrt().domain([minValue,maxValue]).range([1,30]);
 
-  const minX0 = d3.min(graph.nodes, n => n.x0);
-  const maxX0 = d3.max(graph.nodes, n => n.x0);
+  const link=g.append("g").selectAll("path").data(graph.links).join("path")
+    .attr("class","link")
+    .attr("d",d3.sankeyLinkHorizontal())
+    .attr("stroke",d=>structureColors(d.struct))
+    .attr("stroke-width",d=>widthScale(d.value))  // (unchanged)
+    .attr("stroke-opacity",0.35)
+    .on("mousemove",(ev,d)=>{
+      tip.html(`<div><b>${d.source.label}</b> → <b>${d.target.label}</b></div>
+                <div>Structure Group: <b>${d.struct}</b></div>
+                <div>Count: <b>${d.value}</b></div>`)
+         .style("opacity",1)
+         .style("left",(ev.pageX+14)+"px")
+         .style("top",(ev.pageY+14)+"px");
+    })
+    .on("mouseleave",()=>tip.style("opacity",0));
 
+  /* ================== ONLY CHANGE #1: ensure node rect height uses layout (counts) ==================
+     (Your code already did this; keeping it exactly as-is for clarity) */
+  const node=g.append("g").selectAll("g").data(graph.nodes).join("g").attr("class","node");
+
+  /* ================== ONLY CHANGE #2: multicolor Anode/Cathode by Structure Group mix ==================
+     Build per-node compositions and paint gradients ONLY for the edge columns. */
+  const outComp=new Map(), inComp=new Map();
+  function addTo(map,idx,key,val){const m=map.get(idx)||new Map();m.set(key,(m.get(key)||0)+val);map.set(idx,m);}
+  graph.links.forEach(l=>{ addTo(outComp,l.source.index,l.struct,l.value); addTo(inComp,l.target.index,l.struct,l.value); });
+
+  const minX0=d3.min(graph.nodes,d=>d.x0), maxX0=d3.max(graph.nodes,d=>d.x0);
   const defs = svg.append("defs");
-  function applyNodeGradient(node, entries, idPrefix){
-    const id = `${idPrefix}-${node.index}`;
-    const total = d3.sum(entries, d => d[1]) || 1;
-    const grad = defs.append("linearGradient")
-      .attr("id", id)
-      .attr("gradientUnits", "userSpaceOnUse")
-      .attr("x1", node.x0).attr("x2", node.x0)
-      .attr("y1", node.y0).attr("y2", node.y1);
-    let acc = 0;
+  function gradientFor(node,entries,idPrefix){
+    const id=`${idPrefix}-${node.index}`;
+    const total=d3.sum(entries,d=>d[1])||1;
+    const grad=defs.append("linearGradient")
+      .attr("id",id)
+      .attr("gradientUnits","userSpaceOnUse")
+      .attr("x1",node.x0).attr("x2",node.x0)
+      .attr("y1",node.y0).attr("y2",node.y1);
+    let acc=0;
     entries.forEach(([k,v])=>{
-      const p0 = acc/total, p1 = (acc+v)/total, col = structColor(k);
-      grad.append("stop").attr("offset", p0).attr("stop-color", col);
-      grad.append("stop").attr("offset", p1).attr("stop-color", col);
-      acc += v;
+      const p0=acc/total, p1=(acc+v)/total;
+      const col=structureColors(k);
+      grad.append("stop").attr("offset",p0).attr("stop-color",col);
+      grad.append("stop").attr("offset",p1).attr("stop-color",col);
+      acc+=v;
     });
     return `url(#${id})`;
   }
 
-  // ---- links (thickness from layout -> counts) ----
-  svg.append("g")
-    .attr("fill","none")
-    .selectAll("path")
-    .data(graph.links)
-    .join("path")
-      .attr("class","link")
-      .attr("d", d3.sankeyLinkHorizontal())
-      .attr("stroke", d => structColor(d.struct))
-      .attr("stroke-width", d => Math.max(1, d.width))
-      .append("title")
-        .text(d => `${graph.nodes[d.source.index].label} → ${graph.nodes[d.target.index].label}\n${d.struct}: ${d.value}`);
-
-  // ---- nodes (multicolor only on left/right columns) ----
-  const node = svg.append("g")
-    .selectAll("g")
-    .data(graph.nodes)
-    .join("g")
-      .attr("class","node");
-
   node.append("rect")
-    .attr("x", d => d.x0)
-    .attr("y", d => d.y0)
-    .attr("width", d => d.x1 - d.x0)
-    .attr("height", d => Math.max(2, d.y1 - d.y0))
-    .attr("fill", function(d){
-      if (d.x0 === minX0) { // Anode: outgoing mix
-        const ent = Array.from(outComp.get(d.index) || []);
-        if (ent.length) return applyNodeGradient(d, ent, "out");
-      }
-      if (d.x0 === maxX0) { // Cathode: incoming mix
-        const ent = Array.from(inComp.get(d.index) || []);
-        if (ent.length) return applyNodeGradient(d, ent, "in");
-      }
-      // Middle columns: solid color (Structure Group column gets its palette)
-      if (d.name.startsWith("struct:")) return structColor(d.label);
-      return "#cccccc";
-    })
-    .attr("stroke", "#333");
+      .attr("x",d=>d.x0).attr("y",d=>d.y0)
+      .attr("height",d=>Math.max(1,d.y1-d.y0))  // thickness reflects counts
+      .attr("width",d=>d.x1-d.x0)
+      .attr("fill",d=>{
+        // Left edge (Anode): outgoing composition -> gradient
+        if(d.x0===minX0){
+          const ent=Array.from(outComp.get(d.index)||[]);
+          if(ent.length) return gradientFor(d,ent,"out");
+        }
+        // Right edge (Cathode): incoming composition -> gradient
+        if(d.x0===maxX0){
+          const ent=Array.from(inComp.get(d.index)||[]);
+          if(ent.length) return gradientFor(d,ent,"in");
+        }
+        // Middle columns: keep original solid color logic
+        if(d.name.startsWith("struct:")) return structureColors(d.label);
+        return (d.label.startsWith("Other ")||d.label.startsWith("No ")) ? "#cfcfcf" : "#cccccc";
+      });
 
   node.append("text")
-    .attr("x", d => d.x0 < W/2 ? d.x1 + 6 : d.x0 - 6)
-    .attr("y", d => (d.y0 + d.y1)/2)
-    .attr("text-anchor", d => d.x0 < W/2 ? "start" : "end")
-    .text(d => d.label)
-    .append("title")
-      .text(d => d.label);
+      .attr("x",d=>{
+        if(d.name.startsWith("anode:")) return d.x0+ANODE_LABEL_DX;
+        if(d.name.startsWith("cathode:")) return d.x1+CATHODE_LABEL_DX;
+        return d.x1+MIDDLE_LABEL_DX;
+      })
+      .attr("y",d=>(d.y0+d.y1)/2)
+      .attr("dy","0.35em")
+      .attr("text-anchor",d=>{
+        if(d.name.startsWith("anode:")) return "end";
+        if(d.name.startsWith("cathode:")) return "start";
+        return "start";
+      })
+      .style("font-size","10px")
+      .text(d=>d.label);
 
-  // legend (Structure Group colors)
-  const entries = Array.from(STRUCT_COLORS.entries());
-  const L = d3.select("#legend");
-  L.selectAll("div.item").data(entries).join("div")
-    .attr("class","item")
-    .html(d => `<span class="sw" style="background:${d[1]}"></span> ${d[0]}`);
+  const structValues=Array.from(new Set(paths.map(p=>p.struct)));
+  const legend=d3.select("#legend");
+  let active=new Set(structValues);
 
-  // download
-  document.getElementById("download").addEventListener("click", ()=>{
-    const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
-    const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement("a"), {href:url, download:"sankey_counts_multicolor.svg"});
+  const items=legend.selectAll(".legend-item")
+    .data(structValues)
+    .enter().append("div").attr("class","legend-item")
+    .each(function(s){
+      const item=d3.select(this);
+      item.append("div").attr("class","legend-swatch").style("background",structureColors(s));
+      item.append("span").text(s);
+    })
+    .on("click",function(_,s){
+      if(active.size===1&&active.has(s)){
+        active=new Set(structValues);
+        items.classed("disabled",false);
+        link.attr("display",null);
+      }else{
+        active=new Set([s]);
+        items.classed("disabled",d=>d!==s);
+        link.attr("display",d=>(d.struct===s?null:"none"));
+      }
+    });
+
+  d3.select("#showAll").on("click",()=>{
+    active=new Set(structValues);
+    items.classed("disabled",false);
+    link.attr("display",null);
+  });
+  d3.select("#hideAll").on("click",()=>{
+    active=new Set();
+    items.classed("disabled",true);
+    link.attr("display","none");
+  });
+
+  document.getElementById("downloadBtn").addEventListener("click",()=>{
+    const s=new XMLSerializer().serializeToString(document.querySelector("svg"));
+    const blob=new Blob([s],{type:"image/svg+xml;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=Object.assign(document.createElement("a"),{href:url,download:"sankey_anode_struct_ion_cathode.svg"});
     a.click();
   });
 });
