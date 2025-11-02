@@ -276,10 +276,8 @@
              children: node.children?.map(c=>cloneData(c)) };
   }
 
-  
   // ---------------- Color Maps (EDIT THESE WITH YOUR EXACT COLORS) ----------------
   // Provide exact hex colors for each Ion and Structure name (keys must match data names).
-  // Anything not listed will fall back to a bright, deterministic palette safe for dark backgrounds.
   const ION_COLORS = {
     "Li+":  "#ff5252",  
     "Na+":  "#81d4fa",  
@@ -296,32 +294,37 @@
     "Amorphous": "#f6bf26",
     "NASICON": "#66bb6a",
     "Anti-perovskite": "#0d47a1",
-    "Spinel": "#8d6e63"'
+    "Spinel": "#8d6e63"
   };
-
-  // Bright fallbacks for dark UI
-  const FB_ION_PALETTE    = d3.schemeTableau10;       // 10 high-contrast colors
-  const FB_STRUCT_PALETTE = d3.schemeSet3;            // 12 light/vivid colors
-
+  // Bright fallbacks for names not in the maps (safe on dark UI)
+  const FB_ION_PALETTE    = d3.schemeTableau10;
+  const FB_STRUCT_PALETTE = d3.schemeSet3;
   function hashIdx(name, arr){
     let h = 0;
     for (let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i))|0;
     return Math.abs(h) % arr.length;
   }
 
+  const FALLBACK_ION    = '#8884d8';
+  const FALLBACK_STRUCT = '#82ca9d';
+
   function normName(s){ return (s ?? '').trim(); }
-  function getIonColor(name){
-    const key = normName(name);
-    if (ION_COLORS[key]) return ION_COLORS[key];
-    const idx = hashIdx(key, FB_ION_PALETTE);
-    return FB_ION_PALETTE[idx];
-  }
-  function getStructColor(name){
-    const key = normName(name);
-    if (STRUCT_COLORS[key]) return STRUCT_COLORS[key];
-    const idx = hashIdx(key, FB_STRUCT_PALETTE);
-    return FB_STRUCT_PALETTE[idx];
-  }
+  
+function getIonColor(name){
+  const key = norm(name);
+  if (ION_COLORS[key]) return ION_COLORS[key];
+  const idx = hashIdx(key, FB_ION_PALETTE);
+  return FB_ION_PALETTE[idx];
+}
+
+  
+function getStructColor(name){
+  const key = norm(name);
+  if (STRUCT_COLORS[key]) return STRUCT_COLORS[key];
+  const idx = hashIdx(key, FB_STRUCT_PALETTE);
+  return FB_STRUCT_PALETTE[idx];
+}
+
   function levelOf(d){
     const dep = d.depth ?? (d.ancestors?.().length-1);
     if (dep===1) return 'ion';
@@ -337,27 +340,22 @@
       struct: chain[2]?.data?.name ?? null,
     };
   }
-  // Derive distinct, brighter colors for strategy/formula from their parent STRUCT color
-  function deriveForStrat(hex) {
-    const c0 = d3.hsl(d3.color(hex));
-    const c  = d3.hsl((c0.h + 18) % 360, Math.max(0, c0.s * 0.9), Math.min(1, c0.l * 1.25));
-    return c.formatHex();
-  }
-  function deriveForFormula(hex) {
-    const c0 = d3.hsl(d3.color(hex));
-    const c  = d3.hsl((c0.h + 42) % 360, Math.max(0, c0.s * 0.75), Math.min(1, c0.l * 1.4));
-    return c.formatHex();
-  }
+  // Derive distinct, related colors for strategy/formula from their parent STRUCT color
+  
+function deriveForStrat(hex) {
+  const c0 = d3.hsl(d3.color(hex));
+  const c  = d3.hsl((c0.h + 18) % 360, Math.max(0, c0.s * 0.9), Math.min(1, c0.l * 1.25));
+  return c.formatHex();
+}
+
+  
+function deriveForFormula(hex) {
+  const c0 = d3.hsl(d3.color(hex));
+  const c  = d3.hsl((c0.h + 42) % 360, Math.max(0, c0.s * 0.75), Math.min(1, c0.l * 1.4));
+  return c.formatHex();
+}
+
   function nodeFill(d){
-    const lvl = levelOf(d);
-    const n = namesFor(d);
-    if (lvl==='ion')     return getIonColor(n.ion);
-    if (lvl==='struct')  return getStructColor(n.struct);
-    if (lvl==='strat')   return deriveForStrat(getStructColor(n.struct));
-    if (lvl==='formula') return deriveForFormula(getStructColor(n.struct));
-    return '#d9d9d9';
-  }
-(d){
     const lvl = levelOf(d);
     const n = namesFor(d);
     if (lvl==='ion')     return getIonColor(n.ion);
