@@ -101,10 +101,10 @@ function pick(cols, cands){ for(const c of cands) if(cols.includes(c)) return c;
 d3.csv(CSV_FILE).then(raw => {
   const cols = Object.keys(raw[0] || {});
   const C_FORMULA = pick(cols, ["Formula (Chemical)", "Formula"]);
-  const C_STRUCT  = pick(cols, ["Structure Group","StructureType","Structure_Type"]);
+  const C_STRUCT  = pick(cols, ["Structure Group"]);
   const C_ION     = pick(cols, ["Ion Type","IonType","Ion_Type"]);
-  const C_CYCLE   = pick(cols, ["Cycle Life normalized (cycles)","Cycle Life","Cycle Life (N cycles or hours)"]);
-  const C_RET     = pick(cols, ["Retention % normalized","Retention","Retention %"]);
+  const C_CYCLE   = pick(cols, ["Cycle Life normalized (cycles)","Cycle Life"]);
+  const C_RET     = pick(cols, ["Retention % normalized"]);
 
   const data = raw.map(d => {
     const cycle = parseCycleLife(d[C_CYCLE]);
