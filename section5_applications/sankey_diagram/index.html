@@ -33,7 +33,7 @@
 
   svg {
     width: 1100px;
-    height: 720px;
+    /* height will be set dynamically to make ky = 1 */
     background:#fff;
     border:1px solid #e5e5e5;
     border-radius:10px;
@@ -88,11 +88,6 @@
     color:#111;
     box-shadow:0 6px 18px rgba(0,0,0,.08);
   }
-
-  @media (max-width:1300px){
-    svg{ width:100%; height:660px; }
-    :root{ --side: 180px; }
-  }
 </style>
 </head>
 <body>
@@ -118,7 +113,11 @@
 <script>
 /* ========================== Tweakables ========================== */
 const EXTRA_WIDTH      = 240;
-const STRETCH_X        = 1.20;   // horizontal stretch of nodes (x only); keeps your original feel
+const NODE_WIDTH       = 18;
+const NODE_PADDING     = 18;   // used in both layout and our ky=1 height calc
+const TOP_BOTTOM_PAD   = 20;   // top+bottom breathing room inside the extent
+const LEFT_MARGIN_MIN  = 90;
+const RIGHT_MARGIN_MIN = 90;
 const ANODE_LABEL_DX   = -8;
 const MIDDLE_LABEL_DX  =  6;
 const CATHODE_LABEL_DX =  8;
@@ -132,10 +131,8 @@ const COL = {
 };
 const MIN_COUNT = 1;
 
-const svg   = d3.select("svg");
-const width = +svg.attr("width")  || 1100;
-const height= +svg.attr("height") || 720;
-const tip   = d3.select("#tip");
+const svg = d3.select("svg");
+const tip = d3.select("#tip");
 
 const structureColors = d3.scaleOrdinal()
   .domain(["Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Others"])
@@ -151,15 +148,13 @@ d3.csv("data.csv").then(raw => {
     cathode: (d[COL.cathode] ?? "").trim() || "No Cathode"
   }));
 
+  // Dynamic left/right margins from longest labels (keeps labels readable)
   const maxAnode   = d3.max(rows, d => estTextWidth(d.anode))   || 0;
   const maxCathode = d3.max(rows, d => estTextWidth(d.cathode)) || 0;
-  const leftMargin  = Math.min(380, Math.max(90,  maxAnode   + 20));
-  const rightMargin = Math.min(380, Math.max(90,  maxCathode + 20));
+  const leftMargin  = Math.min(380, Math.max(LEFT_MARGIN_MIN,  maxAnode   + 20));
+  const rightMargin = Math.min(380, Math.max(RIGHT_MARGIN_MIN, maxCathode + 20));
 
-  svg.selectAll("g").remove();
-  const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
-
-  // Count unique A→S→I→C paths (value = count)
+  // Aggregate unique A→S→I→C paths (value = COUNT)
   const pathMap = new Map();
   rows.forEach(r => {
     const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
@@ -170,6 +165,7 @@ d3.csv("data.csv").then(raw => {
     return { anode:a, struct:s, ion:i, cathode:c, value:v };
   });
 
+  // Build links per adjacent pair
   function linksFromPaths(aKey,bKey){
     const m = new Map();
     paths.forEach(p=>{
@@ -182,16 +178,15 @@ d3.csv("data.csv").then(raw => {
       return { sourceKey:`${aKey}:${a}`, targetKey:`${bKey}:${b}`, value:v, struct:sg };
     });
   }
-
   const L12 = linksFromPaths("anode","struct");
   const L23 = linksFromPaths("struct","ion");
   const L34 = linksFromPaths("ion","cathode");
   const allLinks = [...L12,...L23,...L34];
 
+  // Nodes
   const nodes = [];
   const nodeIndex = new Map();
   function addNode(key,label){
-    if (!key) return;
     if (!nodeIndex.has(key)) {
       nodeIndex.set(key,nodes.length);
       nodes.push({name:key,label});
@@ -208,27 +203,56 @@ d3.csv("data.csv").then(raw => {
     .filter(l=>nodeIndex.has(l.sourceKey)&&nodeIndex.has(l.targetKey)&&l.value>=MIN_COUNT)
     .map(l=>({source:nodeIndex.get(l.sourceKey),target:nodeIndex.get(l.targetKey),value:l.value,struct:l.struct}));
 
+  // === Compute the inner height we need so that ky = 1 (1 pixel per count) ===
+  // For each column, total flow equals the sum of link counts out of that column.
+  const totalsByColumn = [
+    d3.sum(L12, d=>d.value) || 0, // anode column total
+    d3.sum(L23, d=>d.value) || 0, // struct column total
+    d3.sum(L34, d=>d.value) || 0, // ion column total
+    d3.sum(L34, d=>d.value) || 0  // cathode column total (same as previous)
+  ];
+  const maxFlow = d3.max(totalsByColumn) || 0;
+
+  // Node counts per column (for padding slots)
+  const nodesByColumn = [
+    nodes.filter(n=>n.name.startsWith("anode:")).length,
+    nodes.filter(n=>n.name.startsWith("struct:")).length,
+    nodes.filter(n=>n.name.startsWith("ion:")).length,
+    nodes.filter(n=>n.name.startsWith("cathode:")).length
+  ];
+  const maxNodesInAColumn = d3.max(nodesByColumn) || 1;
+
+  // innerHeight = (max flow in counts) + total paddings between nodes in the most crowded column
+  const innerHeight = maxFlow + NODE_PADDING * Math.max(0, maxNodesInAColumn - 1) + TOP_BOTTOM_PAD*2;
+
+  // Set SVG height to accommodate that inner height + top margin in our translate
+  const svgHeight = innerHeight + 40; // +40 for bottom breathing room
+  svg.attr("height", svgHeight);
+
+  const width = +svg.attr("width");
+
+  // Draw group with left margin (top margin is handled by extent origin y=0)
+  svg.selectAll("g").remove();
+  const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
+
+  // Sankey layout sized so ky = 1
   const sankey = d3.sankey()
-    .nodeWidth(18)
-    .nodePadding(18)
+    .nodeWidth(NODE_WIDTH)
+    .nodePadding(NODE_PADDING)
     .nodeAlign(d3.sankeyJustify)
-    .extent([[0,0],[ (width-leftMargin-rightMargin-40)+EXTRA_WIDTH, height-40 ]]);
+    .extent([[0,0],[ (width-leftMargin-rightMargin-40)+EXTRA_WIDTH, innerHeight ]]); // <= sets availableHeight = innerHeight
 
-  const graph = sankey({nodes:nodes.map(d=>({...d})),links:links.map(d=>({...d}))});
+  const graph = sankey({
+    nodes: nodes.map(d=>({...d})),
+    links: links.map(d=>({...d}))
+  });
 
-  // Optional horizontal stretch only
-  if(STRETCH_X!==1){ graph.nodes.forEach(d=>{ d.x0*=STRETCH_X; d.x1*=STRETCH_X; }); }
-
-  // === Restore your count-based visual thickness (sqrt scale) ===
-  const maxValue = d3.max(graph.links, d => d.value) || 1;
-  const minValue = d3.min(graph.links, d => d.value) || 1;
-  const widthScale = d3.scaleSqrt().domain([minValue, maxValue]).range([1, 30]);
-
+  // === Links use layout-computed width; with ky=1 this equals the raw count ===
   const link = g.append("g").selectAll("path").data(graph.links).join("path")
     .attr("class","link")
     .attr("d", d3.sankeyLinkHorizontal())
     .attr("stroke", d => structureColors(d.struct))
-    .attr("stroke-width", d => widthScale(d.value)) // <-- back to your visual mapping
+    .attr("stroke-width", d => Math.max(1, d.width)) // d.width == d.value when ky = 1
     .attr("stroke-opacity", 0.35)
     .on("mousemove",(ev,d)=>{
       tip.html(`<div><b>${d.source.label}</b> → <b>${d.target.label}</b></div>
@@ -240,12 +264,12 @@ d3.csv("data.csv").then(raw => {
     })
     .on("mouseleave",()=>tip.style("opacity",0));
 
+  // Nodes: height equals node.value * ky; with ky=1, that's the sum of connected link counts
   const node=g.append("g").selectAll("g").data(graph.nodes).join("g").attr("class","node");
 
-  // Nodes: height is determined by sankey (sum of connected link counts)
   node.append("rect")
       .attr("x",d=>d.x0).attr("y",d=>d.y0)
-      .attr("height",d=>Math.max(1,d.y1-d.y0))
+      .attr("height",d=>Math.max(1,d.y1-d.y0)) // == sum of counts (pixels)
       .attr("width",d=>d.x1-d.x0)
       .attr("fill",d=>d.name.startsWith("struct:")?structureColors(d.label):(d.label.startsWith("Other ")||d.label.startsWith("No "))?"#cfcfcf":"#cccccc");
 
