@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Cycle Life vs Retention % — Interactive Legends (Solo on Click)</title>
+<title>Cycle Life vs Retention</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   :root { color-scheme: light; }
@@ -42,7 +42,6 @@
 <div class="wrap">
   <div id="chartPane">
     <svg id="chart" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet"></svg>
-    <div class="caption">Both axes linear. X fixed to 0–20k cycles. Retention clamped to 0–100%.</div>
   </div>
   <aside class="legends">
     <div class="card" id="card-structure">
@@ -118,7 +117,7 @@ d3.csv(CSV_FILE).then(raw => {
     };
   }).filter(d => Number.isFinite(d.CycleLife) && d.CycleLife >= 0 && Number.isFinite(d.Retention));
 
-  d3.select("#status").text(`rows loaded: ${raw.length} | plotted: ${data.length}`);
+
   if (!data.length) {
     g.append("text").attr("x", innerW/2).attr("y", innerH/2).attr("text-anchor","middle").attr("fill","#6b7280").text("No data to plot after filtering.");
     return;
