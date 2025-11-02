@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Anode → Structure Group → Ion Type → Cathode</title>
+<title>Anode → Structure Group → Ion Type → Cathode (counts + multicolor ends)</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
@@ -17,7 +17,6 @@
   .link{fill:none;stroke-opacity:.35}
   .legend{position:relative;margin-top:10px;display:inline-grid;grid-template-columns:repeat(7,auto);gap:8px 14px;align-items:center}
   .sw{width:12px;height:12px;border:1px solid #111;border-radius:3px;display:inline-block}
-  .side{position:absolute;right:20px;top:20px}
 </style>
 </head>
 <body>
@@ -25,6 +24,7 @@
 <h2>Anode → Structure Group → Ion Type → Cathode</h2>
 <div class="toolbar">
   <button id="download">Download SVG</button>
+  <span>Bars/links scale with counts; Anode/Cathode show multi-color mix by Structure Group.</span>
 </div>
 
 <svg id="s"></svg>
@@ -38,7 +38,7 @@ const COL = {
   cath: "Cathode"
 };
 
-// Structure Group palette (edit to match your existing colors)
+// Structure Group palette — match your existing colors if needed
 const STRUCT_COLORS = new Map([
   ["Others",        "#9CA3AF"],
   ["Polymeric",     "#ef4444"],
@@ -50,50 +50,43 @@ const STRUCT_COLORS = new Map([
 ]);
 const structColor = k => STRUCT_COLORS.get(k) || "#9CA3AF";
 
-// Build Sankey from CSV rows (each row = 1 count)
 d3.csv("data.csv").then(rows => {
-  // Deduplicate labels and build nodes per layer
+  // Build node lists per layer
   const A = new Set(), S = new Set(), I = new Set(), C = new Set();
   rows.forEach(r => { A.add(r[COL.anode]); S.add(r[COL.struct]); I.add(r[COL.ion]); C.add(r[COL.cath]); });
 
-  // Node list in layer order
   const nodes = [];
-  const idOf = new Map(); // name -> index
-  function pushLayer(prefix, arr) {
-    for (const name of arr) {
-      const label = String(name||"");
+  const idOf = new Map();
+  function pushLayer(prefix, set){
+    for(const name of set){
+      const label = String(name ?? "");
       const full = `${prefix}:${label}`;
       idOf.set(full, nodes.length);
       nodes.push({ name: full, label });
     }
   }
-  pushLayer("anode",  A);
-  pushLayer("struct", S);
-  pushLayer("ion",    I);
-  pushLayer("cath",   C);
+  pushLayer("anode",A); pushLayer("struct",S); pushLayer("ion",I); pushLayer("cath",C);
 
-  // Helper to id
-  const nid = (prefix, label)=> idOf.get(`${prefix}:${String(label||"")}`);
+  const nid = (prefix,label)=> idOf.get(`${prefix}:${String(label??"")}`);
 
-  // Accumulate links (counts)
-  const mapLinks = new Map(); // key "src|dst|struct" -> {source,target,value,struct}
-  function accLink(source, target, structKey) {
-    const key = source+"|"+target+"|"+structKey;
-    const o = mapLinks.get(key) || {source, target, value:0, struct:structKey};
-    o.value += 1; mapLinks.set(key, o);
+  // Accumulate links (each row counts as 1)
+  const keyed = new Map(); // "src|dst|struct" -> link
+  function acc(source,target,sg){
+    const key = `${source}|${target}|${sg}`;
+    const o = keyed.get(key) || {source,target,value:0,struct:sg};
+    o.value += 1; keyed.set(key,o);
   }
-  rows.forEach(r => {
-    const a = nid("anode", r[COL.anode]);
-    const s = nid("struct", r[COL.struct]);
-    const i = nid("ion", r[COL.ion]);
-    const c = nid("cath", r[COL.cath]);
-    const sg = r[COL.struct]; // structure group key for coloring
-    if (a!=null && s!=null) accLink(a, s, sg);
-    if (s!=null && i!=null) accLink(s, i, sg);
-    if (i!=null && c!=null) accLink(i, c, sg);
+  rows.forEach(r=>{
+    const a=nid("anode",r[COL.anode]);
+    const s=nid("struct",r[COL.struct]);
+    const i=nid("ion",  r[COL.ion]);
+    const c=nid("cath", r[COL.cath]);
+    const sg=r[COL.struct];
+    if(a!=null&&s!=null) acc(a,s,sg);
+    if(s!=null&&i!=null) acc(s,i,sg);
+    if(i!=null&&c!=null) acc(i,c,sg);
   });
-
-  const links = Array.from(mapLinks.values());
+  const links = Array.from(keyed.values());
 
   // Sankey layout (values drive widths/heights)
   const svg = d3.select("#s");
@@ -107,20 +100,20 @@ d3.csv("data.csv").then(rows => {
     .extent([[12,12],[W-12,H-12]]);
 
   const graph = sankey({
-    nodes: nodes.map(d => Object.assign({}, d)),
-    links: links.map(d => Object.assign({}, d))
+    nodes: nodes.map(d => ({...d})),
+    links: links.map(d => ({...d}))
   });
 
-  // ==== Build compositions for multi-color node fills (only ends) ====
-  const outComp = new Map(); // node.index -> Map(struct -> total)
+  // ---- compositions for multi-color node fills (only ends) ----
+  const outComp = new Map(); // node.index -> Map(struct -> sum)
   const inComp  = new Map();
   function addTo(map, idx, key, v){
     const m = map.get(idx) || new Map();
     m.set(key, (m.get(key)||0) + v);
     map.set(idx, m);
   }
-  graph.links.forEach(l => { addTo(outComp, l.source.index, l.struct, l.value);
-                             addTo(inComp,  l.target.index, l.struct, l.value); });
+  graph.links.forEach(l => { addTo(outComp,l.source.index,l.struct,l.value);
+                             addTo(inComp, l.target.index,l.struct,l.value); });
 
   const minX0 = d3.min(graph.nodes, n => n.x0);
   const maxX0 = d3.max(graph.nodes, n => n.x0);
@@ -144,7 +137,7 @@ d3.csv("data.csv").then(rows => {
     return `url(#${id})`;
   }
 
-  // ==== Draw links (stroke width comes from layout -> counts) ====
+  // ---- links (thickness from layout -> counts) ----
   svg.append("g")
     .attr("fill","none")
     .selectAll("path")
@@ -155,9 +148,9 @@ d3.csv("data.csv").then(rows => {
       .attr("stroke", d => structColor(d.struct))
       .attr("stroke-width", d => Math.max(1, d.width))
       .append("title")
-        .text(d => `${nodes[d.source.index].label} → ${nodes[d.target.index].label}\n${d.struct}: ${d.value}`);
+        .text(d => `${graph.nodes[d.source.index].label} → ${graph.nodes[d.target.index].label}\n${d.struct}: ${d.value}`);
 
-  // ==== Draw nodes ====
+  // ---- nodes (multicolor only on left/right columns) ----
   const node = svg.append("g")
     .selectAll("g")
     .data(graph.nodes)
@@ -170,17 +163,15 @@ d3.csv("data.csv").then(rows => {
     .attr("width", d => d.x1 - d.x0)
     .attr("height", d => Math.max(2, d.y1 - d.y0))
     .attr("fill", function(d){
-      // Leftmost (Anode): gradient from OUTGOING composition
-      if (d.x0 === minX0) {
+      if (d.x0 === minX0) { // Anode: outgoing mix
         const ent = Array.from(outComp.get(d.index) || []);
         if (ent.length) return applyNodeGradient(d, ent, "out");
       }
-      // Rightmost (Cathode): gradient from INCOMING composition
-      if (d.x0 === maxX0) {
+      if (d.x0 === maxX0) { // Cathode: incoming mix
         const ent = Array.from(inComp.get(d.index) || []);
         if (ent.length) return applyNodeGradient(d, ent, "in");
       }
-      // Middle columns keep solid color (by Structure Group family if available)
+      // Middle columns: solid color (Structure Group column gets its palette)
       if (d.name.startsWith("struct:")) return structColor(d.label);
       return "#cccccc";
     })
@@ -194,15 +185,15 @@ d3.csv("data.csv").then(rows => {
     .append("title")
       .text(d => d.label);
 
-  // ==== Legend for Structure Group colors ====
+  // legend (Structure Group colors)
   const entries = Array.from(STRUCT_COLORS.entries());
   const L = d3.select("#legend");
   L.selectAll("div.item").data(entries).join("div")
     .attr("class","item")
     .html(d => `<span class="sw" style="background:${d[1]}"></span> ${d[0]}`);
 
-  // ==== Download SVG ====
-  document.getElementById("download").addEventListener("click", () => {
+  // download
+  document.getElementById("download").addEventListener("click", ()=>{
     const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
     const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
     const url = URL.createObjectURL(blob);
