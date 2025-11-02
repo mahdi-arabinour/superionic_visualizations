@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Conductivity by Structure × Dopant — Hard-wired (Toolbar Legend v4)</title>
+<title>Conductivity by Structure × Dopant — Hard‑wired (Toolbar Legend v4)</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
@@ -26,7 +26,7 @@
 <body>
   <header>
     <h1>Conductivity by Structure × Dopant</h1>
-    <div class="sub">Bubble color = <b>Structure Group</b>. Bubble size ∝ √(count). Columns hard-wired.</div>
+    <div class="sub">Bubble color = <b>log<sub>10</sub>(σ)</b> (S/cm). Bubble size ∝ √(count). Columns hard‑wired.</div>
   </header>
 
   <div id="controls">
@@ -57,18 +57,6 @@ const COL_SIGMA   = "Conductivity σ (S/cm)";
 const COL_STRUCT  = "Structure Group";
 const COL_DOPANT  = "Doping / and or GB Strategy";
 const DEFAULT_SCALE = 80;
-
-// ✅ Structure colors
-const structureColors = {
-  "Others": "#9e9e9e",
-  "Polymeric": "#ff7043",
-  "Argyrodite": "#ab47bc",
-  "Halide": "#26a69a",
-  "Amorphous": "#f6bf26",
-  "NASICON": "#66bb6a",
-  "Anti-perovskite": "#0d47a1",
-  "Spinel": "#8d6e63"
-};
 
 // --- helpers ---
 function parseNumber(x) {
@@ -161,28 +149,24 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SC
     }
   }
 
-  const xs = [], ys = [], sizes = [], colorsValForSort = [], texts = [], hover = [], colorHex = [];
+  const xs = [], ys = [], sizes = [], colors = [], texts = [], hover = [];
   for (const [key, arr] of bucket) {
     const [structure, dopant] = key.split("|||");
     const valArr = arr.filter(v => isFinite(v) && v > 0);
     if (!valArr.length) continue;
     const val = useMean ? mean(valArr) : median(valArr);
     const n = valArr.length;
+    const colorVal = colorLinear ? val : Math.log10(val);
 
     xs.push(dopant);
     ys.push(structure);
     sizes.push(Math.sqrt(n) * sizeScale);
-
-    // keep numeric color metric ONLY for y-category sorting (unchanged UX)
-    colorsValForSort.push(colorLinear ? val : Math.log10(val));
+    colors.push(colorVal);
 
     const valRounded = roundSig(val, 6);
     const logRounded = roundSig(Math.log10(val), 6);
     texts.push(`${structure}<br><b>${dopant}</b>`);
-    hover.push(`Structure: ${structure}<br>Dopant: ${dopant}<br>Count: ${n}<br>${useMean?"Mean":"Median"} σ: ${valRounded} S/cm<br>log10(σ): ${logRounded}`);
-
-    // ✅ apply structure color
-    colorHex.push(structureColors[structure] || "#9e9e9e");
+    hover.push(`Structure: ${structure}<br>Dopant: ${dopant}<br>Count: ${n}<br>Median σ: ${valRounded} S/cm<br>log10(σ): ${logRounded}`);
   }
 
   const traceMain = {
@@ -190,13 +174,9 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SC
     text: texts,
     hovertemplate: "%{text}<br>%{customdata}<extra></extra>",
     customdata: hover.map(h => h.replace(/<br>/g, "\n")),
-    marker: {
-      size: sizes,
-      sizemode: "area",
-      color: colorHex,                 // categorical hex colors by Structure
-      line: { width: 0.5, color: "rgba(0,0,0,0.2)" }
-      // (no colorscale/colorbar when passing hex array)
-    },
+    marker: { size: sizes, sizemode: "area", color: colors, colorscale: "Viridis",
+      colorbar: { title: colorLinear ? "σ (S/cm)" : "log10(σ)", titleside: "right", thickness: 14, len: 0.8 },
+      line: { width: 0.5, color: "rgba(0,0,0,0.2)" } },
     type: "scatter", xaxis: "x", yaxis: "y"
   };
 
@@ -208,10 +188,10 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SC
     showlegend: false
   };
 
-  // Sort Y categories by highest numeric value (kept same as before)
+  // Sort Y categories by highest color
   const yCats = Array.from(new Set(ys));
   const catScore = new Map(yCats.map(c => [c, -Infinity]));
-  for (let i=0;i<ys.length;i++){ const cat=ys[i]; const c=colorsValForSort[i]; catScore.set(cat, Math.max(catScore.get(cat), c)); }
+  for (let i=0;i<ys.length;i++){ const cat=ys[i]; const c=colors[i]; catScore.set(cat, Math.max(catScore.get(cat), c)); }
   if (yCats.length) { yCats.sort((a,b)=> (catScore.get(b)-catScore.get(a))); layout.yaxis.categoryarray = yCats; }
 
   Plotly.react("chart", [traceMain], layout, {
@@ -221,8 +201,8 @@ function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SC
   });
 
   document.getElementById("status").textContent =
-    `Rendered ${xs.length} bubbles across ${yCats.length} structure groups (color by Structure; size by √count)` +
-    (useMean ? ", using mean" : ", using median") + `. Size scale: ${sizeScale}`;
+    `Rendered ${xs.length} bubbles across ${yCats.length} structure groups (color by ` +
+    (colorLinear ? "linear σ" : "log10(σ)") + (useMean ? ", mean" : ", median") + `). Size scale: ${sizeScale}`;
 
   buildSizeLegend(sizeScale);
 }
