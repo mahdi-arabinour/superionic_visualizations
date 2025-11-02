@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Sunburst — Labels + Multiselect Legend (D3 v7)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  :root { color-scheme: dark; }
+  html, body { height:100%; margin:0; }
+  body {
+    font-family:system-ui, Segoe UI, Roboto, sans-serif;
+    background:#0f1115; color:#e8e8ea;
+    display:flex; flex-direction:column;
+  }
+  header {
+    padding:10px 14px; background:#171a20;
+    display:flex; gap:16px; align-items:center; flex-wrap:wrap;
+    border-bottom:1px solid #262a32;
+  }
+  #wrap { flex:1; display:flex; padding:10px 12px; gap:12px; min-height:0; }
+  #chartCard {
+    flex:1; display:grid; grid-template-columns:minmax(640px,1.7fr) 360px;
+    gap:12px; align-items:start; min-height:0;
+  }
+  .chartBody {
+    background:#101626; border:1px dashed #333a49; border-radius:12px;
+    position:relative; height:min(88vh,900px); min-height:560px;
+  }
+  svg { width:100%; height:100%; display:block; }
+
+  /* Legend + controls */
+  .legend {
+    background:#0f141f; border:1px solid #2a3240; border-radius:12px;
+    padding:10px; overflow:auto; max-height:calc(100vh - 150px);
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .legend h4 { margin:0 0 8px 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
+  .legendGroup { display:flex; flex-direction:column; gap:6px; }
+
+  .ionRow {
+    display:grid; grid-template-columns:18px 1fr auto;
+    gap:8px; align-items:center; padding:6px 8px; border-radius:8px;
+    user-select:none;
+  }
+  .ionRow:hover { background:#0f1726; }
+  .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(255,255,255,.35); }
+
+  .controls { border-top:1px solid #2a3240; padding-top:8px; display:flex; flex-direction:column; gap:10px; }
+  .controls h4 { margin:4px 0 0 0; font-size:12px; color:#cbd5e1; letter-spacing:.4px; text-transform:uppercase; }
+  .toggleRow { display:flex; align-items:center; gap:8px; font-size:13px; }
+  fieldset { border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
+  .levelRow { display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:center; }
+  .levelRow input[type="range"] { width:100%; }
+  .legendBtns { display:flex; gap:8px; margin-top:6px; }
+  .btn {
+    background:#1a2335; border:1px solid #2a3240; color:#e6eefc;
+    padding:6px 10px; border-radius:8px; font-size:12px; cursor:pointer;
+  }
+  .btn:hover { background:#1e2a42; }
+
+  .tooltip {
+    position:fixed; pointer-events:none; background:rgba(0,0,0,.9);
+    color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3;
+    display:none; z-index:10; box-shadow:0 6px 18px rgba(0,0,0,.45);
+  }
+  .label, .leafLabel { fill:#e7eaf2; pointer-events:none; }
+  .hiddenLabel { opacity:0; transition:opacity .12s ease; }
+  .visibleLabel { opacity:1; transition:opacity .12s ease; }
+
+  /* Dim for non-selected */
+  .dimmed { opacity: .18; transition: opacity .12s ease; }
+
+  /* Ring captions (always on top) */
+  .cap { pointer-events:none; }
+  .cap text {
+    font-size: 11px; fill: #9fb3cc; letter-spacing: .3px;
+    paint-order: stroke; stroke: rgba(15,17,21,0.85); stroke-width:3px;
+  }
+  .cap path { fill:none; stroke:none; }
+
+  .crumbs { font-size:12px; color:#9fb3cc; }
+  .crumbs a { color:#c6d7ff; text-decoration:none; cursor:pointer; }
+  .crumbs a:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+  <header>
+    <strong>Sunburst</strong>
+    <label class="toggleRow">
+      <input type="checkbox" id="toggleAll" checked>
+      Show labels
+    </label>
+    <span id="rtStats" style="font-size:12px;color:#9fb3cc;"></span>
+    <span id="crumbs" class="crumbs"></span>
+  </header>
+
+  <div id="wrap">
+    <div id="chartCard">
+      <div id="chart" class="chartBody"></div>
+
+      <div class="legend">
+        <h4>Legend</h4>
+        <div class="legendGroup"></div>
+
+        <div class="controls">
+          <h4>Label controls</h4>
+          <fieldset id="levelsFs">
+            <div class="levelRow">
+              <label class="lvlLabel" for="showIon">
+                <input type="checkbox" id="showIon" checked> Ion
+              </label>
+              <input id="fsIon" type="range" min="8" max="24" step="1" value="13">
+            </div>
+
+            <div class="levelRow">
+              <label class="lvlLabel" for="showStruct">
+                <input type="checkbox" id="showStruct" checked> Structure
+              </label>
+              <input id="fsStruct" type="range" min="8" max="24" step="1" value="12">
+            </div>
+
+            <div class="levelRow">
+              <label class="lvlLabel" for="showStrat">
+                <input type="checkbox" id="showStrat" checked> Doping strategy
+              </label>
+              <input id="fsStrat" type="range" min="8" max="22" step="1" value="11">
+            </div>
+
+            <div class="levelRow">
+              <label class="lvlLabel" for="showFormula">
+                <input type="checkbox" id="showFormula" checked> Formula
+              </label>
+              <input id="fsFormula" type="range" min="7" max="20" step="1" value="10">
+            </div>
+          </fieldset>
+
+          <div class="legendBtns">
+            <button id="btnClearSel" class="btn">Clear selection</button>
+          </div>
+
+          <label class="toggleRow" style="margin-top:4px;">
+            <input type="checkbox" id="hideUnsel" checked>
+            Hide unselected labels
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script>
+  // ---------------- Tunables ----------------
+  const DEF_COND = 1e-6;
+  const SCALE_MODE = 'log';
+  const RING_SCALE = [1.0, 1.32, 1.52];  // root, ion, structure+
+  const LEAF_SCALE = [1.0, 1.45, 1.6];
+  const CAP_ARC_DEG = 90;                 // ring caption arc span
+
+  // ---------------- State ----------------
+  let fullHierarchy=null, idMap=new Map(), focusNode=null;
+  let colorIon, maxRGlobal=0, labelsVisible=true;
+  let _nodesCache=null, _outerR=null, _defs=null, _g=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
+
+  // Label level toggles + font sizes
+  let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=true, SHOW_FORM=true;
+  let FS_ION=13, FS_STRUCT=12, FS_STRAT=11, FS_FORM=10;
+
+  // Legend multi-select state
+  const selIons    = new Set();
+  const selStructs = new Set(); // "ION:<ion>|STRUCT:<structure>"
+  const selStrats  = new Set(); // "ION:<ion>|STRUCT:<structure>|STRAT:<strategy>"
+
+  // Label filtering mode
+  let HIDE_UNSEL = true;
+
+  // UI refs
+  const ui = {};
+
+  // ---------------- Boot ----------------
+  document.addEventListener('DOMContentLoaded', async ()=>{
+    ui.toggleAll   = document.getElementById('toggleAll');
+    ui.showIon     = document.getElementById('showIon');
+    ui.showStruct  = document.getElementById('showStruct');
+    ui.showStrat   = document.getElementById('showStrat');
+    ui.showFormula = document.getElementById('showFormula');
+    ui.fsIon       = document.getElementById('fsIon');
+    ui.fsStruct    = document.getElementById('fsStruct');
+    ui.fsStrat     = document.getElementById('fsStrat');
+    ui.fsFormula   = document.getElementById('fsFormula');
+    ui.btnClearSel = document.getElementById('btnClearSel');
+    ui.hideUnsel   = document.getElementById('hideUnsel');
+
+    ui.toggleAll.onchange = ()=>{ labelsVisible = ui.toggleAll.checked; applyLabelVisibility(); };
+
+    ui.showIon.onchange     = ()=>{ SHOW_ION     = ui.showIon.checked;     layoutLabels(); applyLegendFilter(); };
+    ui.showStruct.onchange  = ()=>{ SHOW_STRUCT  = ui.showStruct.checked;  layoutLabels(); applyLegendFilter(); };
+    ui.showStrat.onchange   = ()=>{ SHOW_STRAT   = ui.showStrat.checked;   layoutLabels(); applyLegendFilter(); };
+    ui.showFormula.onchange = ()=>{ SHOW_FORM    = ui.showFormula.checked; layoutLabels(); applyLegendFilter(); };
+
+    ui.fsIon.oninput     = ()=>{ FS_ION   = +ui.fsIon.value;     layoutLabels(true); };
+    ui.fsStruct.oninput  = ()=>{ FS_STRUCT= +ui.fsStruct.value;  layoutLabels(true); };
+    ui.fsStrat.oninput   = ()=>{ FS_STRAT = +ui.fsStrat.value;   layoutLabels(true); };
+    ui.fsFormula.oninput = ()=>{ FS_FORM  = +ui.fsFormula.value; layoutLabels(true); };
+
+    ui.btnClearSel.onclick = ()=>{
+      selIons.clear(); selStructs.clear(); selStrats.clear();
+      document.querySelectorAll('.legendGroup input[type="checkbox"]').forEach(cb=>{ cb.checked=false; });
+      applyLegendFilter();
+    };
+
+    ui.hideUnsel.onchange = ()=>{ HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
+
+    // Data + draw
+    const dataObj = await (await fetch('data.simplified.json', {cache:'no-store'})).json();
+    fullHierarchy = buildHierarchy(dataObj);
+    draw();
+
+    window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(draw,120); });
+  });
+
+  // ---------------- Build hierarchy ----------------
+  function obj2children(obj){
+    return Object.entries(obj).map(([ion, structures])=>({
+      name:ion,
+      children:Object.entries(structures||{}).map(([structure, strategies])=>({
+        name:structure,
+        children:Object.entries(strategies||{}).map(([strategy, formulas])=>({
+          name:strategy,
+          children:Object.entries(formulas||{}).map(([formula, vals])=>{
+            const nums=Array.isArray(vals)?vals.map(Number).filter(x=>Number.isFinite(x)&&x>0):[];
+            return { name:formula, values:nums };
+          })
+        }))
+      }))
+    }));
+  }
+  let _uid=1;
+  function assignUids(root){ root.each(n=>{ n.data._uid=_uid++; idMap.set(n.data._uid, n); }); }
+  function buildHierarchy(dataObj){
+    const data={ name:'root', children:obj2children(dataObj) };
+    const root=d3.hierarchy(data, d=>d.children)
+      .sum(d => Array.isArray(d?.values) ? 1 : 0)
+      .sort((a,b)=>(b.value||0)-(a.value||0));
+    root.each(n=>{
+      if (Array.isArray(n.data.values)) {
+        const vals = n.data.values.filter(Number.isFinite);
+        n.data.cond = vals.length ? vals[0] : DEF_COND;
+        n.data.hasCond = vals.length>0;
+      }
+    });
+    assignUids(root);
+    return root;
+  }
+
+  function makeFocusRoot(){
+    if (!focusNode || focusNode.depth===0) return fullHierarchy.copy();
+    const clone = d3.hierarchy({
+      name:focusNode.data.name, _uid:focusNode.data._uid,
+      children: focusNode.children?.map(child=>cloneData(child))
+    }, d=>d.children);
+    clone.sum(d=>Array.isArray(d?.values)?1:0)
+         .sort((a,b)=>(b.value||0)-(a.value||0));
+    clone.each(n=>{
+      if (Array.isArray(n.data.values)) {
+        const vals=n.data.values.filter(Number.isFinite);
+        n.data.cond = vals.length ? vals[0] : DEF_COND;
+        n.data.hasCond = vals.length>0;
+      }
+    });
+    return clone;
+  }
+  function cloneData(node){
+    return { name:node.data.name, values:node.data.values, _uid:node.data._uid,
+             children: node.children?.map(c=>cloneData(c)) };
+  }
+
+  // ---------------- Color Maps (EDIT THESE WITH YOUR EXACT COLORS) ----------------
+  // Provide exact hex colors for each Ion and Structure name (keys must match data names).
+  const ION_COLORS = {
+    "Li+":  "#ff5252",  
+    "Na+":  "#81d4fa",  
+    "K+":   "#004d40",  
+    "Ag+":  "#f48fb1",  
+    "O2-":  "#6d4c41",  
+    "Zn2+": "#c2185b"
+  };
+  const STRUCT_COLORS = {
+    "Others": "#9e9e9e",
+    "Polymeric": "#ff7043",
+    "Argyrodite": "#ab47bc",
+    "Halide": "#26a69a",
+    "Amorphous": "#f6bf26",
+    "NASICON": "#66bb6a",
+    "Anti-perovskite": "#0d47a1",
+    "Spinel": "#8d6e63"
+  };
+  const FALLBACK_ION    = '#8884d8';
+  const FALLBACK_STRUCT = '#82ca9d';
+
+  function normName(s){ return (s ?? '').trim(); }
+  function getIonColor(name){
+    const key = normName(name);
+    return ION_COLORS[key] ?? ION_COLORS[key?.toLowerCase?.()] ?? FALLBACK_ION;
+  }
+  function getStructColor(name){
+    const key = normName(name);
+    return STRUCT_COLORS[key] ?? STRUCT_COLORS[key?.toLowerCase?.()] ?? FALLBACK_STRUCT;
+  }
+  function levelOf(d){
+    const dep = d.depth ?? (d.ancestors?.().length-1);
+    if (dep===1) return 'ion';
+    if (dep===2) return 'struct';
+    if (dep===3) return 'strat';
+    if (dep===4) return 'formula';
+    return 'root';
+  }
+  function namesFor(d){
+    const chain = d.ancestors().reverse();
+    return {
+      ion:    chain[1]?.data?.name ?? null,
+      struct: chain[2]?.data?.name ?? null,
+    };
+  }
+  // Derive distinct, related colors for strategy/formula from their parent STRUCT color
+  function deriveForStrat(hex) {
+    const c = d3.hsl(d3.color(hex));
+    return c.brighter(0.7).saturate(-0.6).formatHex();
+  }
+  function deriveForFormula(hex) {
+    const c = d3.hsl(d3.color(hex));
+    return c.brighter(1.2).saturate(-0.9).formatHex();
+  }
+  function nodeFill(d){
+    const lvl = levelOf(d);
+    const n = namesFor(d);
+    if (lvl==='ion')     return getIonColor(n.ion);
+    if (lvl==='struct')  return getStructColor(n.struct);
+    if (lvl==='strat')   return deriveForStrat(getStructColor(n.struct));
+    if (lvl==='formula') return deriveForFormula(getStructColor(n.struct));
+    return '#d9d9d9';
+  }
+
+  // ---------------- Draw ----------------
+  function draw(){
+    const chartEl=document.getElementById('chart');
+    const legendEl=document.querySelector('.legendGroup');
+    const tt=document.getElementById('tooltip');
+    chartEl.innerHTML=''; legendEl.innerHTML='';
+
+    const rect=chartEl.getBoundingClientRect();
+    const side=Math.min(Math.max(560, rect.width), Math.max(560, rect.height));
+
+    const root = makeFocusRoot();
+    _focusDepth = (focusNode?.depth ?? 0);
+
+    const ringScale=RING_SCALE[Math.min(_focusDepth, RING_SCALE.length-1)];
+    const leafScale=LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
+    _ringThickness=Math.max(44, side*0.085)*ringScale;
+    _leafBase=Math.max(12, side*0.03);
+    const extraLeafMax=Math.max(90, side*0.22)*leafScale;
+
+    d3.partition().size([2*Math.PI, (root.height + 1) * _ringThickness])(root);
+
+    const condVals=root.leaves().map(l=>l.data.cond||DEF_COND);
+    let [cmin,cmax]=d3.extent(condVals); if(!(cmax>cmin)){ cmin=Math.max(1e-12,cmin*0.8); cmax=cmin*10; }
+    const baseScale=(SCALE_MODE==='linear'? d3.scaleLinear().domain([cmin,cmax])
+                                          : d3.scaleLog().domain([Math.max(cmin,1e-12), Math.max(cmax,1e-12)]));
+    const condScale=baseScale.range([0,extraLeafMax]).clamp(true);
+
+    const ions=(fullHierarchy.children||[]).map(d=>d.data.name);
+    // color scales removed; using name-based maps via nodeFill()
+    _outerR = d => d.children ? d.y1 : d.y1 + _leafBase + condScale(d.data.cond || DEF_COND);
+    const maxR = d3.max(root.descendants(), d=>_outerR(d)) + 6; maxRGlobal = maxR;
+
+    const svg=d3.select(chartEl).append('svg').attr('width','100%').attr('height','100%')
+      .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
+    _g=svg.append('g'); _defs=svg.append('defs');
+
+    const arc=d3.arc().startAngle(d=>d.x0).endAngle(d=>d.x1)
+      .padAngle(d=>Math.min(0.006,(d.x1-d.x0)/6)).padRadius(maxR*0.9)
+      .innerRadius(d=>d.y0).outerRadius(d=>_outerR(d));
+
+    const nodes = root.descendants().filter(d => d.depth>0);
+    _nodesCache = nodes;
+
+    // arcs
+    const paths=_g.selectAll('path.slice').data(nodes, d=>d.data._uid).join('path')
+      .attr('class','slice')
+      .attr('d', arc)
+      .attr('fill', d=>{ const base = nodeFill(d); if (!d.children && !d.data.hasCond){ const c=d3.color(base); c.opacity=0.55; return c.formatRgb(); } return base; })
+      .attr('stroke','#fff').attr('stroke-opacity',0.28)
+      .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.6, side*0.0012));
+
+    // Tag for filtering
+    paths.each(function(d){
+      const names = absoluteNames(d);
+      this.dataset.ion   = names.ion || '';
+      this.dataset.struct= names.struct || '';
+      this.dataset.strat = names.strat || '';
+    });
+
+    // tooltips
+    const tipVal=v=>(!Number.isFinite(v)?'n/a':(v<0.01?`${(v*1000).toFixed(3)} mS·cm⁻¹`:`${Number(v).toPrecision(3)} S·cm⁻¹`));
+    paths.on('mousemove',(evt,d)=>{
+      const trail=d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
+      let html=`<strong>${trail}</strong>`;
+      html += d.children ? `<br/>Share (by formula count): ${d.value}`
+                         : (d.data.hasCond ? `<br/>σ: ${tipVal(d.data.cond)}<br/><small>RT preferred; else first</small>`
+                                           : `<br/><em>No conductivity — default height</em>`);
+      const tt=document.getElementById('tooltip');
+      tt.style.display='block'; tt.innerHTML=html;
+      tt.style.left=(evt.clientX+10)+'px'; tt.style.top=(evt.clientY+10)+'px';
+    }).on('mouseleave',()=>{ document.getElementById('tooltip').style.display='none'; });
+
+    // zoom click
+    paths.on('click',(evt,d)=>{
+      const full = idMap.get(d.data._uid);
+      if (focusNode && full === focusNode) { focusNode = focusNode.parent || null; }
+      else { focusNode = full; }
+      selIons.clear(); selStructs.clear(); selStrats.clear();
+      draw();
+    });
+
+    // center back button + title
+    const backR = Math.max(16, (_outerR(root) - root.y0) * 0.20);
+    _g.append('circle')
+      .attr('r', backR)
+      .attr('fill', 'rgba(255,255,255,0.02)')
+      .style('cursor', focusNode ? 'pointer' : 'default')
+      .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); }});
+    _g.append('text')
+      .attr('text-anchor','middle').attr('dy','0.35em')
+      .style('font-size','12px').style('fill','#dfe6f3')
+      .text(focusNode ? focusNode.data.name : 'All ions');
+
+    // labels
+    layoutLabels();
+
+    // captions
+    renderRingCaptions(root);
+
+    // stats + crumbs + legend
+    document.getElementById('rtStats').textContent =
+      `Formulas w/ conductivity: ${fullHierarchy.leaves().filter(d=>d.data.hasCond).length}/${fullHierarchy.leaves().length}`;
+    renderCrumbs();
+    buildLegend(legendEl, root);
+
+    applyLabelVisibility();
+    applyLegendFilter();
+  }
+
+  // ---------------- Helpers ----------------
+  function absoluteNames(node){
+    const orig = idMap.get(node.data._uid);
+    let ion=null, struct=null, strat=null;
+    if (!orig) return {ion,struct,strat};
+    const chain = orig.ancestors().reverse();
+    if (chain[1]) ion    = chain[1].data.name;
+    if (chain[2]) struct = chain[2].data.name;
+    if (chain[3]) strat  = chain[3].data.name;
+    return {ion,struct,strat};
+  }
+
+  function chainName(n, rel){
+    if (!n) return '';
+    const anc = n.ancestors().reverse();
+    if (n.depth===1){ if (rel===1) return n.data.name; return ''; }
+    if (n.depth===2){ if (rel===1) return anc[1]?.data?.name||''; if (rel===0) return n.data.name; }
+    return '';
+  }
+
+  // ---------------- Legend (multiselect) ----------------
+  function buildLegend(container, subtreeRoot){
+    container.innerHTML='';
+    const depth = (focusNode?.depth ?? 0); // 0->ions, 1->structures, 2->strategies
+
+    (subtreeRoot.children||[]).forEach(node=>{
+      const row = document.createElement('label'); row.className='ionRow';
+      const sw  = document.createElement('div');  sw.className='swatch';
+      const title = document.createElement('div');
+      const pick  = document.createElement('input'); pick.type='checkbox';
+
+      // color swatch: exact color of the node at current focus level
+      sw.style.background = nodeFill(node);
+      title.textContent = node.data.name;
+
+      // restore checked state
+      if (depth===0)   pick.checked = selIons.has(node.data.name);
+      else if (depth===1){
+        const ion = (focusNode?.data?.name)||'';
+        pick.checked = selStructs.has(`ION:${ion}|STRUCT:${node.data.name}`);
+      } else if (depth===2){
+        const ion = chainName(focusNode,1);
+        const struct = chainName(focusNode,0);
+        pick.checked = selStrats.has(`ION:${ion}|STRUCT:${struct}|STRAT:${node.data.name}`);
+      }
+
+      pick.onchange = ()=>{
+        if (depth===0){
+          if (pick.checked) selIons.add(node.data.name); else selIons.delete(node.data.name);
+        } else if (depth===1){
+          const ion = (focusNode?.data?.name)||'';
+          const key = `ION:${ion}|STRUCT:${node.data.name}`;
+          if (pick.checked) selStructs.add(key); else selStructs.delete(key);
+        } else if (depth===2){
+          const ion    = chainName(focusNode,1);
+          const struct = chainName(focusNode,0);
+          const key = `ION:${ion}|STRUCT:${struct}|STRAT:${node.data.name}`;
+          if (pick.checked) selStrats.add(key); else selStrats.delete(key);
+        }
+        applyLegendFilter();
+      };
+
+      row.append(sw, title, pick);
+      container.appendChild(row);
+    });
+  }
+
+  // ---------------- Selection filter (arcs dim; labels hide or dim) ----------------
+  function applyLegendFilter(){
+    const depth = (focusNode?.depth ?? 0);
+    const hasSel =
+      (depth===0 && selIons.size>0) ||
+      (depth===1 && selStructs.size>0) ||
+      (depth===2 && selStrats.size>0);
+
+    // Arcs: always dim non-selected (keep context)
+    d3.selectAll('path.slice').each(function(){
+      const ion    = this.dataset.ion   || '';
+      const struct = this.dataset.struct|| '';
+      const strat  = this.dataset.strat || '';
+      let on = true;
+
+      if (hasSel){
+        if (depth===0){
+          on = selIons.has(ion);
+        } else if (depth===1){
+          on = selStructs.has(`ION:${focusNode?.data?.name||''}|STRUCT:${struct}`);
+        } else if (depth===2){
+          const ionA    = chainName(focusNode,1);
+          const structA = chainName(focusNode,0);
+          on = selStrats.has(`ION:${ionA}|STRUCT:${structA}|STRAT:${strat}`);
+        }
+      }
+      this.classList.toggle('dimmed', hasSel && !on);
+    });
+
+    // Labels: hide or dim non-selected
+    d3.selectAll('.labels text.levelLabel').each(function(d){
+      const names = absoluteNames(d);
+      let on = true;
+
+      if (hasSel){
+        if (depth===0){
+          on = selIons.has(names.ion||'');
+        } else if (depth===1){
+          on = selStructs.has(`ION:${focusNode?.data?.name||''}|STRUCT:${names.struct||''}`);
+        } else if (depth===2){
+          const ionA    = chainName(focusNode,1);
+          const structA = chainName(focusNode,0);
+          on = selStrats.has(`ION:${ionA}|STRUCT:${structA}|STRAT:${names.strat||''}`);
+        }
+      }
+
+      const sel = d3.select(this);
+      if (hasSel && !on && HIDE_UNSEL){
+        sel.style('display','none').classed('dimmed', false);
+      } else {
+        sel.style('display', null).classed('dimmed', hasSel && !on && !HIDE_UNSEL);
+      }
+    });
+  }
+
+  // ---------------- Breadcrumbs ----------------
+  function renderCrumbs(){
+    const el=document.getElementById('crumbs');
+    if (!focusNode || focusNode.depth===0){
+      el.innerHTML='<a data-ix="root">All ions</a>';
+      el.querySelector('a').onclick=()=>{ focusNode=null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); };
+      return;
+    }
+    const chain=focusNode.ancestors().reverse().slice(1);
+    el.innerHTML=['<a data-ix="root">All ions</a>',
+      ...chain.map((n,i)=>` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
+    el.querySelectorAll('a').forEach(a=>{
+      a.onclick=()=>{
+        const ix=a.getAttribute('data-ix');
+        focusNode = (ix==='root') ? null : chain[Number(ix)];
+        selIons.clear(); selStructs.clear(); selStrats.clear();
+        draw();
+      };
+    });
+  }
+
+  // ---------------- Level mapping + labels ----------------
+  function levelOf(d){
+    const orig = idMap.get(d.data._uid);
+    const od = orig?.depth ?? 0; // 0=root, 1=ion, 2=structure, 3=strategy, 4=formula
+    return od===1 ? 'ion' : od===2 ? 'struct' : od===3 ? 'strat' : 'formula';
+  }
+
+  function layoutLabels(){
+    _g.selectAll('.labels').remove();
+    const layer = _g.append('g').attr('class','labels');
+
+    let data = [];
+    if (SHOW_ION)     data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='ion'));
+    if (SHOW_STRUCT)  data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='struct'));
+    if (SHOW_STRAT)   data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='strat'));
+    if (SHOW_FORM)    data = data.concat(_nodesCache.filter(n => levelOf(n)==='formula'));
+
+    const sel = layer.selectAll('text.levelLabel')
+      .data(data, d=>`${d.data._uid}-${levelOf(d)}`)
+      .join('text')
+      .attr('class', d=> (levelOf(d)==='formula' ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'))
+      .text(d=> d.data.name)
+      .style('font-size', d=>{
+        const lv = levelOf(d);
+        return lv==='ion' ? (FS_ION+'px')
+             : lv==='struct' ? (FS_STRUCT+'px')
+             : lv==='strat' ? (FS_STRAT+'px')
+             : (FS_FORM+'px');
+      })
+      .style('font-weight', d=>{
+        const lv = levelOf(d);
+        return lv==='ion' ? 700 : lv==='struct' ? 600 : lv==='strat' ? 500 : 400;
+      })
+      .style('fill', d=> levelOf(d)==='ion' ? '#fff' : '#e7eaf2');
+
+    placeRadial(sel);
+    applyLegendFilter();
+  }
+
+  // ---------------- Radial placement (always show) ----------------
+  function placeRadial(selection){
+    selection.each(function(d){
+      const el = d3.select(this);
+      const lv = levelOf(d);
+      const fs = lv==='ion' ? FS_ION
+               : lv==='struct' ? FS_STRUCT
+               : lv==='strat' ? FS_STRAT
+               : FS_FORM;
+      el.style('font-size', fs + 'px');
+
+      const rMidBase = (d.y0 + (lv==='formula' ? _outerR(d) : d.y1)) / 2;
+      const rMid = rMidBase + (lv==='formula' ? 0 : 4);
+
+      let amid = (d.x0 + d.x1) / 2;
+      if (d.x0 < 0 && d.x1 > 0) amid += 0.01;
+
+      const deg = amid * 180 / Math.PI;
+      const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
+
+      el.attr('dy','0.32em')
+        .attr('text-anchor','middle')
+        .attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`)
+        .style('opacity', 1)
+        .style('display', null);
+    });
+  }
+
+  // ---------------- Ring captions (fixed to actual bands) ----------------
+  function ensureCaptionLayers(){
+    if (!window._capLayers){
+      window._capLayers = {
+        ion:     _g.append('g').attr('class','cap cap-ion'),
+        struct:  _g.append('g').attr('class','cap cap-struct'),
+        strat:   _g.append('g').attr('class','cap cap-strat'),
+        formula: _g.append('g').attr('class','cap cap-formula'),
+      };
+    }
+    _capLayers.ion.selectAll('*').remove();
+    _capLayers.struct.selectAll('*').remove();
+    _capLayers.strat.selectAll('*').remove();
+    _capLayers.formula.selectAll('*').remove();
+  }
+
+  function midForDepth(partitionRoot, depth){
+    const n = partitionRoot.descendants().find(d => d.depth === depth);
+    return n ? (n.y0 + n.y1) / 2 : (depth + 0.5) * _ringThickness;
+  }
+
+  function renderRingCaptions(partitionRoot){
+    ensureCaptionLayers();
+    if (!_defs) return;
+    _defs.selectAll('path.ringArc').remove();
+
+    const a0 = (-90 - CAP_ARC_DEG/2) * Math.PI/180;
+    const a1 = (-90 + CAP_ARC_DEG/2) * Math.PI/180;
+
+    function arcPath(r, a0, a1){
+      const x0 = r * Math.cos(a0), y0 = r * Math.sin(a0);
+      const x1 = r * Math.cos(a1), y1 = r * Math.sin(a1);
+      const largeArc = (a1 - a0) % (2*Math.PI) > Math.PI ? 1 : 0;
+      return `M ${x0.toFixed(3)} ${y0.toFixed(3)} A ${r.toFixed(3)} ${r.toFixed(3)} 0 ${largeArc} 1 ${x1.toFixed(3)} ${y1.toFixed(3)}`;
+    }
+
+    const rIon    = midForDepth(partitionRoot, 1);
+    const rStruct = midForDepth(partitionRoot, 2);
+    const rStrat  = midForDepth(partitionRoot, 3);
+
+    const maxDepth = partitionRoot.height;
+    const lastBand = partitionRoot.descendants().find(d => d.depth === maxDepth);
+    const rFormula = (lastBand?.y1 ?? ((maxDepth+1) * _ringThickness)) + (_leafBase * 0.55);
+
+    const items = [
+      { key:'ion',     text:'Ion Type',                              r:rIon    },
+      { key:'struct',  text:'Structure Group',                       r:rStruct },
+      { key:'strat',   text:'Doping / and or GB Strategy',           r:rStrat  },
+      { key:'formula', text:'Superionic Conductor Formula (Chemical)', r:rFormula},
+    ];
+
+    items.forEach((it)=>{
+      if (!Number.isFinite(it.r) || it.r <= 0) return;
+      const id = `ringcap-${Math.floor(it.r)}-${it.key}`;
+      const d  = arcPath(it.r, a0, a1);
+      _defs.append('path').attr('id', id).attr('d', d);
+      const layer = _capLayers[it.key];
+      layer.append('text')
+        .append('textPath')
+        .attr('href', '#'+id)
+        .attr('startOffset','50%')
+        .attr('text-anchor','middle')
+        .text(it.text);
+    });
+
+    _capLayers.ion.raise();
+    _capLayers.struct.raise();
+    _capLayers.strat.raise();
+    _capLayers.formula.raise();
+  }
+
+  // ---------------- Visibility toggle ----------------
+  function applyLabelVisibility(){
+    const show = labelsVisible;
+    d3.selectAll('.label, .leafLabel')
+      .classed('hiddenLabel', !show)
+      .classed('visibleLabel', show);
+  }
+  </script>
+</body>
+</html>
