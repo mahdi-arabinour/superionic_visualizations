@@ -75,11 +75,24 @@ const LABEL_JITTER_DEG = 2;       // base per-series spread (try 1–3°)
 const NEAR_EPS_FRAC   = 0.01;     // values within 1% of max are “near duplicates”
 const CLUSTER_STEP_DEG = 0.6;     // extra per-item spread within a near-duplicate cluster
 
+// === Structure palette (applied to each series by group/key in first column)
+const structureColors = {
+  "Others": "#9e9e9e",
+  "Polymeric": "#ff7043",
+  "Argyrodite": "#ab47bc",
+  "Halide": "#26a69a",
+  "Amorphous": "#f6bf26",
+  "NASICON": "#66bb6a",
+  "Anti-perovskite": "#0d47a1",
+  "Spinel": "#8d6e63"
+};
+const colorByGroup = g => structureColors[g] || "#9e9e9e";
+
 d3.csv(CSV_PATH).then(raw => {
   const cols = raw.columns ?? Object.keys(raw[0]);
   const groupKey = cols[0];
 
-  // === MINIMAL CHANGE ONLY: explicit categories list with the new "Cycle Life" axis ===
+  // explicit categories list
   const categories = ["log₁₀(σ)", "1/Ea", "log₁₀(N)", "Retention %", "Synthesis Simplicity", "Cycle Life"];
 
   // numeric coercion
@@ -91,7 +104,6 @@ d3.csv(CSV_PATH).then(raw => {
 
   const rScale = d3.scaleLinear().domain([0, maxVal]).range([0, radius]);
   const angleSlice = (Math.PI*2)/categories.length;
-  const color = d3.scaleOrdinal(d3.schemeTableau10);
   const fmtValue = d3.format(",.2~f");
 
   // ---------- GRID ----------
@@ -170,14 +182,16 @@ d3.csv(CSV_PATH).then(raw => {
     .curve(d3.curveLinearClosed); // sharp edges
 
   raw.forEach((row, si) => {
+    const group = row[groupKey];
     const series = categories.map((c, j) => ({ axis:c, value:+row[c], j, angle:j*angleSlice }));
+    const seriesColor = colorByGroup(group);
 
     // area + outline
     svg.append("path")
       .datum(series)
       .attr("transform", `translate(${cx},${cy})`)
-      .attr("fill", color(si)).attr("fill-opacity", 0.15)
-      .attr("stroke", color(si)).attr("stroke-width", 2)
+      .attr("fill", seriesColor).attr("fill-opacity", 0.15)
+      .attr("stroke", seriesColor).attr("stroke-width", 2)
       .attr("d", line);
 
     const g = svg.append("g").attr("transform", `translate(${cx},${cy})`);
@@ -196,7 +210,7 @@ d3.csv(CSV_PATH).then(raw => {
       .attr("r",3.2)
       .attr("cx", d => Math.cos(jitteredAngle(d)) * rScale(d.value))
       .attr("cy", d => Math.sin(jitteredAngle(d)) * rScale(d.value))
-      .attr("fill", color(si));
+      .attr("fill", seriesColor);
 
     // value labels exactly on the ring, slid along ring by jitter
     g.selectAll("text.value-label")
@@ -215,9 +229,10 @@ d3.csv(CSV_PATH).then(raw => {
 
   // ---------- LEGEND (horizontal bottom) ----------
   raw.forEach((row,i)=>{
+    const group = row[groupKey];
     const it = legend.append("div").attr("class","item");
-    it.append("span").attr("class","swatch").style("background", color(i));
-    it.append("span").text(row[groupKey]);
+    it.append("span").attr("class","swatch").style("background", colorByGroup(group));
+    it.append("span").text(group);
   });
 });
 </script>
