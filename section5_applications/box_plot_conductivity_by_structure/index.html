@@ -25,7 +25,6 @@
   .legend-item { display:flex; align-items:center; gap:8px; margin:6px 0; cursor:pointer; user-select:none; }
   .legend-item.disabled { opacity:.35; text-decoration:line-through; }
   .legend-swatch { width:14px; height:14px; border-radius:3px; border:1px solid #444; }
-  button.primary { padding:6px 10px; border-radius:8px; border:1px solid #ccc; background:#fff; cursor:pointer; }
   .note { font-size:12px; color:#64748b; margin-top:6px; }
 
   .label-halo { fill:#111; font-weight:700; font-size:12px; paint-order:stroke; stroke:#fff; stroke-width:4px; stroke-linejoin:round; }
@@ -35,9 +34,6 @@
 <body>
 
 <h2>Conductivity by Structure Group — Box Plot</h2>
-<div class="toolbar">
-  <button id="downloadBtn" class="primary">Download SVG</button>
-</div>
 
 <div class="wrap">
   <svg id="chart"></svg>
@@ -75,7 +71,7 @@ function stableJitter(key,half){const seed=xmur3(key)();const rand=mulberry32(se
 const fmtSci = d3.format(".3~e");
 const fmtFix4 = d3.format(".4f");
 
-// Structure color palette (unchanged)
+// Structure colors
 const structureColors = {
   "Others": "#9e9e9e",
   "Polymeric": "#ff7043",
@@ -87,7 +83,7 @@ const structureColors = {
   "Spinel": "#8d6e63"
 };
 
-// ✅ Ion color palette from your message
+// Ion colors
 const ionColors = {
   "Li+":  "#8e24aa",
   "Na+":  "#e53935",
@@ -145,7 +141,6 @@ d3.csv("data.csv").then(raw => {
   const whiskerLayer = g.append("g");
   const labelLayer = g.append("g");
 
-  // structure-colored boxes
   boxLayer.selectAll("rect.violin")
     .data(boxes)
     .join("rect")
@@ -189,7 +184,6 @@ d3.csv("data.csv").then(raw => {
   const structCenter=Object.fromEntries(structures.map(sg=>[sg,x(sg)+x.bandwidth()/2]));
   const dotHalf=x.bandwidth()/2*0.92;
 
-  // ✅ Ion colors applied here
   const colorIon = d3.scaleOrdinal()
     .domain(ions)
     .range(ions.map(t => ionColors[t] || "#6b7280"));
@@ -208,7 +202,6 @@ d3.csv("data.csv").then(raw => {
     .attr("fill",d=>colorIon(d.ion))
     .attr("display",d=>activeIons.has(d.ion)?null:"none");
 
-  // Ion legend uses ion colors
   const legend=d3.select("#legend");
   const items=legend.selectAll(".legend-item").data(ions).enter().append("div").attr("class","legend-item");
   items.append("div").attr("class","legend-swatch").style("background",d=>colorIon(d));
@@ -222,14 +215,6 @@ d3.csv("data.csv").then(raw => {
   });
   d3.select("#showAll").on("click",()=>{activeIons=new Set(ions);items.classed("disabled",false);updatePoints();});
   d3.select("#hideAll").on("click",()=>{activeIons.clear();items.classed("disabled",true);updatePoints();});
-
-  document.getElementById("downloadBtn").addEventListener("click",()=>{
-    const s=new XMLSerializer().serializeToString(document.querySelector("svg"));
-    const blob=new Blob([s],{type:"image/svg+xml;charset=utf-8"});
-    const url=URL.createObjectURL(blob);
-    const a=Object.assign(document.createElement("a"),{href:url,download:"boxplot_log10_sigma_by_structure.svg"});
-    a.click();
-  });
 });
 </script>
 </body>
