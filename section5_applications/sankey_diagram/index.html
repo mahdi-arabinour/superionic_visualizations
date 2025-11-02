@@ -7,7 +7,7 @@
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 <style>
-  :root { --side: 180px; } /* narrower legend box */
+  :root { --side: 180px; }
 
   body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -17,25 +17,17 @@
   }
   h2 { margin:0 0 10px; }
 
-  .toolbar {
-    display:flex;
-    gap:10px;
-    align-items:center;
-    margin:10px 0 14px;
-  }
   .note { font-size:12px; color:#64748b; }
 
-  /* Main grid: SVG + Legend */
   .wrap {
     display:grid;
     grid-template-columns: 1fr var(--side);
-    gap:50px; /* wider gap pushes legend to the right */
+    gap:50px;
     align-items:start;
   }
 
   svg {
     width: 1100px;
-    /* height is set dynamically based on data to avoid clamping node bars */
     background:#fff;
     border:1px solid #e5e5e5;
     border-radius:10px;
@@ -53,7 +45,7 @@
 
   .legend-title { font-weight:700; font-size:14px; margin:6px 0; }
   .legend-controls { display:flex; gap:6px; margin:4px 0 6px; }
-  .legend-controls button, button.primary {
+  .legend-controls button {
     font-size:12px;
     padding:6px 10px;
     border:1px solid #ccc;
@@ -93,15 +85,12 @@
 
   @media (max-width:1300px){
     svg{ width:100%; }
-    :root{ --side: 180px; } /* narrower on small screens */
+    :root{ --side: 180px; }
   }
 </style>
 </head>
 <body>
   <h2>Anode → Structure Group → Ion Type → Cathode</h2>
-  <div class="toolbar">
-    <button id="downloadBtn" class="primary">Download SVG</button>
-  </div>
 
   <div class="wrap">
     <svg></svg>
@@ -122,8 +111,8 @@
 const EXTRA_WIDTH      = 240;
 const STRETCH          = 1.20;
 const NODE_WIDTH       = 18;
-const NODE_PADDING     = 8;   // keep original vertical spacing
-const TOP_BOTTOM_PAD   = 20;   // breathing room inside the layout
+const NODE_PADDING     = 8;
+const TOP_BOTTOM_PAD   = 20;
 const ANODE_LABEL_DX   = -8;
 const MIDDLE_LABEL_DX  =  6;
 const CATHODE_LABEL_DX =  8;
@@ -139,7 +128,7 @@ const MIN_COUNT = 1;
 
 const svg   = d3.select("svg");
 const width = +svg.attr("width")  || 1100;
-let   height = 720; // will be set once we compute the required inner height
+let   height = 720;
 const tip   = d3.select("#tip");
 
 const structureColors = d3.scaleOrdinal()
@@ -164,7 +153,6 @@ d3.csv("data.csv").then(raw => {
   svg.selectAll("g").remove();
   const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 
-  // Aggregate unique A→S→I→C paths (each row counts as 1)
   const pathMap = new Map();
   rows.forEach(r => {
     const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
@@ -213,12 +201,11 @@ d3.csv("data.csv").then(raw => {
     .filter(l=>nodeIndex.has(l.sourceKey)&&nodeIndex.has(l.targetKey)&&l.value>=MIN_COUNT)
     .map(l=>({source:nodeIndex.get(l.sourceKey),target:nodeIndex.get(l.targetKey),value:l.value,struct:l.struct}));
 
-  /* === Compute a taller inner height so nodes can show real (count-based) bar heights === */
   const totalsByColumn = [
-    d3.sum(L12, d=>d.value) || 0, // total incoming/outgoing for anode column
-    d3.sum(L23, d=>d.value) || 0, // structure column
-    d3.sum(L34, d=>d.value) || 0, // ion column
-    d3.sum(L34, d=>d.value) || 0  // cathode column (same as previous)
+    d3.sum(L12, d=>d.value) || 0,
+    d3.sum(L23, d=>d.value) || 0,
+    d3.sum(L34, d=>d.value) || 0,
+    d3.sum(L34, d=>d.value) || 0
   ];
   const maxFlow = d3.max(totalsByColumn) || 0;
 
@@ -230,14 +217,10 @@ d3.csv("data.csv").then(raw => {
   ];
   const maxNodes = d3.max(nodesByColumn) || 1;
 
-  // Inner height = flow pixels + gaps between nodes in the densest column + padding
   const innerHeight = maxFlow + NODE_PADDING * Math.max(0, maxNodes - 1) + TOP_BOTTOM_PAD * 2;
-
-  // Set SVG height to accommodate this layout
-  height = innerHeight + 40; // +40 extra bottom breathing room
+  height = innerHeight + 40;
   svg.attr("height", height);
 
-  /* ======================= Sankey layout (unchanged style) ======================= */
   const sankey = d3.sankey()
     .nodeWidth(NODE_WIDTH)
     .nodePadding(NODE_PADDING)
@@ -247,7 +230,6 @@ d3.csv("data.csv").then(raw => {
   const graph = sankey({nodes:nodes.map(d=>({...d})),links:links.map(d=>({...d}))});
   if(STRETCH!==1){ graph.nodes.forEach(d=>{d.x0*=STRETCH; d.x1*=STRETCH;}); }
 
-  /* --------------------- LINKS: keep your sqrt thickness --------------------- */
   const maxValue=d3.max(graph.links,d=>d.value)||1;
   const minValue=d3.min(graph.links,d=>d.value)||1;
   const widthScale=d3.scaleSqrt().domain([minValue,maxValue]).range([1,30]);
@@ -268,17 +250,13 @@ d3.csv("data.csv").then(raw => {
     })
     .on("mouseleave",()=>tip.style("opacity",0));
 
-  /* ------------------- NODES: bar height = sum of link counts ------------------- */
-  // Build counts keyed by node *object* (safer than using indices)
   const countsByNode = new Map(graph.nodes.map(n => [n, 0]));
   graph.links.forEach(l=>{
     countsByNode.set(l.source, countsByNode.get(l.source) + l.value);
     countsByNode.set(l.target, countsByNode.get(l.target) + l.value);
   });
-  // Prefer Sankey’s node.value if available
   graph.nodes.forEach(n => { if (n.value != null) countsByNode.set(n, n.value); });
 
-  // Use the layout’s vertical scale so bars fit naturally within their slots
   const ky = d3.median(graph.nodes, n => (n.value ? (n.y1 - n.y0) / n.value : 1));
 
   const node=g.append("g").selectAll("g").data(graph.nodes).join("g").attr("class","node");
@@ -288,7 +266,7 @@ d3.csv("data.csv").then(raw => {
       .attr("y",d=>{
         const barH = Math.max(1, countsByNode.get(d) * ky);
         const mid  = (d.y0 + d.y1) / 2;
-        return mid - barH/2;      // keep the center fixed so links/labels stay aligned
+        return mid - barH/2;
       })
       .attr("height",d=>Math.max(1, countsByNode.get(d) * ky))
       .attr("width",d=>d.x1-d.x0)
@@ -310,7 +288,6 @@ d3.csv("data.csv").then(raw => {
       .style("font-size","10px")
       .text(d=>d.label);
 
-  /* ------------------------------- Legend/filter ------------------------------- */
   const structValues=Array.from(new Set(paths.map(p=>p.struct)));
   const legend=d3.select("#legend");
   let active=new Set(structValues);
@@ -344,14 +321,6 @@ d3.csv("data.csv").then(raw => {
     active=new Set();
     items.classed("disabled",true);
     link.attr("display","none");
-  });
-
-  document.getElementById("downloadBtn").addEventListener("click",()=>{
-    const s=new XMLSerializer().serializeToString(document.querySelector("svg"));
-    const blob=new Blob([s],{type:"image/svg+xml;charset=utf-8"});
-    const url=URL.createObjectURL(blob);
-    const a=Object.assign(document.createElement("a"),{href:url,download:"sankey_anode_struct_ion_cathode.svg"});
-    a.click();
   });
 });
 </script>
