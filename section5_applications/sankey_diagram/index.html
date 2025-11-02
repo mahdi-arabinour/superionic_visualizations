@@ -49,24 +49,17 @@
 <div class="tooltip" id="tip"></div>
 
 <script>
-/* ========================== Tweakables ========================== */
-const EXTRA_WIDTH        = 240;   // keep some extra horizontal room
-const STRETCH            = 1.20;  // optional horizontal stretch
-const ANODE_LABEL_DX     = -8;
-const MIDDLE_LABEL_DX    =  6;
-const CATHODE_LABEL_DX   =  8;
-const LAYOUT_VALUE_MULT  = 6;     // amplify counts for layout ONLY so height differences are visible
-/* ================================================================ */
-
+/* === constants (kept simple) === */
+const EXTRA_WIDTH = 240;
+const STRETCH     = 1.20;   // keep your slight horizontal stretch
+const PAD         = 18;     // keep your original padding
 const COL = { anode:"Anode", struct:"Structure Group", ion:"Ion Type", cathode:"Cathode" };
-const MIN_COUNT = 1;
 
 const svg = d3.select("svg");
 const width  = +svg.attr("width")  || 1100;
 const height = +svg.attr("height") || 720;
 const tip = d3.select("#tip");
 
-// Structure Group palette
 const structureColors = d3.scaleOrdinal()
   .domain(["Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Others"])
   .range (["#f6bf26","#2196f3","#ab47bc","#26a69a","#66bb6a","#ef5350","#ff7043","#9e9e9e"]);
@@ -87,37 +80,37 @@ d3.csv("data.csv").then(raw => {
   svg.selectAll("*").remove();
   const g = svg.append("g").attr("transform",`translate(${leftMargin},10)`);
 
-  // Aggregate full paths -> counts
+  /* aggregate full path -> counts */
   const pathMap = new Map();
   rows.forEach(r => {
-    const k = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
-    pathMap.set(k, (pathMap.get(k) || 0) + 1);
+    const key = `${r.anode}|${r.struct}|${r.ion}|${r.cathode}`;
+    pathMap.set(key, (pathMap.get(key) || 0) + 1);
   });
   const paths = [...pathMap.entries()].map(([k,v]) => {
     const [a,s,i,c] = k.split("|");
     return { anode:a, struct:s, ion:i, cathode:c, count:v };
   });
 
-  // Aggregate between adjacent levels
-  function linksBetween(fromKey,toKey){
-    const m = new Map(); // "from|to|struct" -> count
+  /* aggregate between adjacent layers */
+  function pairLinks(fromKey,toKey){
+    const m = new Map(); // (from|to|struct) -> count
     paths.forEach(p => {
       const from = p[fromKey], to = p[toKey], sg = p.struct || "Others";
       const K = `${from}|${to}|${sg}`;
       m.set(K, (m.get(K) || 0) + p.count);
     });
-    return [...m.entries()].map(([K,count]) => {
+    return [...m.entries()].map(([K,count])=>{
       const [from,to,sg] = K.split("|");
       return { fromKey:`${fromKey}:${from}`, toKey:`${toKey}:${to}`, value:count, struct:sg };
     });
   }
 
-  const L12 = linksBetween("anode","struct");
-  const L23 = linksBetween("struct","ion");
-  const L34 = linksBetween("ion","cathode");
+  const L12 = pairLinks("anode","struct");
+  const L23 = pairLinks("struct","ion");
+  const L34 = pairLinks("ion","cathode");
   const allLinks = [...L12, ...L23, ...L34];
 
-  // Nodes (numeric indices)
+  /* nodes (numeric indices) */
   const nodes = [];
   const nodeIndex = new Map();
   function addNode(key,label){
@@ -130,21 +123,20 @@ d3.csv("data.csv").then(raw => {
     addNode(`cathode:${p.cathode}`,p.cathode);
   });
 
-  // Links: store true count and amplified layout value
+  /* links for layout: value = true count (so node height = sum of counts) */
   const links = allLinks
-    .filter(l => nodeIndex.has(l.fromKey) && nodeIndex.has(l.toKey) && l.value >= MIN_COUNT)
+    .filter(l => nodeIndex.has(l.fromKey) && nodeIndex.has(l.toKey))
     .map(l => ({
       source: nodeIndex.get(l.fromKey),
       target: nodeIndex.get(l.toKey),
-      value:  l.value * LAYOUT_VALUE_MULT, // used by Sankey layout -> node heights & d.width
-      count:  l.value,                      // true count for tooltips
+      value:  l.value,      // counts drive layout & d.width
       struct: l.struct
     }));
 
-  // Sankey (no nodeId, we use numeric indices)
+  /* sankey layout (no nodeId; we use indices) */
   const sankey = d3.sankey()
     .nodeWidth(18)
-    .nodePadding(10)
+    .nodePadding(PAD)
     .nodeAlign(d3.sankeyJustify)
     .extent([[0,0],[width-leftMargin-rightMargin-40+EXTRA_WIDTH, height-40]]);
 
@@ -155,7 +147,7 @@ d3.csv("data.csv").then(raw => {
 
   if (STRETCH !== 1) graph.nodes.forEach(d => { d.x0 *= STRETCH; d.x1 *= STRETCH; });
 
-  // LINKS — stroke width from layout (d.width) so links match node height
+  /* links — use layout width so bands match node height */
   const link = g.append("g").selectAll("path").data(graph.links).join("path")
     .attr("class","link")
     .attr("d", d3.sankeyLinkHorizontal())
@@ -164,22 +156,22 @@ d3.csv("data.csv").then(raw => {
     .on("mousemove",(ev,d)=>{
       tip.html(`<div><b>${d.source.label}</b> → <b>${d.target.label}</b></div>
                 <div>Structure Group: <b>${d.struct}</b></div>
-                <div>Count: <b>${d.count ?? d.value}</b></div>`)
+                <div>Count: <b>${d.value}</b></div>`)
          .style("opacity",1)
          .style("left",(ev.pageX+14)+"px")
          .style("top",(ev.pageY+14)+"px");
     })
     .on("mouseleave",()=>tip.style("opacity",0));
 
-  // Node compositions (use TRUE counts) for multicolor ends
+  /* multicolor ends (Anode/Cathode) using true counts */
   const outComp = new Map(), inComp = new Map();
-  function addTo(map, idx, key, v){
+  const addTo = (map, idx, key, v) => {
     const m = map.get(idx) || new Map();
     m.set(key, (m.get(key) || 0) + v);
     map.set(idx, m);
-  }
-  graph.links.forEach(l => { addTo(outComp, l.source.index, l.struct, l.count);
-                             addTo(inComp,  l.target.index, l.struct, l.count); });
+  };
+  graph.links.forEach(l => { addTo(outComp, l.source.index, l.struct, l.value);
+                             addTo(inComp,  l.target.index, l.struct, l.value); });
 
   const minX0 = d3.min(graph.nodes, n => n.x0);
   const maxX0 = d3.max(graph.nodes, n => n.x0);
@@ -203,7 +195,7 @@ d3.csv("data.csv").then(raw => {
     return `url(#${id})`;
   }
 
-  // NODES — height from layout span (sum of counts); multicolor ends
+  /* nodes — height from layout span (sum of counts), gradient on edges */
   const node = g.append("g").selectAll("g").data(graph.nodes).join("g").attr("class","node");
 
   node.append("rect")
@@ -225,16 +217,16 @@ d3.csv("data.csv").then(raw => {
     });
 
   node.append("text")
-    .attr("x", d => d.name.startsWith("anode:") ? d.x0 + ANODE_LABEL_DX
-             : d.name.startsWith("cathode:") ? d.x1 + CATHODE_LABEL_DX
-             : d.x1 + MIDDLE_LABEL_DX)
+    .attr("x", d => d.name.startsWith("anode:") ? d.x0 - 8
+             : d.name.startsWith("cathode:") ? d.x1 + 8
+             : d.x1 + 6)
     .attr("y", d => (d.y0 + d.y1)/2)
     .attr("dy","0.35em")
     .attr("text-anchor", d => d.name.startsWith("anode:") ? "end"
                            : d.name.startsWith("cathode:") ? "start" : "start")
     .text(d => d.label);
 
-  // Legend + simple Structure Group filter (links only)
+  /* legend + simple SG filter (links only) */
   const structValues = Array.from(new Set(paths.map(p => p.struct)));
   const legend = d3.select("#legend");
   let active = new Set(structValues);
@@ -264,7 +256,7 @@ d3.csv("data.csv").then(raw => {
     active.clear(); items.classed("disabled", true); link.attr("display", "none");
   });
 
-  // Download SVG
+  /* download svg */
   document.getElementById("downloadBtn").addEventListener("click",()=>{
     const s = new XMLSerializer().serializeToString(document.querySelector("svg"));
     const blob = new Blob([s], {type:"image/svg+xml;charset=utf-8"});
