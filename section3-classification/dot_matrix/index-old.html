@@ -3,273 +3,198 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Conductivity by Structure × Dopant — Hard-wired (Toolbar Legend v4)</title>
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<title>Δ log₁₀(σ) by Structure and Dopant</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  :root { color-scheme: light; }
-  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#fff; color:#111827; }
-  header { padding: 16px 20px 0 20px; }
-  h1 { font-size: 20px; margin: 0 0 8px; }
-  .sub { color:#4b5563; font-size:13px; margin-bottom: 12px; }
-  #controls { display:flex; gap:12px; align-items:center; flex-wrap: wrap; padding: 8px 20px 0 20px; color:#374151; font-size: 13px; }
-  #chart { width: 100%; height: 78vh; }
-  .pill { padding:4px 10px; border:1px solid #e5e7eb; border-radius: 999px; background:#f9fafb; display:flex; align-items:center; gap:8px; }
-  .status { padding: 8px 20px; color:#6b7280; font-size:12px;}
-  .range input[type="range"]{ accent-color:#2563eb; }
-  .legend-inline { display:flex; align-items:center; gap:8px; }
-  .legend-inline svg { overflow: visible; }
-  button.reset { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:6px 10px; cursor:pointer; }
-  button.reset:hover { background:#f3f4f6; }
+  body{margin:16px;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;background:#f7f7f7;color:#0f172a}
+  h2{margin:0 0 6px;font-size:22px}
+  .sub{margin:0 0 14px;font-size:12px;color:#475569}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .ctl{background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:6px 10px;font-size:12px}
+  svg{width:100%;height:auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .axis path,.axis line{stroke:#cbd5e1}
+  .axis text{fill:#334155;font-size:12px}
+  .rowLabel{fill:#111827;font-weight:600;font-size:12px}
+  .tooltip{position:fixed;pointer-events:none;background:#fff;border:1px solid #e5e7eb;box-shadow:0 8px 16px rgba(0,0,0,.08);border-radius:8px;padding:8px 10px;font-size:12px;color:#111827}
+  .zero{stroke:#94a3b8;stroke-dasharray:4 4}
 </style>
 </head>
 <body>
-  <header>
-    <h1>Conductivity by Structure × Dopant</h1>
-    <div class="sub">Bubble color = <b>Structure Group</b>. Bubble size ∝ √(count). Columns hard-wired.</div>
-  </header>
 
-  <div id="controls">
-    <label class="pill"><input id="toggleColorScale" type="checkbox"/> Color by <b>linear σ</b></label>
-    <label class="pill"><input id="toggleMean" type="checkbox"/> Use <b>mean</b> (vs median)</label>
+<h2>Change in conductivity by dopant type</h2>
+<div class="sub">Each dot = a (Structure, Dopant) median. X = Δ log₁₀(σ) vs structure baseline (median by default). Positive → better than baseline.</div>
 
-    <div class="pill range">
-      <label for="sizeScale"><b>Bubble size</b></label>
-      <input id="sizeScale" type="range" min="20" max="120" step="2" value="80"/>
-      <span id="sizeScaleVal">80</span>
-      <button class="reset" id="resetSize">Reset</button>
-    </div>
+<div class="controls">
+  <label class="ctl">Baseline:
+    <select id="baselineMode">
+      <option value="median" selected>Structure median</option>
+      <option value="max">Structure max (distance from best)</option>
+    </select>
+  </label>
+</div>
 
-    <!-- Inline horizontal size legend -->
-    <div class="pill legend-inline" id="sizeLegend">
-      <span><b>Size:</b></span>
-      <svg id="sizeLegendSvg" width="260" height="50" aria-label="Bubble size legend">
-        <!-- populated by JS -->
-      </svg>
-    </div>
-  </div>
-
-  <div id="chart"></div>
-  <div class="status" id="status">Loading sample data…</div>
+<svg id="chart" viewBox="0 0 1200 720" preserveAspectRatio="xMidYMid meet"></svg>
 
 <script>
-const COL_SIGMA   = "Conductivity σ (S/cm)";
-const COL_STRUCT  = "Structure Group";
-const COL_DOPANT  = "Doping / and or GB Strategy";
-const DEFAULT_SCALE = 80;
+const COL_SIGMA  = "Conductivity σ (S/cm)";
+const COL_STRUCT = "Structure Group";
+const COL_DOPANT = "Doping / and or GB Strategy";
 
-// ✅ Structure colors
-const structureColors = {
-  "Others": "#9e9e9e",
-  "Polymeric": "#ff7043",
-  "Argyrodite": "#ab47bc",
-  "Halide": "#26a69a",
-  "Amorphous": "#f6bf26",
-  "NASICON": "#66bb6a",
-  "Anti-perovskite": "#0d47a1",
-  "Spinel": "#8d6e63"
+const STRUCT_COLORS = {  // optional (unused here)
+  "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a",
+  "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
 };
 
-// --- helpers ---
-function parseNumber(x) {
-  if (x == null) return NaN;
-  const s = String(x).trim().toLowerCase().replace(/,/g, "");
-  if (!s) return NaN;
-  const v = Number(s);
-  if (!Number.isNaN(v)) return v;
-  const m = s.match(/([0-9.]+)\s*(?:x|\*)\s*10\s*(?:\^)?\s*([-+]?\d+)/i);
-  if (m) { const base = Number(m[1]); const exp = Number(m[2]); if (!Number.isNaN(base) && !Number.isNaN(exp)) return base * Math.pow(10, exp); }
-  return NaN;
-}
-function splitMulti(value) { if (!value) return []; return String(value).split(/[+,/&]| and /i).map(s => s.trim()).filter(Boolean); }
-function quantile(a,q){ const s=a.slice().sort((x,y)=>x-y); const pos=(s.length-1)*q; const b=Math.floor(pos); const r=pos-b; return s[b+1]!==undefined ? s[b]+r*(s[b+1]-s[b]) : s[b]; }
-function median(a){ return quantile(a,0.5); }
-function mean(a){ return a.reduce((s,x)=>s+x,0)/a.length; }
-function roundSig(x,sig=6){ if(!isFinite(x)||x===0) return x; const e=Math.floor(Math.log10(Math.abs(x))); const f=Math.pow(10,sig-1-e); return Math.round(x*f)/f; }
+const margin = {top: 36, right: 20, bottom: 56, left: 160};
+const W = 1200 - margin.left - margin.right;
+const H = 720  - margin.top  - margin.bottom;
 
-// --- legend that reflects actual bubble sizing, normalized to fit toolbar ---
-function buildSizeLegend(sizeScale){
-  const counts = [1,4,9,16];
-  const svg = document.getElementById("sizeLegendSvg");
-  while (svg.firstChild) svg.removeChild(svg.firstChild);
+const svg = d3.select("#chart");
+const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+const xAxisG = g.append("g").attr("class","axis").attr("transform", `translate(0,${H})`);
+const yAxisG = g.append("g");
+const zeroG  = g.append("g");
 
-  // true chart diameter for each count
-  const diameters = counts.map(n => Math.sqrt(n) * sizeScale);
+const tooltip = d3.select("body").append("div").attr("class","tooltip").style("opacity",0);
+const baselineSel = document.getElementById("baselineMode");
 
-  // normalize so the largest (for 16) fits a targetMax height
-  const targetMax = 48; // px
-  const maxD = Math.max(...diameters, 1);
-  const k = targetMax / maxD; // scale factor applied to all
+let nodes=[], structures=[], dopants=[], x, y, color;
 
-  let x = 18;
-  const y = 20;
-  for (let i=0; i<counts.length; i++){
-    const n = counts[i];
-    const diameter = diameters[i] * k;
-    const r = diameter / 2;
+d3.csv("data.csv").then(raw => {
+  // tidy
+  const rows = raw.map(d => ({
+    s: (d[COL_STRUCT] || "").trim(),
+    t: (d[COL_DOPANT] || "").trim(),
+    sig: +d[COL_SIGMA]
+  })).filter(d => d.s && d.t && Number.isFinite(d.sig) && d.sig>0);
 
-    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  // per (structure, dopant) stats
+  const roll = d3.rollup(
+    rows,
+    v => ({ n: v.length, median: d3.median(v, d => d.sig), mean: d3.mean(v, d => d.sig) }),
+    d => d.s, d => d.t
+  );
 
-    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("cx", x + r);
-    circle.setAttribute("cy", y);
-    circle.setAttribute("r", r);
-    circle.setAttribute("fill", "#9CA3AF");
-    circle.setAttribute("stroke", "rgba(0,0,0,0.25)");
-    circle.setAttribute("stroke-width", "0.5");
-
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    label.setAttribute("x", x + r);
-    label.setAttribute("y", y + r + 10);
-    label.setAttribute("text-anchor", "middle");
-    label.setAttribute("font-size", "11");
-    label.setAttribute("fill", "#374151");
-    label.textContent = String(n);
-
-    g.appendChild(circle);
-    g.appendChild(label);
-    svg.appendChild(g);
-
-    const spacing = Math.max(diameter + 12, 44);
-    x += spacing;
-  }
-}
-
-let LAST_ROWS = null;
-function buildChart(rows, useMean=false, colorLinear=false, sizeScale=DEFAULT_SCALE) {
-  LAST_ROWS = rows;
-  const headers = Object.keys(rows[0] || {});
-  if (!headers.includes(COL_SIGMA) || !headers.includes(COL_STRUCT) || !headers.includes(COL_DOPANT)) {
-    document.getElementById("status").textContent = "Required columns not found in CSV (check headers).";
-    Plotly.react("chart", [], {template:"plotly_white"});
-    return;
-  }
-
-  // Aggregate
-  const bucket = new Map();
-  for (const r of rows) {
-    const dopants = splitMulti(r[COL_DOPANT]);
-    const structure = String(r[COL_STRUCT] ?? "").trim();
-    const raw = parseNumber(r[COL_SIGMA]);
-    if (!structure || !isFinite(raw) || raw <= 0) continue;
-    const keyBase = structure + "|||";
-    if (dopants.length === 0) dopants.push("(none)");
-    for (const d of dopants) {
-      const key = keyBase + d;
-      if (!bucket.has(key)) bucket.set(key, []);
-      bucket.get(key).push(raw);
+  // flatten
+  const pairs = [];
+  for (const [s, m] of roll.entries()){
+    for (const [t, st] of m.entries()){
+      pairs.push({structure:s, dopant:t, n:st.n, sigmaMed:st.median, sigmaMean:st.mean});
     }
   }
 
-  const xs = [], ys = [], sizes = [], colorsValForSort = [], texts = [], hover = [], colorHex = [];
-  for (const [key, arr] of bucket) {
-    const [structure, dopant] = key.split("|||");
-    const valArr = arr.filter(v => isFinite(v) && v > 0);
-    if (!valArr.length) continue;
-    const val = useMean ? mean(valArr) : median(valArr);
-    const n = valArr.length;
+  structures = Array.from(new Set(pairs.map(d=>d.structure))).sort();
+  dopants    = Array.from(new Set(pairs.map(d=>d.dopant))).sort();
 
-    xs.push(dopant);
-    ys.push(structure);
-    sizes.push(Math.sqrt(n) * sizeScale);
+  // categorical dopant color
+  color = d3.scaleOrdinal(d3.schemeTableau10).domain(dopants);
 
-    // keep numeric color metric ONLY for y-category sorting (unchanged UX)
-    colorsValForSort.push(colorLinear ? val : Math.log10(val));
+  // y rows
+  y = d3.scaleBand().domain(structures).range([0,H]).paddingInner(0.2);
+  yAxisG.selectAll(".rowLabel")
+    .data(structures)
+    .join("text")
+      .attr("class","rowLabel")
+      .attr("x",-12).attr("y", s => y(s)).attr("dy",5).attr("text-anchor","end")
+      .text(s => s);
 
-    const valRounded = roundSig(val, 6);
-    const logRounded = roundSig(Math.log10(val), 6);
-    texts.push(`${structure}<br><b>${dopant}</b>`);
-    hover.push(`Structure: ${structure}<br>Dopant: ${dopant}<br>Count: ${n}<br>${useMean?"Mean":"Median"} σ: ${valRounded} S/cm<br>log10(σ): ${logRounded}`);
+  // draw once & on baseline change
+  function computeNodes(){
+    // baseline per structure
+    const byS = d3.group(pairs, d=>d.structure);
+    const nodesLocal = [];
+    for (const [s, arr] of byS.entries()){
+      const baseline = baselineSel.value === "max"
+        ? d3.max(arr, d => d.sigmaMed)
+        : d3.median(arr, d => d.sigmaMed);
+      const baseLog = Math.log10(baseline);
 
-    // ✅ apply structure color
-    colorHex.push(structureColors[structure] || "#9e9e9e");
+      for (const d of arr){
+        const medLog = Math.log10(d.sigmaMed);
+        const delta  = medLog - baseLog; // Δ log10(σ)
+        nodesLocal.push({
+          structure:s, dopant:d.dopant, n:d.n,
+          sigmaMed:d.sigmaMed, delta
+        });
+      }
+    }
+    return nodesLocal;
   }
 
-  const traceMain = {
-    x: xs, y: ys, mode: "markers",
-    text: texts,
-    hovertemplate: "%{text}<br>%{customdata}<extra></extra>",
-    customdata: hover.map(h => h.replace(/<br>/g, "\n")),
-    marker: {
-      size: sizes,
-      sizemode: "area",
-      color: colorHex,                 // categorical hex colors by Structure
-      line: { width: 0.5, color: "rgba(0,0,0,0.2)" }
-      // (no colorscale/colorbar when passing hex array)
-    },
-    type: "scatter", xaxis: "x", yaxis: "y"
-  };
+  function render(){
+    nodes = computeNodes();
 
-  const layout = {
-    template: "plotly_white", paper_bgcolor: "#fff", plot_bgcolor: "#fff",
-    margin: { l: 90, r: 60, t: 20, b: 60 },
-    xaxis: { title: "Dopant / Strategy", automargin: true, tickangle: -30 },
-    yaxis: { title: "Structure Group", automargin: true, categoryorder: "array" },
-    showlegend: false
-  };
+    // symmetric x around 0
+    const maxAbs = d3.max(nodes, d => Math.abs(d.delta)) || 1e-3;
+    x = d3.scaleLinear().domain([-maxAbs, maxAbs]).nice().range([0,W]);
+    xAxisG.call(d3.axisBottom(x).ticks(9, "+.2f"));
 
-  // Sort Y categories by highest numeric value (kept same as before)
-  const yCats = Array.from(new Set(ys));
-  const catScore = new Map(yCats.map(c => [c, -Infinity]));
-  for (let i=0;i<ys.length;i++){ const cat=ys[i]; const c=colorsValForSort[i]; catScore.set(cat, Math.max(catScore.get(cat), c)); }
-  if (yCats.length) { yCats.sort((a,b)=> (catScore.get(b)-catScore.get(a))); layout.yaxis.categoryarray = yCats; }
+    // zero line
+    zeroG.selectAll("line").data([0]).join("line")
+      .attr("x1", x(0)).attr("x2", x(0)).attr("y1", 0).attr("y2", H)
+      .attr("class","zero");
 
-  Plotly.react("chart", [traceMain], layout, {
-    responsive: true, displaylogo: false,
-    modeBarButtonsToRemove: ["lasso2d", "select2d"],
-    toImageButtonOptions: {format: "png", filename: "conductivity_by_structure_dopant"}
-  });
-
-  document.getElementById("status").textContent =
-    `Rendered ${xs.length} bubbles across ${yCats.length} structure groups (color by Structure; size by √count)` +
-    (useMean ? ", using mean" : ", using median") + `. Size scale: ${sizeScale}`;
-
-  buildSizeLegend(sizeScale);
-}
-
-// Parse & render
-const sampleCSV = `Structure Group,Doping / and or GB Strategy,Conductivity σ (S·cm⁻¹)
-NASICON,Al,1.2e-3
-NASICON,Al+Nb,7.5e-4
-Halide,Cl,2.1e-3
-Spinel,(none),4.7e-5
-Argyrodite,I,6.0e-3`;
-
-function parseAndBuild(csvText) {
-  Papa.parse(csvText, { header: true, dynamicTyping: false, skipEmptyLines: true,
-    complete: (res) => { 
-      const scale = Number(document.getElementById("sizeScale").value) || DEFAULT_SCALE;
-      buildChart(res.data, document.getElementById("toggleMean").checked, document.getElementById("toggleColorScale").checked, scale);
+    // beeswarm within each row (pack horizontally around x(delta))
+    const jitterY = 10, collideR = 5;
+    const all = [];
+    const byRow = d3.group(nodes, d => d.structure);
+    for (const [s, arr] of byRow.entries()){
+      const y0 = y(s);
+      const rowNodes = arr.map(d => ({
+        ...d,
+        targetX: x(d.delta),
+        targetY: y0,
+        x: x(d.delta) + (Math.random()*2-1)*2,
+        y: y0 + (Math.random()*2-1)*jitterY,
+        r: 4.5
+      }));
+      const sim = d3.forceSimulation(rowNodes)
+        .force("x", d3.forceX(n=>n.targetX).strength(0.6))
+        .force("y", d3.forceY(n=>n.targetY).strength(0.2))
+        .force("collide", d3.forceCollide(collideR))
+        .stop();
+      for (let i=0;i<160;i++) sim.tick();
+      all.push(...rowNodes);
     }
-  });
+
+    g.selectAll("circle.dot")
+      .data(all, d => d.structure + "\u0001" + d.dopant)
+      .join(
+        enter => enter.append("circle")
+          .attr("class","dot")
+          .attr("r", d=>d.r)
+          .attr("cx", d=>d.x)
+          .attr("cy", d=>d.y)
+          .attr("fill", d=>color(d.dopant))
+          .attr("stroke","rgba(17,24,39,0.85)").attr("stroke-width",0.6)
+          .on("mouseover",(ev,d)=>{
+            tooltip.style("opacity",1).html(`
+              <div><b>${d.dopant}</b> in <b>${d.structure}</b></div>
+              <div>median σ = ${fmt(d.sigmaMed)} S/cm</div>
+              <div>Δ log₁₀(σ) = ${d.delta.toFixed(2)}</div>
+              <div>N = ${d.n}</div>
+            `);
+          })
+          .on("mousemove",(ev)=>tooltip.style("left",(ev.clientX+14)+"px").style("top",(ev.clientY+14)+"px"))
+          .on("mouseout",()=>tooltip.style("opacity",0)),
+        update => update
+          .attr("cx", d=>d.x)
+          .attr("cy", d=>d.y)
+      );
+  }
+
+  render();
+  baselineSel.addEventListener("change", render);
+}).catch(()=> {
+  d3.select("body").append("div").style("margin","12px 8px").style("color","#b91c1c")
+    .text("⚠️ Could not load data.csv. Open via a local server (e.g., python3 -m http.server).");
+});
+
+function fmt(v){
+  if(!Number.isFinite(v)) return "–";
+  const e = Math.log10(v);
+  return (e>-2 && e<3) ? v.toPrecision(3) : `1e${e.toFixed(1)}`;
 }
-
-parseAndBuild(sampleCSV);
-
-fetch("data.csv")
-  .then(r => r.ok ? r.text() : Promise.reject("No data.csv found in the same folder."))
-  .then(text => { document.getElementById("status").textContent = "CSV loaded ✓"; parseAndBuild(text); })
-  .catch(err => { document.getElementById("status").textContent = "Using sample (place your cleaned CSV as data.csv)."; console.warn(err); });
-
-document.getElementById("toggleColorScale").addEventListener("change", ()=>{
-  fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
-});
-document.getElementById("toggleMean").addEventListener("change", ()=>{
-  fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
-});
-document.getElementById("sizeScale").addEventListener("input", (e)=>{
-  const v = Number(e.target.value) || DEFAULT_SCALE;
-  document.getElementById("sizeScaleVal").textContent = v;
-  fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
-});
-document.getElementById("resetSize").addEventListener("click", ()=>{
-  document.getElementById("sizeScale").value = DEFAULT_SCALE;
-  document.getElementById("sizeScaleVal").textContent = DEFAULT_SCALE;
-  fetch("data.csv").then(r => r.ok ? r.text() : sampleCSV).then(parseAndBuild);
-});
-
-// Initial legend
-buildSizeLegend(DEFAULT_SCALE);
 </script>
 </body>
 </html>
