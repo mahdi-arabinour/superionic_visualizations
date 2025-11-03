@@ -7,7 +7,7 @@
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#dcdcdc; --text:#111; --panel-border:#cccccc; --note:#555; --accent:#007aff; }
+  :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#e3e3e3; --text:#111; --panel-border:#d0d0d0; --note:#555; --accent:#007aff; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
 
@@ -21,25 +21,32 @@
   input[type="range"] { width:160px; }
   .badge { font-size:11px; color:var(--note); margin-left:auto; }
 
-  .wrap { display:grid; grid-template-columns: 1fr 280px; gap:10px; padding:10px; }
-  #chart { width:100%; height:90vh; border:1px solid var(--grid); border-radius:8px; background:#fff; }
+  .wrap { display:grid; grid-template-columns: 1fr 320px; gap:10px; padding:10px; }
+  #chart { width:100%; height:92vh; border:1px solid var(--grid); border-radius:10px; background:#fff; }
 
   aside {
+    display:flex; flex-direction:column; gap:14px;
     background:var(--panel); border:1px solid var(--panel-border);
-    border-radius:8px; padding:10px; font-size:12px;
+    border-radius:10px; padding:10px; font-size:12px; max-height:92vh; overflow:auto;
   }
-  aside h3 { margin:0 0 8px 0; font-size:13px; color:#000; }
+  .panel { background:#fff; border:1px solid #ddd; border-radius:10px; padding:10px; }
+  .panel h3 { margin:0 0 8px; font-size:13px; color:#000; display:flex; justify-content:space-between; align-items:center; }
+  .panel .controls { display:flex; gap:6px; }
+  .panel button {
+    border:1px solid #ddd; background:#f7f7f7; border-radius:8px; padding:4px 8px; font-size:11px; cursor:pointer;
+  }
+  .panel button:hover { background:#efefef; }
 
-  /* Right legend (Structure Groups) */
-  #structureLegend .row{
-    display:flex; align-items:center; gap:8px;
-    padding:6px 8px; margin:5px 0; border-radius:8px;
-    background:#fff; border:1px solid #ddd; cursor:pointer; user-select:none;
+  /* Ion legend rows (shape-only, gray) */
+  #ionLegend .row, #structureLegend .row {
+    display:flex; align-items:center; gap:8px; padding:6px 8px; margin:5px 0;
+    border:1px solid #e3e3e3; border-radius:8px; cursor:pointer; user-select:none; background:#fff;
   }
-  #structureLegend .row.active{ outline:2px solid var(--accent); }
-  #structureLegend .swatch{ width:12px; height:12px; border-radius:3px; border:1px solid #0002; }
-  #structureLegend .name{ color:#000; font-size:12px; }
-  #structureLegend .count{ margin-left:auto; color:#555; font-size:11px; }
+  #ionLegend .row.active, #structureLegend .row.active { outline:2px solid var(--accent); }
+  .swatch { width:14px; height:14px; border-radius:3px; border:1px solid #0002; }
+  .shapeBox { width:16px; height:16px; display:inline-block; }
+  .name { color:#000; font-size:12px; }
+  .count { margin-left:auto; color:#555; font-size:11px; }
 
   #error { display:none; margin:8px 12px; padding:8px 12px; background:#fff3f3; color:#7f1d1d; border:1px solid #f5c2c2; border-radius:8px; white-space:pre-wrap; }
 </style>
@@ -58,9 +65,31 @@
 
   <div class="wrap">
     <div id="chart"></div>
+
     <aside>
-      <h3>Structure Group (filter)</h3>
-      <div id="structureLegend"></div>
+      <!-- Ion legend (top) -->
+      <div class="panel" id="ionPanel">
+        <h3>
+          Ion (shape, gray)
+          <span class="controls">
+            <button id="ionSelectAll">Select all</button>
+            <button id="ionClearAll">Clear all</button>
+          </span>
+        </h3>
+        <div id="ionLegend"></div>
+      </div>
+
+      <!-- Structure legend (bottom) -->
+      <div class="panel" id="structPanel">
+        <h3>
+          Structure Group (color)
+          <span class="controls">
+            <button id="structSelectAll">Select all</button>
+            <button id="structClearAll">Clear all</button>
+          </span>
+        </h3>
+        <div id="structureLegend"></div>
+      </div>
     </aside>
   </div>
 
@@ -71,7 +100,7 @@ const errorEl  = document.getElementById("error");
 function say(msg){ statusEl.textContent = msg; }
 function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
 
-/* ---------- Ion shapes (consistent, one-to-one) ---------- */
+/* ---------- Ion shapes & (kept for reference) colors ---------- */
 const ION_SHAPES = {
   "Li+":  "circle",
   "Na+":  "square",
@@ -88,25 +117,23 @@ const ION_SHAPES = {
   "I-":   "hourglass",
   "Sn4+": "pentagon"
 };
+const DARK_GRAY = "#4a4a4a";    // ion legend shapes are gray
 
-/* (Optional) Ion colors kept only for hover text or outlines if you decide to enable them later */
-const ION_COLORS = {
-  "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
-  "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
-  "F-":   "#ff8a65","Cu+":  "#5c6bc0","Mg2+": "#26c6da","In3+": "#c0ca33",
-  "I-":   "#ec407a","Sn4+": "#7e57c2"
+/* ---------- Structure group colors (bubbles use these) ---------- */
+const STRUCT_COLORS = {
+  "Others":"#9e9e9e",
+  "Polymeric":"#ff7043",
+  "Argyrodite":"#ab47bc",
+  "Halide":"#26a69a",
+  "Amorphous":"#f6bf26",
+  "NASICON":"#66bb6a",
+  "Anti-perovskite":"#0d47a1",
+  "Spinel":"#8d6e63"
 };
 
-/* Sidebar swatches keep your structure colors (UI-only) */
-const STRUCT_COLORS_UI = {
-  "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a",
-  "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
-};
+const norm = s => (s ?? "").toString().trim();
 
-const DARK_GRAY = "#4a4a4a"; // <-- unified marker fill
-const OUTLINE_GRAY = "#000";  // stroke color for markers
-
-/* Fixed CSV column names */
+/* CSV columns */
 const COLS = {
   ion: "Ion Type",
   structGrouped: "Structure Group",
@@ -117,13 +144,14 @@ const COLS = {
 
 /* State */
 let rowsGlobal = [];
-let traceMeta = [];
-let activeStructGroup = null;   // sidebar filter
-let activeIon = null;           // top legend (shape-only) filter
+let traceMeta = []; // per data trace: {ion,fam}
 let markerSizePx = 16;
 
+// Multi-select filter state (null => all)
+let selectedIons = null;     // Set<string> or null
+let selectedStructs = null;  // Set<string> or null
+
 /* Helpers */
-const norm = s => (s ?? "").toString().trim();
 function toNum(v){
   if (typeof v === "number") return v;
   if (v == null) return NaN;
@@ -132,16 +160,18 @@ function toNum(v){
   const n = Number(s.replace(/,/g,""));
   return Number.isFinite(n) ? n : NaN;
 }
-function getIonShape(ion){
+function getShape(ion){
   const k = norm(ion);
   if (ION_SHAPES[k]) return ION_SHAPES[k];
-  // fallback shapes if an unexpected ion appears
-  const fallbacks = ["circle","square","diamond","triangle-up","x","star","hexagon","bowtie"];
+  const fb = ["circle","square","diamond","triangle-up","x","star","hexagon","bowtie"];
   const h = Math.abs([...k].reduce((a,c)=>a*31+c.charCodeAt(0),7));
-  return fallbacks[h % fallbacks.length];
+  return fb[h % fb.length];
+}
+function getStructColor(fam){
+  return STRUCT_COLORS[norm(fam)] || "#999";
 }
 
-/* DATA traces: shape by ION, color fixed to dark gray */
+/* Build Plotly data traces (one per row) */
 function buildDataTraces(filteredRows){
   const traces=[]; traceMeta=[];
   filteredRows.forEach(r=>{
@@ -152,101 +182,164 @@ function buildDataTraces(filteredRows){
 
     traces.push({
       x:[ea], y:[sig], mode:"markers",
-      name: ion, legendgroup: ion, showlegend: false, // legend handled by ion stubs
+      showlegend:false,
       marker:{
         size:[markerSizePx],
-        color: DARK_GRAY,                 // <-- all shapes dark gray
-        symbol: getIonShape(ion),        // <-- ion-specific shape
-        line:{ width:1.0, color: OUTLINE_GRAY },
-        opacity: 0.9
-        // If you ever want colored outlines instead of fills, swap the two lines:
-        // color: "#4a4a4a", line:{ width:2.0, color: ION_COLORS[ion] || "#222" },
+        color: getStructColor(fam),   // <-- bubble color by structure
+        symbol: getShape(ion),        // <-- bubble shape by ion
+        line:{ width:1.0, color:"#000" },
+        opacity:0.9
       },
       text:[`${r[COLS.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}`],
       hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV<br> σ: %{y:.3e} S/cm<extra></extra>",
-      visible: true
+      visible:true
     });
     traceMeta.push({ ion, fam });
   });
   return traces;
 }
 
-/* Ion legend (shape only, dark gray) */
-function buildIonLegendTraces(ions){
-  return ions.map(ion=>({
-    x:[NaN], y:[NaN], mode:"markers",
-    name: ion, legendgroup: ion, showlegend: true,
-    marker:{
-      size:[markerSizePx],
-      color: DARK_GRAY,                 // dark gray in legend too
-      symbol: getIonShape(ion),
-      line:{ width:1.0, color: OUTLINE_GRAY },
-      opacity: 1
-    },
-    hoverinfo:"skip",
-    visible:true
-  }));
-}
-
-/* Sidebar: Structure Group filter (UI swatch color only) */
-function renderStructureLegend(filteredRows){
-  const el = document.getElementById("structureLegend");
-  if(!el) return;
+/* ------------ Custom Legends (right column) ------------ */
+/* Ion legend: draw gray shapes with names, toggle multi-select */
+function renderIonLegend(filteredRows){
+  const el = document.getElementById("ionLegend");
   el.innerHTML = "";
 
   const counts = {};
   filteredRows.forEach(r=>{
-    const g = norm(r[COLS.structGrouped] || "Others") || "Others";
-    counts[g] = (counts[g] || 0) + 1;
+    const ion = norm(r[COLS.ion] || "Other") || "Other";
+    counts[ion] = (counts[ion] || 0) + 1;
   });
+  const ions = Object.keys(counts).sort((a,b)=>a.localeCompare(b));
 
-  const groups = Object.keys(counts).sort((a,b)=>a.localeCompare(b));
-  groups.forEach(g=>{
+  ions.forEach(ion=>{
     const row = document.createElement("div");
     row.className = "row";
-    row.dataset.group = g;
+    row.dataset.ion = ion;
 
-    const sw = document.createElement("div");
-    sw.className = "swatch";
-    sw.style.background = STRUCT_COLORS_UI[g] || "#ddd";
+    const shapeBox = document.createElement("div");
+    shapeBox.className = "shapeBox";
+    // Tiny inline SVG using the ion shape, filled dark gray
+    shapeBox.innerHTML = makeShapeSVG(getShape(ion), DARK_GRAY);
 
     const name = document.createElement("div");
     name.className = "name";
-    name.textContent = g;
+    name.textContent = ion;
 
     const count = document.createElement("div");
     count.className = "count";
-    count.textContent = counts[g] || 0;
+    count.textContent = counts[ion];
 
-    row.append(sw, name, count);
+    row.append(shapeBox, name, count);
     row.onclick = ()=>{
-      activeStructGroup = (activeStructGroup === g) ? null : g; // toggle
-      activeIon = null; // clear ion filter when using sidebar
-      Array.from(el.children).forEach(ch=>ch.classList.toggle("active", ch.dataset.group === (activeStructGroup||"")));
+      // toggle this ion in selection set
+      if (!selectedIons) selectedIons = new Set(ions); // if null (all), initialize to all, then toggle
+      if (selectedIons.has(ion)) selectedIons.delete(ion); else selectedIons.add(ion);
+      // if set becomes full (all), convert back to null for "all"
+      if (selectedIons.size === ions.length) selectedIons = null;
+      refreshLegendStates();
       applyFilters();
     };
     el.appendChild(row);
   });
+
+  // buttons
+  document.getElementById("ionSelectAll").onclick = ()=>{
+    selectedIons = null; // all
+    refreshLegendStates(); applyFilters();
+  };
+  document.getElementById("ionClearAll").onclick = ()=>{
+    selectedIons = new Set(); // none
+    refreshLegendStates(); applyFilters();
+  };
 }
 
-/* Apply filters */
-function applyFilters(){
-  if(!traceMeta.length) return;
-  const nData = traceMeta.length;
-  const showAll = !activeStructGroup && !activeIon;
+/* Structure legend: colored swatches, toggle multi-select */
+function renderStructureLegend(filteredRows){
+  const el = document.getElementById("structureLegend");
+  el.innerHTML = "";
 
-  const visData = traceMeta.map(meta=>{
-    if (showAll) return true;
-    if (activeIon) return meta.ion === activeIon;
-    if (activeStructGroup) return meta.fam === activeStructGroup;
-    return true;
+  const counts = {};
+  filteredRows.forEach(r=>{
+    const fam = norm(r[COLS.structGrouped] || "Others") || "Others";
+    counts[fam] = (counts[fam] || 0) + 1;
+  });
+  const famsKnown = ["Amorphous","Anti-perovskite","Argyrodite","Halide","NASICON","Spinel","Polymeric","Others"];
+  const famsPresent = Object.keys(counts);
+  const fams = [...famsKnown.filter(x=>famsPresent.includes(x)), ...famsPresent.filter(x=>!famsKnown.includes(x)).sort()];
+
+  fams.forEach(fam=>{
+    const row = document.createElement("div");
+    row.className = "row";
+    row.dataset.fam = fam;
+
+    const sw = document.createElement("div");
+    sw.className = "swatch";
+    sw.style.background = getStructColor(fam);
+
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = fam;
+
+    const count = document.createElement("div");
+    count.className = "count";
+    count.textContent = counts[fam];
+
+    row.append(sw, name, count);
+    row.onclick = ()=>{
+      if (!selectedStructs) selectedStructs = new Set(fams);
+      if (selectedStructs.has(fam)) selectedStructs.delete(fam); else selectedStructs.add(fam);
+      if (selectedStructs.size === fams.length) selectedStructs = null;
+      refreshLegendStates(); applyFilters();
+    };
+    el.appendChild(row);
   });
 
-  const dataIdx = Array.from({length:nData}, (_,i)=>i);
-  Plotly.restyle("chart", { visible: visData.map(v=>v?true:"legendonly") }, dataIdx);
+  document.getElementById("structSelectAll").onclick = ()=>{
+    selectedStructs = null; refreshLegendStates(); applyFilters();
+  };
+  document.getElementById("structClearAll").onclick = ()=>{
+    selectedStructs = new Set(); refreshLegendStates(); applyFilters();
+  };
 }
 
-/* Draw the figure */
+/* Update highlighting on both legends according to selection sets */
+function refreshLegendStates(){
+  // Ion rows
+  const ionRows = document.querySelectorAll("#ionLegend .row");
+  ionRows.forEach(row=>{
+    const ion = row.dataset.ion;
+    const on = (selectedIons === null) ? true : selectedIons.has(ion);
+    row.classList.toggle("active", on);
+  });
+  // Struct rows
+  const structRows = document.querySelectorAll("#structureLegend .row");
+  structRows.forEach(row=>{
+    const fam = row.dataset.fam;
+    const on = (selectedStructs === null) ? true : selectedStructs.has(fam);
+    row.classList.toggle("active", on);
+  });
+}
+
+/* Apply filters to Plotly traces (point-level) */
+function applyFilters(){
+  if(!traceMeta.length) return;
+
+  const n = traceMeta.length; // number of data traces
+  const showAllIons  = (selectedIons === null);
+  const showAllFams  = (selectedStructs === null);
+
+  const vis = traceMeta.map(({ion,fam})=>{
+    const ionOK = showAllIons || selectedIons.has(ion);
+    const famOK = showAllFams || selectedStructs.has(fam);
+    return (ionOK && famOK) ? true : "legendonly";
+  });
+
+  const idx = Array.from({length:n}, (_,i)=>i);
+  Plotly.restyle("chart", { visible: vis }, idx);
+}
+
+/* ------------ Draw chart ------------ */
 function draw(){
   const filtered = rowsGlobal.filter(r=>{
     const ea = toNum(r[COLS.ea]);
@@ -254,15 +347,11 @@ function draw(){
     return Number.isFinite(ea) && ea <= 0.6 && Number.isFinite(s) && s > 0;
   });
 
-  say(`Rows: ${rowsGlobal.length} · Plotted: ${filtered.length} (Ea ≤ 0.6, σ>0) · Shape = Ion, Color = Dark gray`);
+  say(`Rows: ${rowsGlobal.length} · Plotted: ${filtered.length} · Color=Structure · Shape=Ion`);
 
   const dataTraces = buildDataTraces(filtered);
-  renderStructureLegend(filtered);
 
-  const presentIons = Array.from(new Set(filtered.map(r => norm(r[COLS.ion] || "Other") || "Other")));
-  const ionLegendTraces = buildIonLegendTraces(presentIons);
-
-  Plotly.newPlot("chart", [...dataTraces, ...ionLegendTraces], {
+  Plotly.newPlot("chart", dataTraces, {
     paper_bgcolor:"#fff", plot_bgcolor:"#fff",
     xaxis:{
       title:"Activation Energy Ea (eV)",
@@ -284,25 +373,19 @@ function draw(){
       titlefont:{size:12},
       tickfont:{size:10}
     },
-    legend:{
-      title:{text:"Ion Type (shape, dark gray)", font:{size:11, color:"#111"}},
-      font:{size:10, color:"#111"},
-      orientation:"h",
-      x:0.5, xanchor:"center", y:1.08,
-      itemclick:"toggle",
-      groupclick:"togglegroup",
-      traceorder:"normal",
-      bgcolor:"#fff",
-      bordercolor:"#ddd",
-      borderwidth:0.5
-    },
-    margin:{t:54, r:20, b:54, l:64}
+    margin:{t:30, r:20, b:54, l:64},
+    showlegend:false
   }, {
     responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]
   }).then(()=>{
-    const gd = document.getElementById('chart');
+    // Render right-column legends from the same filtered rows
+    renderIonLegend(filtered);
+    renderStructureLegend(filtered);
+    // Apply initial highlight (all active)
+    refreshLegendStates();
 
-    // hover fade for data traces
+    // Hover fade
+    const gd = document.getElementById('chart');
     gd.on('plotly_hover', (ev)=>{
       const n = traceMeta.length;
       const op = Array(n).fill(0.15);
@@ -315,48 +398,30 @@ function draw(){
       const idx = Array.from({length:n}, (_,i)=>i);
       Plotly.restyle('chart', { 'marker.opacity': Array(n).fill(0.9) }, idx);
     });
-
-    // legend click toggles ion (shape) filter
-    gd.on('plotly_legendclick', (ev)=>{
-      const tr = gd.data[ev.curveNumber];
-      const isStub = Array.isArray(tr.x) && tr.x.length===1 && !Number.isFinite(tr.x[0]);
-      if (isStub) {
-        const clickedIon = tr.name || null;
-        activeIon = (activeIon === clickedIon) ? null : clickedIon;
-        activeStructGroup = null; // clear structure filter when using ion legend
-        // clear sidebar highlight
-        const el = document.getElementById("structureLegend");
-        if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
-        applyFilters();
-        return false;
-      }
-      return true;
-    });
-
-    // legend double-click resets filters
-    gd.on('plotly_legenddoubleclick', ()=>{
-      activeIon = null;
-      activeStructGroup = null;
-      const el = document.getElementById("structureLegend");
-      if (el) Array.from(el.children).forEach(ch=>ch.classList.remove("active"));
-      applyFilters();
-      return false;
-    });
-
-    applyFilters();
   });
 }
 
-/* Load CSV */
+/* ------------ Load CSV and boot ------------ */
 function loadCsv(){
   fetch("data.csv", { cache:"no-store" })
-    .then(resp => { if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`); return resp.text(); })
+    .then(resp => {
+      if(!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+      return resp.text();
+    })
     .then(text=>{
       Papa.parse(text, {
         header:true, dynamicTyping:false, skipEmptyLines:true,
         complete:(res)=>{
           if(!res.data || !res.data.length){ say("Parsed CSV but found no rows."); return; }
+          // basic column presence check
+          const fields = res.meta.fields || [];
+          const must = [COLS.ion, COLS.structGrouped, COLS.ea, COLS.sigma, COLS.formula];
+          const missing = must.filter(m=>!fields.includes(m));
+          if (missing.length){ err("Missing required columns: " + missing.join(", ")); return; }
+
           rowsGlobal = res.data;
+          selectedIons = null;      // all on
+          selectedStructs = null;   // all on
           draw();
         },
         error:(e)=>{ err("Parse error: " + e.message); }
@@ -378,7 +443,75 @@ document.getElementById("sizeScale").addEventListener("input", ()=>{
   draw();
 });
 
-/* Kick off */
+/* ------------ Tiny inline symbol renderer for Ion legend ------------ */
+function makeShapeSVG(shape, fill){
+  const size = 16, half = size/2, stroke = "#1f2937";
+  // Simple set: draw approximate shapes as SVG; keep consistent with Plotly names
+  const svgOpen = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">`;
+  const svgClose = `</svg>`;
+  const poly = pts => pts.map(p=>p.join(",")).join(" ");
+  let body = "";
+
+  switch(shape){
+    case "circle":
+      body = `<circle cx="${half}" cy="${half}" r="${half-1}" fill="${fill}" stroke="${stroke}" />`; break;
+    case "square":
+      body = `<rect x="2" y="2" width="${size-4}" height="${size-4}" rx="2" fill="${fill}" stroke="${stroke}" />`; break;
+    case "diamond":
+      body = `<polygon points="${poly([[half,2],[size-2,half],[half,size-2],[2,half]])}" fill="${fill}" stroke="${stroke}" />`; break;
+    case "triangle-up":
+      body = `<polygon points="${poly([[half,2],[size-2,size-2],[2,size-2]])}" fill="${fill}" stroke="${stroke}" />`; break;
+    case "triangle-down":
+      body = `<polygon points="${poly([[2,2],[size-2,2],[half,size-2]])}" fill="${fill}" stroke="${stroke}" />`; break;
+    case "triangle-left":
+      body = `<polygon points="${poly([[size-2,2],[size-2,size-2],[2,half]])}" fill="${fill}" stroke="${stroke}" />`; break;
+    case "triangle-right":
+      body = `<polygon points="${poly([[size-2,half],[2,2],[2,size-2]])}" fill="${fill}" stroke="${stroke}" />`; break;
+    case "hexagon": {
+      const pts = [];
+      for(let i=0;i<6;i++){
+        const a = (Math.PI/3)*i + Math.PI/6;
+        pts.push([half + (half-2)*Math.cos(a), half + (half-2)*Math.sin(a)]);
+      }
+      body = `<polygon points="${poly(pts)}" fill="${fill}" stroke="${stroke}" />`; break;
+    }
+    case "pentagon": {
+      const pts = [];
+      for(let i=0;i<5;i++){
+        const a = (2*Math.PI/5)*i - Math.PI/2;
+        pts.push([half + (half-2)*Math.cos(a), half + (half-2)*Math.sin(a)]);
+      }
+      body = `<polygon points="${poly(pts)}" fill="${fill}" stroke="${stroke}" />`; break;
+    }
+    case "star": {
+      const pts = [];
+      const rO = half-1, rI = rO*0.45;
+      for(let i=0;i<10;i++){
+        const r = (i%2===0)? rO : rI;
+        const a = -Math.PI/2 + (Math.PI/5)*i;
+        pts.push([half + r*Math.cos(a), half + r*Math.sin(a)]);
+      }
+      body = `<polygon points="${poly(pts)}" fill="${fill}" stroke="${stroke}" />`; break;
+    }
+    case "cross":
+      body = `<path d="M ${half-1} 2 L ${half+1} 2 L ${half+1} ${half-1} L ${size-2} ${half-1} L ${size-2} ${half+1} L ${half+1} ${half+1} L ${half+1} ${size-2} L ${half-1} ${size-2} L ${half-1} ${half+1} L 2 ${half+1} L 2 ${half-1} L ${half-1} ${half-1} Z" fill="${fill}" stroke="${stroke}" />`; break;
+    case "x":
+      body = `
+        <rect x="2" y="${half-1}" width="${size-4}" height="2" transform="rotate(45 ${half} ${half})" fill="${fill}" stroke="${stroke}" />
+        <rect x="2" y="${half-1}" width="${size-4}" height="2" transform="rotate(-45 ${half} ${half})" fill="${fill}" stroke="${stroke}" />`; break;
+    case "bowtie":
+      body = `<polygon points="${poly([[half,half],[size-2,2],[size-2,size-2]])}" fill="${fill}" stroke="${stroke}" />
+              <polygon points="${poly([[half,half],[2,2],[2,size-2]])}" fill="${fill}" stroke="${stroke}" />`; break;
+    case "hourglass":
+      body = `<polygon points="${poly([[2,2],[size-2,2],[half,half]])}" fill="${fill}" stroke="${stroke}" />
+              <polygon points="${poly([[2,size-2],[size-2,size-2],[half,half]])}" fill="${fill}" stroke="${stroke}" />`; break;
+    default:
+      body = `<circle cx="${half}" cy="${half}" r="${half-1}" fill="${fill}" stroke="${stroke}" />`; break;
+  }
+  return svgOpen + body + svgClose;
+}
+
+/* Boot */
 loadCsv();
 </script>
 </body>
