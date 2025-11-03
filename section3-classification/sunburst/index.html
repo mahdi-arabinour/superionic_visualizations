@@ -415,8 +415,8 @@
     renderRingCaptions(root);
 
     // stats + crumbs + legend
-    document.getElementById('rtStats').textContent =
-      `Formulas w/ conductivity: ${fullHierarchy.leaves().filter(d=>d.data.hasCond).length}/${fullHierarchy.leaves().length}`;
+    //document.getElementById('rtStats').textContent =
+    //  `Formulas w/ conductivity: ${fullHierarchy.leaves().filter(d=>d.data.hasCond).length}/${fullHierarchy.leaves().length}`;
     renderCrumbs();
     buildLegend(legendEl, root);
 
