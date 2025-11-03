@@ -3,317 +3,223 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Beeswarm — Conductivity by Structure × Dopant</title>
+<title>Beeswarm — Dopant × Structure (size = conductivity)</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  :root { color-scheme: light; }
-  body { margin: 16px; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; background:#f7f7f7; color:#0f172a; }
-  h2 { margin: 0 0 8px; font-size: 22px; }
-  .sub { margin: 0 0 16px; font-size: 12px; color:#475569; }
-  .wrap { display: flex; align-items: flex-start; gap: 16px; }
-  #chartPane { flex: 1 1 auto; min-width: 0; }
-  svg { width: 100%; height: auto; background:#fff; border:1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-  .axis path, .axis line { stroke:#cbd5e1; }
-  .axis text { fill:#334155; font-size:12px; }
-  .rowLabel { fill:#111827; font-weight:600; font-size:12px; }
-  .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin: 0 0 10px; }
-  .ctl { background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; display:flex; align-items:center; gap:8px; font-size:12px; }
-  .ctl select, .ctl input[type="checkbox"] { font-size:12px; }
-  .sizeBox { display:flex; align-items:center; gap:8px; }
-  .legendCol { flex: 0 0 280px; position: sticky; top: 12px; display:flex; flex-direction: column; gap: 12px; }
-  .card { background:#fff; border:1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-  .card h3 { margin: 0 0 8px; font-size: 13px; color:#111827; display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .legend-list { display:flex; flex-direction: column; gap:4px; max-height: 66vh; overflow:auto; }
-  .legend-item { display:flex; align-items:center; gap:8px; font-size:12px; padding:6px 8px; border-radius:8px; cursor:pointer; user-select:none; }
-  .legend-item:hover { background:#f3f4f6; }
-  .legend-item.inactive { opacity:0.45; }
-  .legend-swatch { width:16px; height:16px; border-radius:4px; border:1px solid rgba(0,0,0,0.35); }
-  .reset { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:4px 8px; cursor:pointer; font-size:12px; color:#374151; }
-  .reset:hover { background:#f3f4f6; }
-  .tooltip { position: fixed; pointer-events: none; background:#fff; border:1px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,.08); border-radius:8px; padding:8px 10px; font-size:12px; color:#111827; }
-  @media (max-width: 980px) { .wrap { flex-direction: column; } .legendCol { position: static; width: 100%; } }
+  body{margin:16px;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;background:#f7f7f7;color:#0f172a}
+  h2{margin:0 0 8px;font-size:22px}
+  .sub{margin:0 0 16px;font-size:12px;color:#475569}
+  .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px}
+  .ctl{background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:6px 10px;display:flex;align-items:center;gap:8px;font-size:12px}
+  .reset{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:4px 8px;cursor:pointer;font-size:12px;color:#374151}
+  .reset:hover{background:#f3f4f6}
+  svg{width:100%;height:auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .axis path,.axis line{stroke:#cbd5e1}
+  .axis text{fill:#334155;font-size:12px}
+  .rowLabel{fill:#111827;font-weight:600;font-size:12px}
+  .tooltip{position:fixed;pointer-events:none;background:#fff;border:1px solid #e5e7eb;box-shadow:0 8px 16px rgba(0,0,0,.08);border-radius:8px;padding:8px 10px;font-size:12px;color:#111827}
 </style>
 </head>
 <body>
 
-<h2>Beeswarm — Conductivity by Structure × Dopant</h2>
-<div class="sub">One circle per <b>Structure × Dopant</b> pair. X = <b>log₁₀(σ)</b> (median by default). Size ∝ √count. Jitter prevents overlap within each structure row.</div>
+<h2>Beeswarm — Dopant × Structure</h2>
+<div class="sub">
+  One bubble per <b>(Structure, Dopant)</b> pair. <b>Size ∝ log₁₀(σ)</b> (median by default; toggle mean).
+  Bubbles are packed within each cell (row=Structure, column=Dopant).
+</div>
 
 <div class="controls">
-  <label class="ctl">Color by
-    <select id="colorBy">
-      <option value="structure">Structure Group</option>
-      <option value="ion">Ion Type (dopant)</option>
-    </select>
-  </label>
-
   <label class="ctl"><input type="checkbox" id="useMean"> Use <b>mean</b> (vs median)</label>
-
-  <div class="ctl sizeBox">
+  <div class="ctl">
     <span>Bubble size</span>
-    <input id="sizeSlider" type="range" min="40" max="140" value="80" />
-    <span id="sizeVal">80</span>
+    <input id="sizeSlider" type="range" min="0.6" max="2.0" step="0.05" value="1.0">
+    <span id="sizeVal">1.00×</span>
     <button class="reset" id="resetSize">Reset</button>
   </div>
 </div>
 
-<div class="wrap">
-  <div id="chartPane">
-    <svg id="chart" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid meet"></svg>
-  </div>
-
-  <aside class="legendCol">
-    <div class="card" id="card-ion" style="display:none;">
-      <h3>Ion Type (Color) <button class="reset" id="resetIon">Reset</button></h3>
-      <div id="ionItems" class="legend-list"></div>
-    </div>
-  </aside>
-</div>
+<svg id="chart" viewBox="0 0 1400 840" preserveAspectRatio="xMidYMid meet"></svg>
 
 <script>
-const CSV_FILE = "data.csv";
-
-/* ---- Your palettes ---- */
-const ION_COLORS = {
-  "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
-  "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
-  "F-":   "#ff8a65","Cu+":  "#5c6bc0","Mg2+": "#26c6da","In3+": "#c0ca33",
-  "I-":   "#ec407a","Sn4+": "#7e57c2"
-};
+// ---------- palettes ----------
 const STRUCT_COLORS = {
   "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a",
   "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
 };
-/* ----------------------- */
+const colorForStructure = s => STRUCT_COLORS[s] || "#9ca3af";
 
-const margin = {top: 36, right: 20, bottom: 64, left: 160};
-const W = 1200 - margin.left - margin.right;
-const H = 760 - margin.top - margin.bottom;
-const jitterY = 12;       // allowed up/down jitter range
-const collideR0 = 6;      // base collision radius (scaled by size slider)
+// ---------- config ----------
+const CSV_FILE = "data.csv";
+const margin = {top: 42, right: 20, bottom: 220, left: 160};
+const W = 1400 - margin.left - margin.right;
+const H = 840  - margin.top  - margin.bottom;
+
 const svg = d3.select("#chart");
 const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 const xAxisG = g.append("g").attr("class","axis").attr("transform", `translate(0,${H})`);
 const yAxisG = g.append("g");
-
-g.append("text").attr("x", W/2).attr("y", H+44).attr("text-anchor","middle")
-  .attr("fill","#111827").attr("font-size",13).text("log₁₀(σ)  (S·cm⁻¹)");
+const gridG  = g.append("g").attr("opacity",0.25);
 
 const tooltip = d3.select("body").append("div").attr("class","tooltip").style("opacity",0);
-
-function pick(cols, cands){ for(const c of cands) if(cols.includes(c)) return c; return null; }
-
-let allPairs = [];        // aggregated Structure×Dopant nodes
-let structures = [];
-let ions = [];
-let x, rScale;
-let activeIons = new Set(); // for legend multi-select
 
 const sizeSlider = document.getElementById("sizeSlider");
 const sizeVal    = document.getElementById("sizeVal");
 const resetSize  = document.getElementById("resetSize");
-const colorBySel = document.getElementById("colorBy");
 const useMeanChk = document.getElementById("useMean");
+
+// Smart column-picking
+function pick(cols, cands){ for(const c of cands) if(cols.includes(c)) return c; return null; }
 
 d3.csv(CSV_FILE).then(raw => {
   const cols = Object.keys(raw[0] || {});
+  const C_STRUCT  = pick(cols, ["Structure Group","StructureType","Structure"]);
+  const C_ION     = pick(cols, ["Dopant","Doping strategy","Doping Strategy","Strategy","Ion Type","IonType","Ion_Type"]);
+  const C_SIGMA   = pick(cols, ["Conductivity σ (S·cm⁻¹) / Temp (°C) normalized","Conductivity σ (S/cm)","Conductivity","sigma"]);
   const C_FORMULA = pick(cols, ["Formula (Chemical)","Superionic Conductor Formula (Chemical)","Formula"]);
-  const C_STRUCT  = pick(cols, ["Structure Group","StructureType"]);
-  const C_ION     = pick(cols, ["Ion Type","IonType","Ion_Type","Dopant","Strategy","Doping strategy"]);
-  const C_COND    = pick(cols, ["Conductivity σ (S·cm⁻¹) / Temp (°C) normalized","Conductivity σ (S/cm)","Conductivity","sigma"]);
 
   const rows = raw.map(d => ({
-    structure: (d[C_STRUCT] || "").trim(),
-    ion:       (d[C_ION]    || "").trim(),
-    sigma:     +d[C_COND],
+    structure: (d[C_STRUCT]  || "").trim(),
+    dopant:    (d[C_ION]     || "").trim(),
+    sigma:     +d[C_SIGMA],
     formula:   (d[C_FORMULA] || "").trim()
-  })).filter(d => d.structure && d.ion && Number.isFinite(d.sigma) && d.sigma > 0);
+  })).filter(d => d.structure && d.dopant && Number.isFinite(d.sigma) && d.sigma > 0);
 
-  // Aggregate to Structure×Ion pairs with stats
+  // Aggregate to a single bubble per (Structure, Dopant)
   const roll = d3.rollup(
     rows,
     v => ({
       n: v.length,
       median: d3.median(v, d => d.sigma),
-      mean: d3.mean(v,   d => d.sigma)
+      mean:   d3.mean(v,   d => d.sigma)
     }),
     d => d.structure,
-    d => d.ion
+    d => d.dopant
   );
 
-  allPairs = [];
-  for (const [structure, mapIon] of roll.entries()) {
-    for (const [ion, stats] of mapIon.entries()) {
-      allPairs.push({ structure, ion, ...stats });
+  const bubbles = [];
+  for (const [structure, m] of roll.entries()) {
+    for (const [dopant, stats] of m.entries()) {
+      bubbles.push({structure, dopant, ...stats});
     }
   }
 
-  // domains
-  structures = Array.from(new Set(allPairs.map(d => d.structure))).sort();
-  ions       = Array.from(new Set(allPairs.map(d => d.ion))).sort();
-  activeIons = new Set(ions);
+  // Domains
+  const structures = Array.from(new Set(bubbles.map(d => d.structure))).sort();
+  const dopants    = Array.from(new Set(bubbles.map(d => d.dopant))).sort();
 
-  // scales
-  const metric = d => useMeanChk.checked ? d.mean : d.median;
-  x = d3.scaleLog()
-    .domain(d3.extent(allPairs, d => metric(d)))
-    .nice()
-    .range([0, W]);
+  // Scales
+  const x = d3.scaleBand().domain(dopants).range([0, W]).paddingInner(0.2).paddingOuter(0.05);
+  const y = d3.scaleBand().domain(structures).range([0, H]).paddingInner(0.25);
 
-  rScale = d3.scaleSqrt().domain([1, d3.max(allPairs, d => d.n) || 1]).range([2, 10]);
+  // Radius: map log10(σ) to radius [3..20] then multiply by slider factor
+  const getSigma = d => useMeanChk.checked ? d.mean : d.median;
+  const sigmaDomain = d3.extent(bubbles, d => Math.log10(getSigma(d)));
+  const rBase = d3.scaleLinear().domain(sigmaDomain).range([3, 20]);
 
-  // axes & row labels
-  xAxisG.call(d3.axisBottom(x).ticks(10, "~g"));
+  // Axes
+  xAxisG.call(d3.axisBottom(x).tickSize(4).tickPadding(6))
+    .selectAll("text")
+    .attr("text-anchor","end")
+    .attr("transform","rotate(-50)")
+    .attr("dx","-8px").attr("dy","6px");
   yAxisG.selectAll(".rowLabel")
     .data(structures)
     .join("text")
       .attr("class","rowLabel")
-      .attr("x", -12)
-      .attr("y", s => rowY(s))
-      .attr("dy", 5)
-      .attr("text-anchor", "end")
+      .attr("x",-12).attr("y", s => y(s) + y.bandwidth()/2)
+      .attr("dy", 5).attr("text-anchor","end")
       .text(s => s);
 
-  // initial draw
-  drawBeeswarm();
+  // Light vertical grid lines for columns
+  gridG.selectAll("line.v")
+    .data(dopants)
+    .join("line")
+      .attr("class","v")
+      .attr("x1", d => x(d) + x.bandwidth()/2)
+      .attr("x2", d => x(d) + x.bandwidth()/2)
+      .attr("y1", 0).attr("y2", H)
+      .attr("stroke","#cbd5e1");
 
-  // controls
-  sizeSlider.addEventListener("input", ()=>{ sizeVal.textContent = sizeSlider.value; drawBeeswarm(); });
-  resetSize.addEventListener("click", ()=>{ sizeSlider.value = 80; sizeVal.textContent = 80; drawBeeswarm(); });
-  colorBySel.addEventListener("change", ()=>{ updateLegend(); drawBeeswarm(); });
-  useMeanChk.addEventListener("change", ()=>{ drawBeeswarm(); });
+  // Draw/Update once and on control changes
+  function draw(){
+    const sizeFactor = +sizeSlider.value;
+    sizeVal.textContent = `${sizeFactor.toFixed(2)}×`;
 
-  updateLegend();
+    // recompute radius domain if mean/median toggled
+    const r = d => rBase(Math.log10(getSigma(d))) * sizeFactor;
+
+    // Run a small force-sim **inside each cell** to pack bubbles if you ever have >1 per cell
+    // (we have 1 per cell by aggregation, but this makes it robust if you later facet versions)
+    const nodes = bubbles.map(d => ({
+      ...d,
+      targetX: x(d.dopant) + x.bandwidth()/2,
+      targetY: y(d.structure) + y.bandwidth()/2,
+      x: x(d.dopant) + x.bandwidth()/2 + (Math.random()*2-1)*3,
+      y: y(d.structure) + y.bandwidth()/2 + (Math.random()*2-1)*3,
+      r: r(d)
+    }));
+
+    // Group by cell to keep each pack local
+    const byCell = d3.group(nodes, n => n.structure + "‖" + n.dopant);
+    for (const cellNodes of byCell.values()) {
+      const sim = d3.forceSimulation(cellNodes)
+        .force("x", d3.forceX(n => n.targetX).strength(0.4))
+        .force("y", d3.forceY(n => n.targetY).strength(0.4))
+        .force("collide", d3.forceCollide(n => n.r + 0.8))
+        .stop();
+      for (let i=0;i<80;i++) sim.tick();
+    }
+
+    const dots = g.selectAll("circle.dot")
+      .data(nodes, d => d.structure + "\u0001" + d.dopant)
+      .join(
+        enter => enter.append("circle")
+          .attr("class","dot")
+          .attr("r", d => d.r)
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y)
+          .attr("fill", d => colorForStructure(d.structure))
+          .attr("stroke","rgba(17,24,39,0.8)")
+          .attr("stroke-width",0.6)
+          .on("mouseover",(event,d)=>{
+            tooltip.style("opacity",1).html(`
+              <div><b>${d.dopant}</b> in <b>${d.structure}</b></div>
+              <div>N = ${d.n}</div>
+              <div>${useMeanChk.checked ? "Mean" : "Median"} σ = ${formatSig(getSigma(d))}</div>
+            `);
+          })
+          .on("mousemove",(event)=>tooltip.style("left",(event.clientX+14)+"px").style("top",(event.clientY+14)+"px"))
+          .on("mouseout",()=>tooltip.style("opacity",0)),
+        update => update
+          .attr("r", d => d.r)
+          .attr("cx", d => d.x)
+          .attr("cy", d => d.y)
+          .attr("fill", d => colorForStructure(d.structure))
+      );
+  }
+
+  draw();
+
+  // Controls
+  sizeSlider.addEventListener("input", draw);
+  resetSize.addEventListener("click", ()=>{ sizeSlider.value = 1.0; sizeVal.textContent = "1.00×"; draw(); });
+  useMeanChk.addEventListener("change", ()=>{
+    // rebuild radius base scale domain with chosen metric
+    const sigmaDomain2 = d3.extent(bubbles, d => Math.log10(getSigma(d)));
+    rBase.domain(sigmaDomain2);
+    draw();
+  });
 
 }).catch(() => {
-  d3.select("#chartPane").append("div").style("margin","12px 8px").style("color","#b91c1c")
+  d3.select("body").append("div").style("margin","12px 8px").style("color","#b91c1c")
     .text("⚠️ Could not load data.csv. Please open via a local web server (e.g., python3 -m http.server).");
 });
 
-function rowY(structure){ // centerline for each row
-  return d3.scaleBand().domain(structures).range([0, H]).paddingInner(0.2)(structure);
-}
-
-function colorFor(d){
-  if (colorBySel.value === "ion") return ION_COLORS[d.ion] || "#9ca3af";
-  return STRUCT_COLORS[d.structure] || "#9ca3af";
-}
-
-function drawBeeswarm(){
-  const metric = d => useMeanChk.checked ? d.mean : d.median;
-
-  // recompute x (domain may change when switching mean/median)
-  x.domain(d3.extent(allPairs, d => metric(d))).nice();
-  xAxisG.call(d3.axisBottom(x).ticks(10, "~g"));
-
-  // build nodes for sim (per-structure), filtered by ion legend
-  const nodes = [];
-  const grouped = d3.group(allPairs.filter(p => activeIons.has(p.ion)), d => d.structure);
-
-  const sizeFactor = (+sizeSlider.value) / 80;       // 1.0 at 80
-  const collideR   = collideR0 * sizeFactor;
-
-  for (const [structure, arr] of grouped.entries()) {
-    const y0 = rowY(structure) ?? 0;
-
-    const rowNodes = arr.map(p => ({
-      ...p,
-      x: x(metric(p)),
-      y: y0 + (Math.random()*2 - 1) * jitterY,
-      targetX: x(metric(p)),
-      targetY: y0,
-      r: rScale(p.n) * sizeFactor
-    }));
-
-    const sim = d3.forceSimulation(rowNodes)
-      .force("x", d3.forceX(n => n.targetX).strength(0.4))
-      .force("y", d3.forceY(n => n.targetY).strength(0.15))
-      .force("collide", d3.forceCollide(n => Math.max(2, n.r) + 1.2))
-      .stop();
-    for (let i=0;i<180;i++) sim.tick();
-
-    nodes.push(...rowNodes);
-  }
-
-  // draw
-  const dots = g.selectAll("circle.dot")
-    .data(nodes, d => d.structure + "\u0001" + d.ion)
-    .join(
-      enter => enter.append("circle")
-        .attr("class","dot")
-        .attr("r", d => d.r)
-        .attr("cx", d => d.x)
-        .attr("cy", d => d.y)
-        .attr("fill", d => colorFor(d))
-        .attr("stroke","rgba(17,24,39,0.85)")
-        .attr("stroke-width", 0.6)
-        .attr("opacity", 0.96)
-        .on("mouseover",(event,d)=>{
-          const val = (useMeanChk.checked ? d.mean : d.median);
-          tooltip.style("opacity",1).html(`
-            <div><b>${d.ion}</b> in <b>${d.structure}</b></div>
-            <div>N = ${d.n}</div>
-            <div>${useMeanChk.checked ? "Mean" : "Median"} σ = ${formatSig(val)}</div>
-          `);
-        })
-        .on("mousemove",(event)=>{ tooltip.style("left",(event.clientX+14)+"px").style("top",(event.clientY+14)+"px"); })
-        .on("mouseout",()=> tooltip.style("opacity",0)),
-      update => update
-        .attr("r", d => d.r)
-        .attr("cx", d => d.x)
-        .attr("cy", d => d.y)
-        .attr("fill", d => colorFor(d))
-    );
-
-  // row labels stay in place
-}
-
+// helpers
 function formatSig(v){
   if (!Number.isFinite(v)) return "–";
   const e = Math.log10(v);
   return (e >= -2 && e <= 3) ? v.toPrecision(3) : `1e${e.toFixed(1)}`;
-}
-
-/* ---------- Ion legend (only when coloring by Ion) ---------- */
-function updateLegend(){
-  const card = d3.select("#card-ion");
-  const list = d3.select("#ionItems");
-  const isIon = (colorBySel.value === "ion");
-  card.style("display", isIon ? null : "none");
-  if (!isIon) { activeIons = new Set(ions); drawBeeswarm(); return; }
-
-  list.selectAll("*").remove();
-  ions.forEach(t => {
-    const item = list.append("div").attr("class","legend-item");
-    item.on("click", (event) => {
-      const soloActive = activeIons.size === 1 && activeIons.has(t);
-      if (event.metaKey || event.ctrlKey) {
-        if (activeIons.has(t)) activeIons.delete(t); else activeIons.add(t);
-      } else if (event.shiftKey) {
-        activeIons.add(t);
-      } else {
-        activeIons = soloActive ? new Set(ions) : new Set([t]);
-      }
-      refreshLegendStates();
-      drawBeeswarm();
-    });
-    item.append("div").attr("class","legend-swatch").style("background", ION_COLORS[t] || "#9ca3af");
-    item.append("span").text(t || "—");
-  });
-
-  document.getElementById("resetIon").onclick = () => {
-    activeIons = new Set(ions);
-    refreshLegendStates();
-    drawBeeswarm();
-  };
-  refreshLegendStates();
-}
-
-function refreshLegendStates(){
-  d3.selectAll("#ionItems .legend-item").classed("inactive", function(){
-    const txt = d3.select(this).select("span").text();
-    return !activeIons.has(txt);
-  });
 }
 </script>
 </body>
