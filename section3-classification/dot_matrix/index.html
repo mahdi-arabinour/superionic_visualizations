@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>σ vs Doping Type — legend right, subtype selector below</title>
+<title>σ vs Doping Type — right legend + click-to-toggle subtypes</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   :root { color-scheme: light; }
@@ -28,19 +28,18 @@
   .legend-row { display:flex; gap:8px; margin-bottom:8px; }
   .btn { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:4px 8px; cursor:pointer; font-size:12px; color:#374151; }
   .btn:hover { background:#f3f4f6; }
-  /* top controls */
   .controls { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:0 0 10px; }
   .ctl { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:8px 10px; font-size:12px; display:flex; align-items:center; gap:8px; }
-  select.mult { width:100%; min-height:160px; }
-  @media (max-width: 980px) { .wrap { flex-direction:column; } .legendCol { position:static; width:100%; } }
+  select.mult { width:100%; min-height:180px; }
+  @media (max-width:980px){ .wrap{flex-direction:column;} .legendCol{position:static;width:100%;} }
 </style>
 </head>
 <body>
 
 <h2>σ (S/cm) vs Doping Type — colored by Structure Group</h2>
-<div class="sub">X = log₁₀(σ). Y = Doping Type. Color = Structure Group. Tooltip includes <i>Doping / and or GB Strategy</i>. Use the size control and right-side filters to explore.</div>
+<div class="sub">X = log₁₀(σ). Y = Doping Type. Color = Structure Group. Click subtype items on the right to toggle them; legend is filterable; bubble size is adjustable.</div>
 
-<!-- keep bubble size on top -->
+<!-- top control: bubble size -->
 <div class="controls">
   <div class="ctl">
     <label for="sizeSlider"><b>Bubble size</b></label>
@@ -66,35 +65,35 @@
       <div id="structItems" class="legend-list"></div>
     </div>
 
-    <!-- Doping_Subtype selector placed BELOW the legend -->
+    <!-- Subtype selector below the legend -->
     <div class="card">
       <h3>Doping_Subtype</h3>
-      <select id="subtypeSelect" class="mult" multiple size="8" title="Select one or more subtypes"></select>
+      <select id="subtypeSelect" class="mult" multiple size="10" title="Click an item to toggle"></select>
       <div class="legend-row" style="margin-top:8px;">
         <button id="subtypeAll" class="btn">Select All</button>
         <button id="subtypeClear" class="btn">Clear</button>
       </div>
-      <div style="font-size:12px; color:#6b7280; margin-top:6px;">Tip: <b>double-click</b> an item to remove it from the chart.</div>
+      <div style="font-size:12px;color:#6b7280;margin-top:6px;">Click an item to include/exclude it from the chart.</div>
     </div>
   </aside>
 </div>
 
 <script>
-/* columns */
+/* Column names */
 const COL_SIGMA    = "Conductivity σ (S/cm)";
 const COL_STRUCT   = "Structure Group";
 const COL_DOPANT   = "Doping / and or GB Strategy";
 const COL_SUBTYPE  = "Doping_Subtype";
 
-/* structure palette */
+/* Structure color palette */
 const STRUCT_COLORS = {
   "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a",
   "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
 };
 const structColor = s => STRUCT_COLORS[s] || "#9ca3af";
 
-/* layout */
-const margin = {top:36, right:20, bottom:64, left:200};
+/* Layout */
+const margin = {top:36,right:20,bottom:64,left:200};
 const W = 1200 - margin.left - margin.right;
 const H = 760  - margin.top  - margin.bottom;
 
@@ -104,25 +103,25 @@ const xAxisG = g.append("g").attr("class","axis").attr("transform",`translate(0,
 const yAxisG = g.append("g");
 g.append("text").attr("x", W/2).attr("y", H+44).attr("text-anchor","middle")
   .attr("fill","#111827").attr("font-size",13).text("Conductivity σ (S·cm⁻¹) — log scale");
-g.append("text").attr("x", -H/2).attr("y", -margin.left+60)
-  .attr("text-anchor","middle").attr("fill","#111827").attr("font-size",13)
-  .attr("transform","rotate(-90)").text("Doping Type");
+g.append("text").attr("x",-H/2).attr("y",-margin.left+60).attr("text-anchor","middle")
+  .attr("fill","#111827").attr("font-size",13).attr("transform","rotate(-90)").text("Doping Type");
 
 const tooltip = d3.select("body").append("div").attr("class","tooltip").style("opacity",0);
 
-/* state */
+/* State */
 let data=[], allSubtypes=[], structures=[];
 let activeStructures=new Set(), activeSubtypes=new Set();
 let x, band, yCenter;
 let sizeFactor=1.0;
 
-/* controls */
+/* Controls */
 const subtypeSelect = document.getElementById("subtypeSelect");
 const sizeSlider = document.getElementById("sizeSlider");
 const sizeVal = document.getElementById("sizeVal");
 const sizeReset = document.getElementById("sizeReset");
 
 d3.csv("data.csv").then(raw=>{
+  // Tidy data
   data = raw.map(d=>({
     sigma:+d[COL_SIGMA],
     structure:(d[COL_STRUCT]||"").trim(),
@@ -135,22 +134,26 @@ d3.csv("data.csv").then(raw=>{
   activeStructures = new Set(structures);
   activeSubtypes   = new Set(allSubtypes);
 
-  // populate right-side selector
+  // Populate right-hand multi-select
   for(const s of allSubtypes){
     const opt=document.createElement('option');
     opt.value=s; opt.textContent=s;
+    opt.selected=true;
     subtypeSelect.appendChild(opt);
   }
-  setSelectValues(subtypeSelect, allSubtypes);
 
+  // Scales
   x = d3.scaleLog().domain(d3.extent(data,d=>d.sigma)).nice().range([0,W]);
   band = d3.scaleBand().domain(allSubtypes).range([0,H]).paddingInner(0.2);
   yCenter = s => (band(s)||0) + band.bandwidth()/2;
   xAxisG.call(d3.axisBottom(x).ticks(10,"~g"));
 
+  // UI wiring
   buildStructureLegend();
   wireSubtypeControls();
   wireSizeControl();
+
+  // First draw
   draw();
 }).catch(()=>{
   d3.select("#chartPane").append("div")
@@ -161,6 +164,7 @@ d3.csv("data.csv").then(raw=>{
 function draw(){
   const rows = data.filter(d=>activeStructures.has(d.structure) && activeSubtypes.has(d.subtype));
 
+  // Compact Y domain to visible subtypes
   const visibleSubtypes = Array.from(activeSubtypes);
   band.domain(visibleSubtypes);
   yAxisG.selectAll(".rowLabel")
@@ -173,25 +177,25 @@ function draw(){
       exit=>exit.remove()
     );
 
+  // Beeswarm per subtype row
   const jitterY=10, baseR=4*sizeFactor;
   const all=[];
-  const bySubtype = d3.group(rows,d=>d.subtype);
+  const bySubtype=d3.group(rows,d=>d.subtype);
   for(const [subtype,arr] of bySubtype.entries()){
     const y0=yCenter(subtype);
-    const rowNodes=arr.map(d=>({
-      ...d,
-      targetX:x(d.sigma), targetY:y0,
+    const nodes=arr.map(d=>({
+      ...d, targetX:x(d.sigma), targetY:y0,
       x:x(d.sigma)+(Math.random()*2-1)*2,
       y:y0+(Math.random()*2-1)*jitterY,
       r:baseR
     }));
-    const sim=d3.forceSimulation(rowNodes)
+    const sim=d3.forceSimulation(nodes)
       .force("x", d3.forceX(n=>n.targetX).strength(0.5))
       .force("y", d3.forceY(n=>n.targetY).strength(0.15))
       .force("collide", d3.forceCollide(n=>n.r+0.8))
       .stop();
     for(let i=0;i<160;i++) sim.tick();
-    all.push(...rowNodes);
+    all.push(...nodes);
   }
 
   g.selectAll("circle.dot")
@@ -217,7 +221,7 @@ function draw(){
     );
 }
 
-/* Structure legend (filterable) */
+/* Structure legend */
 function buildStructureLegend(){
   const container=d3.select("#structItems");
   container.selectAll("*").remove();
@@ -248,55 +252,68 @@ function refreshStructLegend(){
   });
 }
 
-/* Subtype selector (right column) */
+/* Subtype selector — single-click toggle */
 function wireSubtypeControls(){
-  document.getElementById("subtypeAll").addEventListener("click",()=>{
-    activeSubtypes=new Set(allSubtypes);
-    setSelectValues(subtypeSelect, allSubtypes);
+  const sel = subtypeSelect;
+
+  document.getElementById("subtypeAll").addEventListener("click", ()=>{
+    activeSubtypes = new Set(allSubtypes);
+    setSelectValues(sel, allSubtypes);
     draw();
   });
-  document.getElementById("subtypeClear").addEventListener("click",()=>{
-    activeSubtypes=new Set();
-    setSelectValues(subtypeSelect, []);
+  document.getElementById("subtypeClear").addEventListener("click", ()=>{
+    activeSubtypes = new Set();
+    setSelectValues(sel, []);
     draw();
   });
-  subtypeSelect.addEventListener("change",()=>{
-    const sel = Array.from(subtypeSelect.selectedOptions).map(o=>o.value);
-    activeSubtypes = new Set(sel);
-    draw();
-  });
-  // double-click to remove
-  subtypeSelect.addEventListener("dblclick",(e)=>{
-    if(e.target && e.target.tagName==="OPTION"){
-      const val=e.target.value;
-      if(activeSubtypes.has(val)) activeSubtypes.delete(val);
-      e.target.selected=false;
+
+  // Single click toggles the clicked option (remove/add from chart)
+  sel.addEventListener("click", e=>{
+    if (e.target && e.target.tagName === "OPTION") {
+      const val = e.target.value;
+      if (activeSubtypes.has(val)) {
+        activeSubtypes.delete(val);
+        e.target.selected = false;
+      } else {
+        activeSubtypes.add(val);
+        e.target.selected = true;
+      }
       draw();
     }
+  });
+
+  // Also update on generic selection change (keyboard)
+  sel.addEventListener("change", ()=>{
+    const chosen = Array.from(sel.selectedOptions).map(o=>o.value);
+    activeSubtypes = new Set(chosen);
+    draw();
   });
 }
 
 /* Bubble size control */
 function wireSizeControl(){
-  sizeSlider.addEventListener("input",()=>{
+  sizeSlider.addEventListener("input", ()=>{
     sizeFactor = +sizeSlider.value;
     sizeVal.textContent = `${sizeFactor.toFixed(2)}×`;
     draw();
   });
-  sizeReset.addEventListener("click",()=>{
-    sizeFactor=1.0; sizeSlider.value="1.0"; sizeVal.textContent="1.00×"; draw();
+  sizeReset.addEventListener("click", ()=>{
+    sizeFactor = 1.0;
+    sizeSlider.value = "1.0";
+    sizeVal.textContent = "1.00×";
+    draw();
   });
 }
 
-/* helpers */
+/* Helpers */
 function setSelectValues(select, values){
   const set = new Set(values);
-  for(const opt of select.options) opt.selected = set.has(opt.value);
+  for (const opt of select.options) opt.selected = set.has(opt.value);
 }
 function formatSig(v){
-  if(!Number.isFinite(v)) return "–";
+  if (!Number.isFinite(v)) return "–";
   const e = Math.log10(v);
-  return (e>=-2 && e<=3) ? v.toPrecision(3) : `1e${e.toFixed(1)}`;
+  return (e >= -2 && e <= 3) ? v.toPrecision(3) : `1e${e.toFixed(1)}`;
 }
 </script>
 </body>
