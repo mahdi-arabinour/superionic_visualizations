@@ -485,7 +485,7 @@ async function initFromCSV(){
     ionLegEl.innerHTML = '';
     ions.forEach(i=>{
       const chip=document.createElement('div'); chip.className='chip'; chip.dataset.ion=i;
-      const sw=document.createElement('div'); sw.className='sw'; sw.style.background=ionColorScale(i);
+      const sw=document.createElement('div'); sw.className='sw'; sw.style.background=getIonColor(i);
       chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); ionLegEl.appendChild(chip);
     });
     ionLegEl.addEventListener('click', (ev)=>{
