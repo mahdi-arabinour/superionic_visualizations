@@ -63,22 +63,22 @@
       }))
     };
 
-    // --- Custom color maps (user-specified) ---
+    // === Your exact color palettes ===
     const ION_COLORS = {
-      "Li+":  "#ff5252",
-      "Na+":  "#81d4fa",
-      "K+":   "#004d40",
-      "Ag+":  "#f48fb1",
-      "O2-":  "#6d4c41",
+      "Li+":  "#ff5252",  
+      "Na+":  "#81d4fa",  
+      "K+":   "#004d40",  
+      "Ag+":  "#f48fb1",  
+      "O2-":  "#6d4c41",  
       "Zn2+": "#c2185b",
-      "H+":   "#ffd54f",
-      "Rb+":  "#43a047",
-      "F-":   "#ff8a65",
-      "Cu+":  "#5c6bc0",
-      "Mg2+": "#26c6da",
-      "In3+": "#c0ca33",
-      "I-":   "#ec407a",
-      "Sn4+": "#7e57c2"
+      "H+":   "#ffd54f",  
+      "Rb+":  "#43a047",  
+      "F-":   "#ff8a65",  
+      "Cu+":  "#5c6bc0",  
+      "Mg2+": "#26c6da",  
+      "In3+": "#c0ca33",  
+      "I-":   "#ec407a",  
+      "Sn4+": "#7e57c2"  
     };
     const STRUCT_COLORS = {
       "Others": "#9e9e9e",
@@ -90,19 +90,23 @@
       "Anti-perovskite": "#0d47a1",
       "Spinel": "#8d6e63"
     };
-    function getIonColor(name){ return ION_COLORS[name] || "#cccccc"; }
-    function getStructColor(name){ return STRUCT_COLORS[name] || "#cccccc"; }
 
+    // Tiny helpers (fallback stays visible if there's a name you didn't map)
+    const getIonColor = name => ION_COLORS[name] || "#cccccc";
+    const getStructColor = name => STRUCT_COLORS[name] || "#cccccc";
 
+    // Keep your original API (we still pass ionColor, though it’s not used anymore)
+    const allIons = Array.from(new Set(raw.map(d => d.ion)));
+    const palette = d3.schemeTableau10.concat(d3.schemeSet3, d3.schemePaired, d3.schemeDark2, d3.schemePastel2).flat();
+    const ionColor = d3.scaleOrdinal(allIons, palette);
 
-    /* old palette & scale removed in favor of custom maps */
-
+    draw(rootData, ionColor);
   }).catch(() => {
     document.getElementById('trail').textContent =
       "⚠️ Failed to load data.csv — please open this file via a local web server.";
   });
 
-  function draw(data, getIonColor, getStructColor) {
+  function draw(data, ionColor) {
     const size = Math.min(window.innerWidth, window.innerHeight);
     const padding = 3;
 
@@ -128,7 +132,11 @@
     const circles = g.selectAll("circle")
       .data(nodes)
       .join("circle")
-        .attr("fill", d => d.depth === 0 ? "none" : (d.children ? getStructColor(d.data.name) : getIonColor(d.data.name)))
+        // >>> Only change: use your maps for colors <<<
+        .attr("fill", d => d.depth === 0
+            ? "none"
+            : (d.children ? getStructColor(d.data.name)     // structure groups
+                          : getIonColor(d.data.name)))       // ions (leaves)
         .attr("stroke", d => d.depth === 0 ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.2)")
         .attr("stroke-width", d => d.depth === 0 ? 1.5 : (d.children ? 1 : 0.75))
         .style("pointer-events", d => d.depth === 0 ? "none" : null)
