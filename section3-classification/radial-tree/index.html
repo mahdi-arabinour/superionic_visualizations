@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tree — One Legend + Palette + Guide Rings</title>
+<title>Radial Tree — One Legend + Palette + Guide Rings (Doping clarified)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -220,7 +220,13 @@ function drawTree(rows){
   const H = d3.hierarchy(root);
   d3.cluster().size([2*Math.PI,1])(H);
 
-  H.each(n=>{ if(n.children) n.y = Math.min(R, n.depth*baseEdge); });
+  // spacing: push Doping (depth 3) a bit farther out for clarity
+  H.each(n=>{
+    if(!n.children) return;
+    const depth = n.depth;
+    const bump = (depth === 3) ? (+document.getElementById('baseEdge').value) * 0.35 : 0;
+    n.y = Math.min(R, depth * (+document.getElementById('baseEdge').value) + bump);
+  });
 
   const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
   const vals = H.leaves().map(l=>+l.data.sigma).filter(v=>Number.isFinite(v)&&v>0);
@@ -245,24 +251,20 @@ function drawTree(rows){
     });
   }
 
-  /* ====== GUIDE RINGS (new) ====== */
+  /* ====== GUIDE RINGS ====== */
   const rings = svg.append('g')
     .attr('class','guide-rings')
     .attr('opacity',0.12)
     .attr('stroke','#334155')
     .attr('fill','none');
+  [1,2,3].forEach(d => rings.append('circle').attr('r', Math.min(R, d * baseEdge)));
+  rings.append('circle').attr('r', 4*baseEdge);
 
-  // Ion / Structure / Doping bands
-  [1,2,3].forEach(d => {
-    rings.append('circle').attr('r', Math.min(R, d * baseEdge));
-  });
-  // Formula start ring
-  rings.append('circle').attr('r', leafBase);
-
-  // links — colored by depth/palette
+  // links — color + thickness/dash for Doping
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
   g.append('g').attr('fill','none').selectAll('path').data(H.links()).join('path')
-    .attr('stroke-width',1)
+    .attr('stroke-width', d => d.target.depth === 3 ? 1.6 : 1.0)
+    .attr('stroke-dasharray', d => d.target.depth === 3 ? '2,2' : null)
     .attr('stroke', d=>{
       const t=d.target, a=t.ancestors();
       if(t.depth===1) return getIonColor(t.data?.name);
@@ -274,12 +276,12 @@ function drawTree(rows){
     })
     .attr('d', d => link({source:d.source, target:d.target}));
 
-  // nodes
+  // nodes — bigger for Doping, small for Formula
   const nodes = g.append('g').selectAll('g.n').data(H.descendants()).join('g')
     .attr('class','n')
     .attr('transform',d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`);
   nodes.append('circle')
-    .attr('r',d=>d.children?2.2:1.8)
+    .attr('r', d => (d.depth===3 ? 3.0 : (d.children ? 2.2 : 1.6)))
     .attr('fill',d=>{
       const a=d.ancestors();
       if(d.depth===1) return getIonColor(d.data?.name);
@@ -288,7 +290,8 @@ function drawTree(rows){
       return d.depth===3 ? colorVariantFromBase(base, d.data?.name||'dop', false)
                          : colorVariantFromBase(base, (d.data?.name||'form')+'•f', true);
     })
-    .attr('stroke','#fff').attr('stroke-width',0.8)
+    .attr('stroke','#fff')
+    .attr('stroke-width', d => d.depth===3 ? 1.1 : 0.8)
     .attr('stroke-dasharray', d => (!d.children && d.data?.isDefault) ? '3,2' : null)
     .on('mousemove',(e,d)=>showTip(e,d)).on('mouseleave',hideTip)
     .on('click',(e,d)=>{ if(d.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
@@ -405,7 +408,6 @@ async function init(){
     sigma:"Conductivity σ (S/cm)"
   };
 
-  // ensure headers exist (adjust COLS if yours differ)
   const miss = Object.values(COLS).filter(h => !rows.columns.includes(h));
   if(miss.length){ say("Missing columns: "+miss.join(", ")); return; }
 
