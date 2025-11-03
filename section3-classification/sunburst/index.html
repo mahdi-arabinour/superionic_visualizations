@@ -704,7 +704,7 @@ function deriveForFormula(hex) {
 
       const rMidBase = (d.y0 + (lv==='formula' ? _outerR(d) : d.y1)) / 2;
       // Push formula labels outward a bit for separation
-      const formulaOffset = Math.max(12, _leafBase * 0.75); // moved further out
+      const formulaOffset = Math.max(12, _leafBase * 0.95); // moved further out
       const rMid = rMidBase + (lv==='formula' ? formulaOffset : 4);
 
       let amid = (d.x0 + d.x1) / 2;
