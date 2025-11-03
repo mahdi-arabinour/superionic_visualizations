@@ -82,7 +82,8 @@
   }
   .pill:hover{opacity:0.9}
 
-#ionLegend .chip{ cursor:pointer; }
+#ionLegend .chip{ cursor:pointer; display:inline-flex; align-items:center; gap:4px; padding:3px 8px; margin:3px; border-radius:12px; border:1px solid #cbd5e1; background:#f8fafc; }
+#ionLegend .chip .sw{ width:14px; height:14px; border-radius:50%; }
 #ionLegend .chip.inactive{ opacity:.35; }
 </style>
 
@@ -107,11 +108,11 @@
 
 <aside>
   <h3>Filter ions</h3>
-  <div style="display:flex;gap:8px;margin-bottom:6px;">
-    <button id="selectAllBtn" class="pill" style="padding:6px 10px;">Select All</button>
-    <button id="clearAllBtn" class="pill" style="padding:6px 10px;">Clear</button>
+  <div id="ionLegend" class="legend"></div>
+  <div class="legend-btns" style="display:flex;gap:8px;margin:6px 0 12px 0;">
+    <button id="ion-btn-all" class="pill">Select all</button>
+    <button id="ion-btn-clear" class="pill">Clear all</button>
   </div>
-  <select id="ionSelect" multiple></select>
 
   <h3>Labels</h3>
   <label><input type="checkbox" id="showIonLbl" checked> Ion</label>
@@ -135,14 +136,7 @@
   </label>
 
   <h3>Ion colors</h3>
-  <h3>Filter ions</h3>
-<div id="ionLegend" class="legend"></div>
-<div id="ion-chip-controls" class="legend-btns" style="display:flex;gap:8px;margin:6px 0 12px 0;">
-  <button id="ion-btn-all" class="pill">Select all</button>
-  <button id="ion-btn-clear" class="pill">Clear all</button>
-</div>
-<h3>Structure Colors</h3>
-<div id="structLegend" class="legend"></div>
+  <div id="ionLegend" class="legend"></div>
 </aside>
 
 <div class="tip" id="tooltip"></div>
@@ -156,14 +150,14 @@ const basePalette = d3.schemeTableau10.concat(d3.schemeSet3);
 const ionColorScale = d3.scaleOrdinal().range(basePalette);
 
 let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
-let selectedIons = null;
+let selectedIons = null; // null=all, Set>0=whitelist, Set size 0=none
 let ionLegEl = null;
 function applyChipVisuals(){
-  if (!ionLegEl) return;
+  if(!ionLegEl) return;
   const chips = ionLegEl.querySelectorAll('.chip');
-  if (selectedIons === null){ chips.forEach(ch=>ch.classList.remove('inactive')); }
-  else if (selectedIons.size === 0){ chips.forEach(ch=>ch.classList.add('inactive')); }
-  else { chips.forEach(ch=>{ const name = ch.dataset.ion; ch.classList.toggle('inactive', !selectedIons.has(name)); }); }
+  if(selectedIons===null){ chips.forEach(ch=>ch.classList.remove('inactive')); }
+  else if(selectedIons.size===0){ chips.forEach(ch=>ch.classList.add('inactive')); }
+  else { chips.forEach(ch=>{ const n=ch.dataset.ion; ch.classList.toggle('inactive', !selectedIons.has(n)); }); }
 }
 
 let focusIon = null; // null = all ions
@@ -485,43 +479,26 @@ async function initFromCSV(){
 
     DATA = rows;
 
-    // Ion selector & legend
+    // ONE legend: color chips + interactions
     const ions = [...new Set(rows.map(r => (r[COLS.ion]||'Other').toString().trim()))].sort((a,b)=>a.localeCompare(b));
-    const sel = document.getElementById('ionSelect');
-    if(sel && sel.options.length===0){
-      ions.forEach(i=>{ const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); });
-      const leg = document.getElementById('ionLegend');
-      ions.forEach(i=>{
-        const chip=document.createElement('div'); chip.className='chip';
-        const sw=document.createElement('div'); sw.className='sw'; sw.style.background=ionColorScale(i);
-        chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); leg.appendChild(chip);
-      });
-      const note = document.createElement('div');
-      note.style.marginTop = '6px'; note.style.fontSize = '12px'; note.style.color = 'var(--muted)';
-      note.textContent = 'Dashed outline = default σ used • Click an Ion to zoom • ↺ Reset Zoom to go back';
-      leg.appendChild(note);
-const sleg = document.getElementById('structLegend');
-if (sleg){
-  sleg.innerHTML='';
-  const structs = [...new Set(rows.map(r => (r[COLS.struct] || 'Others').toString().trim()))].sort((a,b)=>a.localeCompare(b));
-  structs.forEach(s=>{
-    const chip=document.createElement('div'); chip.className='chip';
-    const sw=document.createElement('div'); sw.className='sw'; sw.style.background=getStructColor(s);
-    chip.appendChild(sw); chip.appendChild(document.createTextNode(s)); sleg.appendChild(chip);
-  });
-}
-
-    }
-
-    // Default: select all ions initially
-    if (sel && sel.options.length) for (const o of sel.options) o.selected = true;
-
+    ionLegEl = document.getElementById('ionLegend');
+    ionLegEl.innerHTML = '';
+    ions.forEach(i=>{
+      const chip=document.createElement('div'); chip.className='chip'; chip.dataset.ion=i;
+      const sw=document.createElement('div'); sw.className='sw'; sw.style.background=ionColorScale(i);
+      chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); ionLegEl.appendChild(chip);
+    });
+    ionLegEl.addEventListener('click', (ev)=>{
+      const chip = ev.target.closest('.chip'); if(!chip) return;
+      const name = chip.dataset.ion;
+      if (selectedIons===null) selectedIons=new Set([name]);
+      else { if (selectedIons.has(name)) selectedIons.delete(name); else selectedIons.add(name); }
+      applyChipVisuals(); if(DATA) drawTree(DATA);
+    });
+    document.getElementById('ion-btn-all')?.addEventListener('click', ()=>{ selectedIons=null; applyChipVisuals(); if(DATA) drawTree(DATA); });
+    document.getElementById('ion-btn-clear')?.addEventListener('click', ()=>{ selectedIons=new Set(); applyChipVisuals(); if(DATA) drawTree(DATA); });
+    applyChipVisuals();
     drawTree(DATA);
-    // Buttons
-    const btnAll=document.getElementById('ion-btn-all');
-    const btnClear=document.getElementById('ion-btn-clear');
-    if(btnAll) btnAll.addEventListener('click', ()=>{ selectedIons=null; applyChipVisuals(); if(DATA) drawTree(DATA); });
-    if(btnClear) btnClear.addEventListener('click', ()=>{ selectedIons=new Set(); applyChipVisuals(); if(DATA) drawTree(DATA); });
     say(`Loaded data.csv • rows: ${rows.length}`);
   } catch (err){
     console.error(err);
