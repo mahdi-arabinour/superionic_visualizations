@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Beeswarm — σ vs Doping_Subtype (color by Structure)</title>
+<title>σ vs Doping_Subtype — size control + subtype multi-select</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   :root { color-scheme: light; }
   body { margin: 16px; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; background:#f7f7f7; color:#0f172a; }
   h2 { margin: 0 0 8px; font-size: 22px; }
-  .sub { margin: 0 0 16px; font-size: 12px; color:#475569; }
+  .sub { margin: 0 0 12px; font-size: 12px; color:#475569; }
   .wrap { display: flex; align-items: flex-start; gap: 16px; }
   #chartPane { flex: 1 1 auto; min-width: 0; }
   svg { width: 100%; height: auto; background:#fff; border:1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
@@ -28,13 +28,34 @@
   .legend-row { display:flex; gap:8px; margin-bottom:8px; }
   .btn { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:4px 8px; cursor:pointer; font-size:12px; color:#374151; }
   .btn:hover { background:#f3f4f6; }
+  .controls { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin: 0 0 10px; }
+  .ctl { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:8px 10px; font-size:12px; display:flex; align-items:center; gap:8px; }
+  select.mult { min-width: 260px; max-width: 420px; }
   @media (max-width: 980px) { .wrap { flex-direction: column; } .legendCol { position: static; width: 100%; } }
 </style>
 </head>
 <body>
 
 <h2>σ (S/cm) vs Doping_Subtype — colored by Structure Group</h2>
-<div class="sub">One point per row in your data. X = log₁₀(σ). Y = Doping_Subtype. Color = Structure Group. Tooltip includes <i>Doping / and or GB Strategy</i>.</div>
+<div class="sub">X = log₁₀(σ). Y = Doping_Subtype. Color = Structure Group. Tooltip includes <i>Doping / and or GB Strategy</i>. Use the size control and subtype/structure filters to focus.</div>
+
+<div class="controls">
+  <!-- Bubble size control -->
+  <div class="ctl">
+    <label for="sizeSlider"><b>Bubble size</b></label>
+    <input id="sizeSlider" type="range" min="0.6" max="2.0" step="0.05" value="1.0">
+    <span id="sizeVal">1.00×</span>
+    <button id="sizeReset" class="btn">Reset</button>
+  </div>
+
+  <!-- Doping_Subtype multi-select -->
+  <div class="ctl">
+    <label for="subtypeSelect"><b>Doping_Subtype</b></label>
+    <select id="subtypeSelect" class="mult" multiple size="6" title="Select one or more subtypes"></select>
+    <button id="subtypeAll" class="btn">Select All</button>
+    <button id="subtypeClear" class="btn">Clear</button>
+  </div>
+</div>
 
 <div class="wrap">
   <div id="chartPane">
@@ -68,7 +89,7 @@ const STRUCT_COLORS = {
 const structColor = s => STRUCT_COLORS[s] || "#9ca3af";
 
 /* ----- Layout ----- */
-const margin = {top: 36, right: 20, bottom: 64, left: 180};
+const margin = {top: 36, right: 20, bottom: 64, left: 200};
 const W = 1200 - margin.left - margin.right;
 const H = 760  - margin.top  - margin.bottom;
 
@@ -83,10 +104,17 @@ const tooltip = d3.select("body").append("div").attr("class","tooltip").style("o
 
 /* ----- State ----- */
 let data = [];
-let subtypes = [];
+let allSubtypes = [];
 let structures = [];
 let activeStructures = new Set();
-let x, y;
+let activeSubtypes   = new Set();
+let x, band, yCenter;
+let sizeFactor = 1.0;      // bubble size multiplier
+
+const subtypeSelect = document.getElementById("subtypeSelect");
+const sizeSlider = document.getElementById("sizeSlider");
+const sizeVal = document.getElementById("sizeVal");
+const sizeReset = document.getElementById("sizeReset");
 
 d3.csv("data.csv").then(raw => {
   // Tidy & filter
@@ -99,9 +127,18 @@ d3.csv("data.csv").then(raw => {
   })).filter(d => Number.isFinite(d.sigma) && d.sigma > 0 && d.structure && d.subtype);
 
   // Domains
-  subtypes   = Array.from(new Set(data.map(d => d.subtype))).sort();
-  structures = Array.from(new Set(data.map(d => d.structure))).sort();
+  allSubtypes = Array.from(new Set(data.map(d => d.subtype))).sort();
+  structures  = Array.from(new Set(data.map(d => d.structure))).sort();
   activeStructures = new Set(structures);
+  activeSubtypes   = new Set(allSubtypes);
+
+  // Populate multi-select
+  for (const s of allSubtypes) {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    subtypeSelect.appendChild(opt);
+  }
+  setSelectValues(subtypeSelect, allSubtypes); // select all initially
 
   // Scales
   x = d3.scaleLog()
@@ -109,26 +146,18 @@ d3.csv("data.csv").then(raw => {
         .nice()
         .range([0, W]);
 
-  const band = d3.scaleBand().domain(subtypes).range([0, H]).paddingInner(0.2);
-  const rowCenter = s => (band(s) ?? 0) + band.bandwidth()/2;
-  y = s => rowCenter(s);
+  band = d3.scaleBand().domain(allSubtypes).range([0, H]).paddingInner(0.2);
+  yCenter = s => (band(s) ?? 0) + band.bandwidth()/2;
 
   // Axes
   xAxisG.call(d3.axisBottom(x).ticks(10, "~g"));
-  yAxisG.selectAll(".rowLabel")
-    .data(subtypes)
-    .join("text")
-      .attr("class","rowLabel")
-      .attr("x", -12)
-      .attr("y", s => y(s))
-      .attr("dy", 5)
-      .attr("text-anchor", "end")
-      .text(s => s);
 
-  // Build legend
+  // Build legend & wire controls
   buildStructureLegend();
+  wireSubtypeControls();
+  wireSizeControl();
 
-  // Draw
+  // Initial draw
   draw();
 
 }).catch(() => {
@@ -138,18 +167,34 @@ d3.csv("data.csv").then(raw => {
 });
 
 function draw(){
-  // Filter by active structures
-  const rows = data.filter(d => activeStructures.has(d.structure));
+  // Filter by active structures and active subtypes
+  const rows = data.filter(d => activeStructures.has(d.structure) && activeSubtypes.has(d.subtype));
 
-  // Beeswarm per subtype row (jitter vertically, collide, target x = log σ)
+  // y domain only on selected subtypes
+  const visibleSubtypes = Array.from(activeSubtypes);
+  band.domain(visibleSubtypes);
+  yAxisG.selectAll(".rowLabel")
+    .data(visibleSubtypes, d => d)
+    .join(
+      enter => enter.append("text")
+        .attr("class","rowLabel")
+        .attr("x", -12)
+        .attr("y", s => yCenter(s))
+        .attr("dy", 5)
+        .attr("text-anchor", "end")
+        .text(s => s),
+      update => update.attr("y", s => yCenter(s)),
+      exit => exit.remove()
+    );
+
+  // Beeswarm per subtype row (target x = log σ)
   const jitterY = 10;
-  const baseR   = 4; // radius (constant; you can map r to something else if you want)
+  const baseR   = 4 * sizeFactor; // scaled bubble size
   const all = [];
 
   const bySubtype = d3.group(rows, d => d.subtype);
   for (const [subtype, arr] of bySubtype.entries()){
-    const y0 = y(subtype);
-    // Seed nodes near targets
+    const y0 = yCenter(subtype);
     const rowNodes = arr.map(d => ({
       ...d,
       targetX: x(d.sigma),
@@ -158,7 +203,6 @@ function draw(){
       y: y0 + (Math.random()*2-1)*jitterY,
       r: baseR
     }));
-    // Force layout: pack horizontally around x(sigma), keep near row center, avoid overlaps
     const sim = d3.forceSimulation(rowNodes)
       .force("x", d3.forceX(n => n.targetX).strength(0.5))
       .force("y", d3.forceY(n => n.targetY).strength(0.15))
@@ -168,7 +212,7 @@ function draw(){
     all.push(...rowNodes);
   }
 
-  const dots = g.selectAll("circle.dot")
+  g.selectAll("circle.dot")
     .data(all, d => d.structure + "\u0001" + d.subtype + "\u0001" + d.dopant + "\u0001" + d.sigma)
     .join(
       enter => enter.append("circle")
@@ -191,9 +235,11 @@ function draw(){
         .on("mousemove",(event)=>{ tooltip.style("left",(event.clientX+14)+"px").style("top",(event.clientY+14)+"px"); })
         .on("mouseout",()=> tooltip.style("opacity",0)),
       update => update
+        .attr("r", d => d.r)
         .attr("cx", d => d.x)
         .attr("cy", d => d.y)
-        .attr("fill", d => structColor(d.structure))
+        .attr("fill", d => structColor(d.structure)),
+      exit => exit.remove()
     );
 }
 
@@ -207,13 +253,10 @@ function buildStructureLegend(){
     item.on("click", (ev) => {
       const solo = activeStructures.size === 1 && activeStructures.has(name);
       if (ev.metaKey || ev.ctrlKey) {
-        // toggle
         activeStructures.has(name) ? activeStructures.delete(name) : activeStructures.add(name);
       } else if (ev.shiftKey) {
-        // add
         activeStructures.add(name);
       } else {
-        // solo; click again to reset all
         activeStructures = solo ? new Set(structures) : new Set([name]);
       }
       refreshStructLegend();
@@ -238,6 +281,44 @@ function refreshStructLegend(){
   d3.selectAll("#structItems .legend-item").classed("inactive", function(){
     const name = d3.select(this).select("span").text();
     return !activeStructures.has(name);
+  });
+}
+
+/* ---------- Subtype multi-select controls ---------- */
+function wireSubtypeControls(){
+  document.getElementById("subtypeAll").addEventListener("click", ()=>{
+    activeSubtypes = new Set(allSubtypes);
+    setSelectValues(subtypeSelect, allSubtypes);
+    draw();
+  });
+  document.getElementById("subtypeClear").addEventListener("click", ()=>{
+    activeSubtypes = new Set();
+    setSelectValues(subtypeSelect, []);
+    draw();
+  });
+  subtypeSelect.addEventListener("change", ()=>{
+    const sel = Array.from(subtypeSelect.selectedOptions).map(o => o.value);
+    activeSubtypes = new Set(sel);
+    draw();
+  });
+}
+function setSelectValues(select, values){
+  const set = new Set(values);
+  for (const opt of select.options) opt.selected = set.has(opt.value);
+}
+
+/* ---------- Bubble size control ---------- */
+function wireSizeControl(){
+  sizeSlider.addEventListener("input", ()=>{
+    sizeFactor = +sizeSlider.value;
+    sizeVal.textContent = `${sizeFactor.toFixed(2)}×`;
+    draw();
+  });
+  sizeReset.addEventListener("click", ()=>{
+    sizeFactor = 1.0;
+    sizeSlider.value = "1.0";
+    sizeVal.textContent = "1.00×";
+    draw();
   });
 }
 
