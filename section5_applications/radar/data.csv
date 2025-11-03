@@ -1,8 +1,8 @@
-Structure_Type,log₁₀(σ),1/Ea,log₁₀(N),Retention %,Synthesis Simplicity,Cycle Life
-Amorphous,0.7,0.6,0.5,0.6,0.6,0.25
-Anti-perovskite,0.65,0.7,0.6,0.7,0.6,0.02
-Argyrodite,0.4,0.5,0.45,0.5,0.4,0.33
-Halide,0.6,0.65,0.55,0.65,0.6,0.14
-NASICON,0.45,0.55,0.4,0.55,0.4,1.0
-Spinel,0.5,0.5,0.45,0.5,0.4,0.0
-Polymeric,0.8,0.9,0.7,0.9,1.0,0.59
+Structure_Type,log₁₀(σ),1/Ea,log₁₀(N),Retention %,Synthesis Simplicity
+Amorphous,0.7,0.6,0.5,0.6,0.6
+Anti-perovskite,0.65,0.7,0.6,0.7,0.6
+Argyrodite,0.4,0.5,0.45,0.5,0.4
+Halide,0.6,0.65,0.55,0.65,0.6
+NASICON,0.45,0.55,0.4,0.55,0.4
+Spinel,0.5,0.5,0.45,0.5,0.4
+Polymeric,0.8,0.9,0.7,0.9,1.0
