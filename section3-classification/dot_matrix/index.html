@@ -2,198 +2,250 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Δ log₁₀(σ) by Structure and Dopant</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Beeswarm — σ vs Doping_Subtype (color by Structure)</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  body{margin:16px;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;background:#f7f7f7;color:#0f172a}
-  h2{margin:0 0 6px;font-size:22px}
-  .sub{margin:0 0 14px;font-size:12px;color:#475569}
-  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-  .ctl{background:#fff;border:1px solid #e5e7eb;border-radius:999px;padding:6px 10px;font-size:12px}
-  svg{width:100%;height:auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-  .axis path,.axis line{stroke:#cbd5e1}
-  .axis text{fill:#334155;font-size:12px}
-  .rowLabel{fill:#111827;font-weight:600;font-size:12px}
-  .tooltip{position:fixed;pointer-events:none;background:#fff;border:1px solid #e5e7eb;box-shadow:0 8px 16px rgba(0,0,0,.08);border-radius:8px;padding:8px 10px;font-size:12px;color:#111827}
-  .zero{stroke:#94a3b8;stroke-dasharray:4 4}
+  :root { color-scheme: light; }
+  body { margin: 16px; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; background:#f7f7f7; color:#0f172a; }
+  h2 { margin: 0 0 8px; font-size: 22px; }
+  .sub { margin: 0 0 16px; font-size: 12px; color:#475569; }
+  .wrap { display: flex; align-items: flex-start; gap: 16px; }
+  #chartPane { flex: 1 1 auto; min-width: 0; }
+  svg { width: 100%; height: auto; background:#fff; border:1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .axis path, .axis line { stroke:#cbd5e1; }
+  .axis text { fill:#334155; font-size:12px; }
+  .rowLabel { fill:#111827; font-weight:600; font-size:12px; }
+  .tooltip { position: fixed; pointer-events: none; background:#fff; border:1px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,.08); border-radius:8px; padding:8px 10px; font-size:12px; color:#111827; }
+  .legendCol { flex: 0 0 280px; position: sticky; top: 12px; display:flex; flex-direction: column; gap: 12px; }
+  .card { background:#fff; border:1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .card h3 { margin: 0 0 8px; font-size: 13px; color:#111827; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .legend-list { display:flex; flex-direction: column; gap:4px; max-height: 66vh; overflow:auto; }
+  .legend-item { display:flex; align-items:center; gap:8px; font-size:12px; padding:6px 8px; border-radius:8px; cursor:pointer; user-select:none; }
+  .legend-item:hover { background:#f3f4f6; }
+  .legend-item.inactive { opacity:0.45; }
+  .legend-swatch { width:16px; height:16px; border-radius:4px; border:1px solid rgba(0,0,0,0.35); }
+  .legend-row { display:flex; gap:8px; margin-bottom:8px; }
+  .btn { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:4px 8px; cursor:pointer; font-size:12px; color:#374151; }
+  .btn:hover { background:#f3f4f6; }
+  @media (max-width: 980px) { .wrap { flex-direction: column; } .legendCol { position: static; width: 100%; } }
 </style>
 </head>
 <body>
 
-<h2>Change in conductivity by dopant type</h2>
-<div class="sub">Each dot = a (Structure, Dopant) median. X = Δ log₁₀(σ) vs structure baseline (median by default). Positive → better than baseline.</div>
+<h2>σ (S/cm) vs Doping_Subtype — colored by Structure Group</h2>
+<div class="sub">One point per row in your data. X = log₁₀(σ). Y = Doping_Subtype. Color = Structure Group. Tooltip includes <i>Doping / and or GB Strategy</i>.</div>
 
-<div class="controls">
-  <label class="ctl">Baseline:
-    <select id="baselineMode">
-      <option value="median" selected>Structure median</option>
-      <option value="max">Structure max (distance from best)</option>
-    </select>
-  </label>
+<div class="wrap">
+  <div id="chartPane">
+    <svg id="chart" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <aside class="legendCol">
+    <div class="card">
+      <h3>Structure Group (Color)</h3>
+      <div class="legend-row">
+        <button id="structSelectAll" class="btn">Select All</button>
+        <button id="structClearAll"  class="btn">Clear</button>
+      </div>
+      <div id="structItems" class="legend-list"></div>
+    </div>
+  </aside>
 </div>
 
-<svg id="chart" viewBox="0 0 1200 720" preserveAspectRatio="xMidYMid meet"></svg>
-
 <script>
-const COL_SIGMA  = "Conductivity σ (S/cm)";
-const COL_STRUCT = "Structure Group";
-const COL_DOPANT = "Doping / and or GB Strategy";
+/* ----- Column names (exact) ----- */
+const COL_SIGMA    = "Conductivity σ (S/cm)";
+const COL_STRUCT   = "Structure Group";
+const COL_DOPANT   = "Doping / and or GB Strategy";
+const COL_SUBTYPE  = "Doping_Subtype";
 
-const STRUCT_COLORS = {  // optional (unused here)
+/* ----- Structure color palette (yours) ----- */
+const STRUCT_COLORS = {
   "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a",
   "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
 };
+const structColor = s => STRUCT_COLORS[s] || "#9ca3af";
 
-const margin = {top: 36, right: 20, bottom: 56, left: 160};
+/* ----- Layout ----- */
+const margin = {top: 36, right: 20, bottom: 64, left: 180};
 const W = 1200 - margin.left - margin.right;
-const H = 720  - margin.top  - margin.bottom;
+const H = 760  - margin.top  - margin.bottom;
 
 const svg = d3.select("#chart");
 const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 const xAxisG = g.append("g").attr("class","axis").attr("transform", `translate(0,${H})`);
 const yAxisG = g.append("g");
-const zeroG  = g.append("g");
+g.append("text").attr("x", W/2).attr("y", H+44).attr("text-anchor","middle")
+  .attr("fill","#111827").attr("font-size",13).text("Conductivity σ (S·cm⁻¹) — log scale");
 
 const tooltip = d3.select("body").append("div").attr("class","tooltip").style("opacity",0);
-const baselineSel = document.getElementById("baselineMode");
 
-let nodes=[], structures=[], dopants=[], x, y, color;
+/* ----- State ----- */
+let data = [];
+let subtypes = [];
+let structures = [];
+let activeStructures = new Set();
+let x, y;
 
 d3.csv("data.csv").then(raw => {
-  // tidy
-  const rows = raw.map(d => ({
-    s: (d[COL_STRUCT] || "").trim(),
-    t: (d[COL_DOPANT] || "").trim(),
-    sig: +d[COL_SIGMA]
-  })).filter(d => d.s && d.t && Number.isFinite(d.sig) && d.sig>0);
+  // Tidy & filter
+  data = raw.map(d => ({
+    sigma:     +d[COL_SIGMA],
+    structure: (d[COL_STRUCT]   || "").trim(),
+    dopant:    (d[COL_DOPANT]   || "").trim(),
+    subtype:   (d[COL_SUBTYPE]  || "").trim(),
+    _raw: d
+  })).filter(d => Number.isFinite(d.sigma) && d.sigma > 0 && d.structure && d.subtype);
 
-  // per (structure, dopant) stats
-  const roll = d3.rollup(
-    rows,
-    v => ({ n: v.length, median: d3.median(v, d => d.sig), mean: d3.mean(v, d => d.sig) }),
-    d => d.s, d => d.t
-  );
+  // Domains
+  subtypes   = Array.from(new Set(data.map(d => d.subtype))).sort();
+  structures = Array.from(new Set(data.map(d => d.structure))).sort();
+  activeStructures = new Set(structures);
 
-  // flatten
-  const pairs = [];
-  for (const [s, m] of roll.entries()){
-    for (const [t, st] of m.entries()){
-      pairs.push({structure:s, dopant:t, n:st.n, sigmaMed:st.median, sigmaMean:st.mean});
-    }
-  }
+  // Scales
+  x = d3.scaleLog()
+        .domain(d3.extent(data, d => d.sigma))
+        .nice()
+        .range([0, W]);
 
-  structures = Array.from(new Set(pairs.map(d=>d.structure))).sort();
-  dopants    = Array.from(new Set(pairs.map(d=>d.dopant))).sort();
+  const band = d3.scaleBand().domain(subtypes).range([0, H]).paddingInner(0.2);
+  const rowCenter = s => (band(s) ?? 0) + band.bandwidth()/2;
+  y = s => rowCenter(s);
 
-  // categorical dopant color
-  color = d3.scaleOrdinal(d3.schemeTableau10).domain(dopants);
-
-  // y rows
-  y = d3.scaleBand().domain(structures).range([0,H]).paddingInner(0.2);
+  // Axes
+  xAxisG.call(d3.axisBottom(x).ticks(10, "~g"));
   yAxisG.selectAll(".rowLabel")
-    .data(structures)
+    .data(subtypes)
     .join("text")
       .attr("class","rowLabel")
-      .attr("x",-12).attr("y", s => y(s)).attr("dy",5).attr("text-anchor","end")
+      .attr("x", -12)
+      .attr("y", s => y(s))
+      .attr("dy", 5)
+      .attr("text-anchor", "end")
       .text(s => s);
 
-  // draw once & on baseline change
-  function computeNodes(){
-    // baseline per structure
-    const byS = d3.group(pairs, d=>d.structure);
-    const nodesLocal = [];
-    for (const [s, arr] of byS.entries()){
-      const baseline = baselineSel.value === "max"
-        ? d3.max(arr, d => d.sigmaMed)
-        : d3.median(arr, d => d.sigmaMed);
-      const baseLog = Math.log10(baseline);
+  // Build legend
+  buildStructureLegend();
 
-      for (const d of arr){
-        const medLog = Math.log10(d.sigmaMed);
-        const delta  = medLog - baseLog; // Δ log10(σ)
-        nodesLocal.push({
-          structure:s, dopant:d.dopant, n:d.n,
-          sigmaMed:d.sigmaMed, delta
-        });
-      }
-    }
-    return nodesLocal;
-  }
+  // Draw
+  draw();
 
-  function render(){
-    nodes = computeNodes();
-
-    // symmetric x around 0
-    const maxAbs = d3.max(nodes, d => Math.abs(d.delta)) || 1e-3;
-    x = d3.scaleLinear().domain([-maxAbs, maxAbs]).nice().range([0,W]);
-    xAxisG.call(d3.axisBottom(x).ticks(9, "+.2f"));
-
-    // zero line
-    zeroG.selectAll("line").data([0]).join("line")
-      .attr("x1", x(0)).attr("x2", x(0)).attr("y1", 0).attr("y2", H)
-      .attr("class","zero");
-
-    // beeswarm within each row (pack horizontally around x(delta))
-    const jitterY = 10, collideR = 5;
-    const all = [];
-    const byRow = d3.group(nodes, d => d.structure);
-    for (const [s, arr] of byRow.entries()){
-      const y0 = y(s);
-      const rowNodes = arr.map(d => ({
-        ...d,
-        targetX: x(d.delta),
-        targetY: y0,
-        x: x(d.delta) + (Math.random()*2-1)*2,
-        y: y0 + (Math.random()*2-1)*jitterY,
-        r: 4.5
-      }));
-      const sim = d3.forceSimulation(rowNodes)
-        .force("x", d3.forceX(n=>n.targetX).strength(0.6))
-        .force("y", d3.forceY(n=>n.targetY).strength(0.2))
-        .force("collide", d3.forceCollide(collideR))
-        .stop();
-      for (let i=0;i<160;i++) sim.tick();
-      all.push(...rowNodes);
-    }
-
-    g.selectAll("circle.dot")
-      .data(all, d => d.structure + "\u0001" + d.dopant)
-      .join(
-        enter => enter.append("circle")
-          .attr("class","dot")
-          .attr("r", d=>d.r)
-          .attr("cx", d=>d.x)
-          .attr("cy", d=>d.y)
-          .attr("fill", d=>color(d.dopant))
-          .attr("stroke","rgba(17,24,39,0.85)").attr("stroke-width",0.6)
-          .on("mouseover",(ev,d)=>{
-            tooltip.style("opacity",1).html(`
-              <div><b>${d.dopant}</b> in <b>${d.structure}</b></div>
-              <div>median σ = ${fmt(d.sigmaMed)} S/cm</div>
-              <div>Δ log₁₀(σ) = ${d.delta.toFixed(2)}</div>
-              <div>N = ${d.n}</div>
-            `);
-          })
-          .on("mousemove",(ev)=>tooltip.style("left",(ev.clientX+14)+"px").style("top",(ev.clientY+14)+"px"))
-          .on("mouseout",()=>tooltip.style("opacity",0)),
-        update => update
-          .attr("cx", d=>d.x)
-          .attr("cy", d=>d.y)
-      );
-  }
-
-  render();
-  baselineSel.addEventListener("change", render);
-}).catch(()=> {
-  d3.select("body").append("div").style("margin","12px 8px").style("color","#b91c1c")
-    .text("⚠️ Could not load data.csv. Open via a local server (e.g., python3 -m http.server).");
+}).catch(() => {
+  d3.select("#chartPane").append("div")
+    .style("margin","12px 8px").style("color","#b91c1c")
+    .text("⚠️ Could not load data.csv. Please open via a local web server (e.g., python3 -m http.server).");
 });
 
-function fmt(v){
-  if(!Number.isFinite(v)) return "–";
+function draw(){
+  // Filter by active structures
+  const rows = data.filter(d => activeStructures.has(d.structure));
+
+  // Beeswarm per subtype row (jitter vertically, collide, target x = log σ)
+  const jitterY = 10;
+  const baseR   = 4; // radius (constant; you can map r to something else if you want)
+  const all = [];
+
+  const bySubtype = d3.group(rows, d => d.subtype);
+  for (const [subtype, arr] of bySubtype.entries()){
+    const y0 = y(subtype);
+    // Seed nodes near targets
+    const rowNodes = arr.map(d => ({
+      ...d,
+      targetX: x(d.sigma),
+      targetY: y0,
+      x: x(d.sigma) + (Math.random()*2-1)*2,
+      y: y0 + (Math.random()*2-1)*jitterY,
+      r: baseR
+    }));
+    // Force layout: pack horizontally around x(sigma), keep near row center, avoid overlaps
+    const sim = d3.forceSimulation(rowNodes)
+      .force("x", d3.forceX(n => n.targetX).strength(0.5))
+      .force("y", d3.forceY(n => n.targetY).strength(0.15))
+      .force("collide", d3.forceCollide(n => n.r + 0.8))
+      .stop();
+    for (let i=0;i<160;i++) sim.tick();
+    all.push(...rowNodes);
+  }
+
+  const dots = g.selectAll("circle.dot")
+    .data(all, d => d.structure + "\u0001" + d.subtype + "\u0001" + d.dopant + "\u0001" + d.sigma)
+    .join(
+      enter => enter.append("circle")
+        .attr("class","dot")
+        .attr("r", d => d.r)
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y)
+        .attr("fill", d => structColor(d.structure))
+        .attr("stroke","rgba(17,24,39,0.85)")
+        .attr("stroke-width", 0.6)
+        .attr("opacity", 0.96)
+        .on("mouseover",(event,d)=>{
+          tooltip.style("opacity",1).html(`
+            <div><b>σ:</b> ${formatSig(d.sigma)} S/cm</div>
+            <div><b>Structure:</b> ${d.structure}</div>
+            <div><b>Doping_Subtype:</b> ${d.subtype || "—"}</div>
+            <div><b>Doping / and or GB Strategy:</b> ${d.dopant || "—"}</div>
+          `);
+        })
+        .on("mousemove",(event)=>{ tooltip.style("left",(event.clientX+14)+"px").style("top",(event.clientY+14)+"px"); })
+        .on("mouseout",()=> tooltip.style("opacity",0)),
+      update => update
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y)
+        .attr("fill", d => structColor(d.structure))
+    );
+}
+
+/* ---------- Structure legend (filterable) ---------- */
+function buildStructureLegend(){
+  const container = d3.select("#structItems");
+  container.selectAll("*").remove();
+
+  structures.forEach(name => {
+    const item = container.append("div").attr("class","legend-item");
+    item.on("click", (ev) => {
+      const solo = activeStructures.size === 1 && activeStructures.has(name);
+      if (ev.metaKey || ev.ctrlKey) {
+        // toggle
+        activeStructures.has(name) ? activeStructures.delete(name) : activeStructures.add(name);
+      } else if (ev.shiftKey) {
+        // add
+        activeStructures.add(name);
+      } else {
+        // solo; click again to reset all
+        activeStructures = solo ? new Set(structures) : new Set([name]);
+      }
+      refreshStructLegend();
+      draw();
+    });
+    item.append("div").attr("class","legend-swatch").style("background", structColor(name));
+    item.append("span").text(name);
+  });
+
+  d3.select("#structSelectAll").on("click", () => {
+    activeStructures = new Set(structures);
+    refreshStructLegend(); draw();
+  });
+  d3.select("#structClearAll").on("click", () => {
+    activeStructures = new Set();
+    refreshStructLegend(); draw();
+  });
+
+  refreshStructLegend();
+}
+function refreshStructLegend(){
+  d3.selectAll("#structItems .legend-item").classed("inactive", function(){
+    const name = d3.select(this).select("span").text();
+    return !activeStructures.has(name);
+  });
+}
+
+/* ---------- utils ---------- */
+function formatSig(v){
+  if (!Number.isFinite(v)) return "–";
   const e = Math.log10(v);
-  return (e>-2 && e<3) ? v.toPrecision(3) : `1e${e.toFixed(1)}`;
+  return (e >= -2 && e <= 3) ? v.toPrecision(3) : `1e${e.toFixed(1)}`;
 }
 </script>
 </body>
