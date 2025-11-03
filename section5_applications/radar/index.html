@@ -93,7 +93,7 @@ d3.csv(CSV_PATH).then(raw => {
   const groupKey = cols[0];
 
   // explicit categories list
-  const categories = ["log₁₀(σ)", "1/Ea", "log₁₀(N)", "Retention %", "Synthesis Simplicity", "Cycle Life"];
+  const categories = ["log₁₀(σ)", "1/Ea", "log₁₀(N)", "Retention %", "Synthesis Simplicity"];
 
   // numeric coercion
   raw.forEach(r => categories.forEach(c => r[c] = +r[c]));
