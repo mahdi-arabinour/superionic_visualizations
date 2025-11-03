@@ -522,10 +522,32 @@ async function initFromCSV(){
       ions.forEach(i=>{ const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); });
       const leg = document.getElementById('ionLegend');
       ions.forEach(i=>{
-        const chip=document.createElement('div'); chip.className='chip';
+        const chip=document.createElement('div'); chip.className='chip'; chip.dataset.ion = i;
         const sw=document.createElement('div'); sw.className='sw'; sw.style.background=getIonColor(i);
         chip.appendChild(sw); chip.appendChild(document.createTextNode(i)); leg.appendChild(chip);
       });
+      // delegation for chip clicks (multi-select)
+      (function(){
+        const ionLegEl = document.getElementById('ionLegend');
+        const allIons = ions.slice();
+        const update = () => {
+          const use = selectedIons.size > 0;
+          ionLegEl.querySelectorAll('.chip').forEach(ch => {
+            const name = ch.dataset.ion;
+            ch.classList.toggle('inactive', use && !selectedIons.has(name));
+          });
+        };
+        ionLegEl.addEventListener('click', (ev) => {
+          const chip = ev.target.closest('.chip'); if (!chip) return;
+          const name = chip.dataset.ion;
+          if (selectedIons.size === 0) allIons.forEach(x => selectedIons.add(x));
+          if (selectedIons.has(name)) selectedIons.delete(name); else selectedIons.add(name);
+          if (selectedIons.size === allIons.length) selectedIons.clear();
+          update();
+          if (typeof DATA !== 'undefined' && DATA) drawTree(DATA);
+        });
+        update();
+      })();
       const note = document.createElement('div');
       note.style.marginTop = '6px'; note.style.fontSize = '12px'; note.style.color = 'var(--muted)';
       note.textContent = 'Dashed outline = default σ used • Click an Ion to zoom • ↺ Reset Zoom to go back';
