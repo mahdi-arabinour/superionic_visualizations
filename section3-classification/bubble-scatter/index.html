@@ -347,8 +347,6 @@ function draw(){
     return Number.isFinite(ea) && ea <= 0.6 && Number.isFinite(s) && s > 0;
   });
 
-  say(`Rows: ${rowsGlobal.length} · Plotted: ${filtered.length} · Color=Structure · Shape=Ion`);
-
   const dataTraces = buildDataTraces(filtered);
 
   Plotly.newPlot("chart", dataTraces, {
