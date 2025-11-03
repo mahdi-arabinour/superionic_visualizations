@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tree — One Legend + Palette + Robust CSV</title>
+<title>Radial Tree — One Legend + Palette + Guide Rings</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -245,6 +245,20 @@ function drawTree(rows){
     });
   }
 
+  /* ====== GUIDE RINGS (new) ====== */
+  const rings = svg.append('g')
+    .attr('class','guide-rings')
+    .attr('opacity',0.12)
+    .attr('stroke','#334155')
+    .attr('fill','none');
+
+  // Ion / Structure / Doping bands
+  [1,2,3].forEach(d => {
+    rings.append('circle').attr('r', Math.min(R, d * baseEdge));
+  });
+  // Formula start ring
+  rings.append('circle').attr('r', leafBase);
+
   // links — colored by depth/palette
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
   g.append('g').attr('fill','none').selectAll('path').data(H.links()).join('path')
@@ -391,9 +405,8 @@ async function init(){
     sigma:"Conductivity σ (S/cm)"
   };
 
-  // sanity check (adjust the mapping above if your headers differ)
-  const need = Object.values(COLS);
-  const miss = need.filter(h => !rows.columns.includes(h));
+  // ensure headers exist (adjust COLS if yours differ)
+  const miss = Object.values(COLS).filter(h => !rows.columns.includes(h));
   if(miss.length){ say("Missing columns: "+miss.join(", ")); return; }
 
   DATA = rows;
