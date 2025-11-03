@@ -84,7 +84,14 @@
 
 /* Hide old select-based ion filter UI (chips will control filtering) */
 #ionSelect, #selectAllBtn, #clearAllBtn { display: none !important; }
+
+/* Chip legend interactivity */
+#ionLegend .chip{ cursor:pointer; }
+#ionLegend .chip.inactive{ opacity:.35; }
+/* hide any legacy select UI if still present */
+#ionSelect, #selectAllBtn, #clearAllBtn { display: none !important; }
 </style>
+
 
 </head>
 <body>
