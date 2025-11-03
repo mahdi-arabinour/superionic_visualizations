@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>σ vs Doping Type — right legend + checkbox subtype filter</title>
+<title>σ vs Doping Type</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   :root { color-scheme: light; }
@@ -16,7 +16,6 @@
   .axis path, .axis line { stroke:#cbd5e1; }
   .axis text { fill:#334155; font-size:12px; }
   .rowLabel { fill:#111827; font-weight:600; font-size:12px; }
-  .tooltip { position:fixed; pointer-events:none; background:#fff; border:1px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,.08); border-radius:8px; padding:8px 10px; font-size:12px; color:#111827; }
   .legendCol { flex:0 0 340px; position:sticky; top:12px; display:flex; flex-direction:column; gap:12px; }
   .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
   .card h3 { margin:0 0 8px; font-size:13px; color:#111827; display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -37,13 +36,27 @@
   .checklist { display:flex; flex-direction:column; gap:6px; max-height:34vh; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; padding:8px; }
   .check-item { display:flex; align-items:center; gap:10px; font-size:12px; }
   .check-item input { width:14px; height:14px; }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed; pointer-events: none; background:#fff;
+    border:1px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,.08);
+    border-radius:10px; padding:8px 10px; font-size:12px; color:#111827; min-width:240px;
+  }
+  .trow { display:flex; justify-content:space-between; gap:12px; margin:2px 0; }
+  .tlabel { color:#64748b; }
+  .tval { color:#0f172a; text-align:right; }
+  .ion-pill {
+    display:inline-block; border-radius:999px; padding:2px 6px; font-weight:600;
+    border:1px solid rgba(0,0,0,.15); font-size:11px;
+  }
+
   @media (max-width:980px){ .wrap{flex-direction:column;} .legendCol{position:static;width:100%;} }
 </style>
 </head>
 <body>
 
 <h2>σ (S/cm) vs Doping Type — colored by Structure Group</h2>
-<div class="sub">X = log₁₀(σ). Y = Doping Type. Color = Structure Group. Use the right-side legend and checkboxes to filter; adjust bubble size above.</div>
 
 <!-- top control: bubble size -->
 <div class="controls">
@@ -71,9 +84,9 @@
       <div id="structItems" class="legend-list"></div>
     </div>
 
-    <!-- Doping_Subtype checklist -->
+    <!-- Doping Type checklist -->
     <div class="card">
-      <h3>Doping_Subtype</h3>
+      <h3>Doping Type</h3>
       <div id="subtypeList" class="checklist" role="group" aria-label="Doping subtypes"></div>
       <div class="legend-row" style="margin-top:8px;">
         <button id="subtypeAll" class="btn">Select All</button>
@@ -84,18 +97,29 @@
 </div>
 
 <script>
-/* Columns */
+/* Column names */
 const COL_SIGMA    = "Conductivity σ (S/cm)";
 const COL_STRUCT   = "Structure Group";
 const COL_DOPANT   = "Doping / and or GB Strategy";
 const COL_SUBTYPE  = "Doping_Subtype";
+const COL_IONTYPE  = "Ion Type";
+const COL_FORMULA  = "Superionic Conductor Formula (Chemical)";
 
-/* Structure palette */
+/* Structure palette (bubble colors) */
 const STRUCT_COLORS = {
   "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a",
   "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
 };
 const structColor = s => STRUCT_COLORS[s] || "#9ca3af";
+
+/* Ion palette (for tooltip pill only) */
+const ION_COLORS = {
+  "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
+  "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
+  "F-":   "#ff8a65","Cu+":  "#5c6bc0","Mg2+": "#26c6da","In3+": "#c0ca33",
+  "I-":   "#ec407a","Sn4+": "#7e57c2"
+};
+const ionColor = ion => ION_COLORS[ion] || "#6b7280";
 
 /* Layout */
 const margin = {top:36,right:20,bottom:64,left:200};
@@ -131,6 +155,8 @@ d3.csv("data.csv").then(raw=>{
     structure:(d[COL_STRUCT]||"").trim(),
     dopant:(d[COL_DOPANT]||"").trim(),
     subtype:(d[COL_SUBTYPE]||"").trim(),
+    ion:(d[COL_IONTYPE]||"").trim(),
+    formula:(d[COL_FORMULA]||"").trim(),
   })).filter(d=>d.sigma>0 && d.structure && d.subtype);
 
   allSubtypes = Array.from(new Set(data.map(d=>d.subtype))).sort();
@@ -203,12 +229,7 @@ function draw(){
         .attr("stroke","rgba(17,24,39,0.85)").attr("stroke-width",0.6)
         .attr("opacity",0.96)
         .on("mouseover",(event,d)=>{
-          tooltip.style("opacity",1).html(`
-            <div><b>σ:</b> ${formatSig(d.sigma)} S/cm</div>
-            <div><b>Structure:</b> ${d.structure}</div>
-            <div><b>Doping Type:</b> ${d.subtype}</div>
-            <div><b>Doping / and or GB Strategy:</b> ${d.dopant||"—"}</div>
-          `);
+          tooltip.style("opacity",1).html(buildTooltipHTML(d, ionColor(d.ion)));
         })
         .on("mousemove",(event)=>tooltip.style("left",(event.clientX+14)+"px").style("top",(event.clientY+14)+"px"))
         .on("mouseout",()=>tooltip.style("opacity",0)),
@@ -299,11 +320,44 @@ function wireSizeControl(){
   });
 }
 
+/* Tooltip builder */
+function buildTooltipHTML(d, ionCol){
+  const sigma = formatSig(d.sigma) + " S/cm";
+  // Use a colored pill for Ion Type
+  const ionHTML = d.ion
+    ? `<span class="ion-pill" style="background:${ionCol}22;color:${bestText(ionCol)}">${escapeHTML(d.ion)}</span>`
+    : "—";
+  const formulaHTML = d.formula ? `<code style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px;">${escapeHTML(d.formula)}</code>` : "—";
+
+  return `
+    <div class="trow"><span class="tlabel">σ</span><span class="tval">${sigma}</span></div>
+    <div class="trow"><span class="tlabel">Structure</span><span class="tval">${escapeHTML(d.structure)}</span></div>
+    <div class="trow"><span class="tlabel">Doping Type</span><span class="tval">${escapeHTML(d.subtype)}</span></div>
+    <div class="trow"><span class="tlabel">Doping / GB Strategy</span><span class="tval">${escapeHTML(d.dopant || "—")}</span></div>
+    <div class="trow"><span class="tlabel">Ion Type</span><span class="tval">${ionHTML}</span></div>
+    <div class="trow"><span class="tlabel">Formula</span><span class="tval">${formulaHTML}</span></div>
+  `;
+}
+
 /* Helpers */
 function formatSig(v){
   if (!Number.isFinite(v)) return "–";
   const e = Math.log10(v);
   return (e >= -2 && e <= 3) ? v.toPrecision(3) : `1e${e.toFixed(1)}`;
+}
+function escapeHTML(s){
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function bestText(hex){
+  // pick black/white for best contrast on the pill
+  try{
+    const c = d3.color(hex);
+    if(!c) return "#111";
+    const [r,g,b] = [c.r,c.g,c.b].map(v=>v/255);
+    // luminance
+    const L = 0.2126*r + 0.7152*g + 0.0722*b;
+    return L > 0.55 ? "#111" : "#fff";
+  }catch{ return "#111"; }
 }
 </script>
 </body>
