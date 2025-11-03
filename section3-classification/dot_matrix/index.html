@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>σ vs Doping Type — right legend + click-to-toggle subtypes</title>
+<title>σ vs Doping Type — right legend + checkbox subtype filter</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   :root { color-scheme: light; }
@@ -17,7 +17,7 @@
   .axis text { fill:#334155; font-size:12px; }
   .rowLabel { fill:#111827; font-weight:600; font-size:12px; }
   .tooltip { position:fixed; pointer-events:none; background:#fff; border:1px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,.08); border-radius:8px; padding:8px 10px; font-size:12px; color:#111827; }
-  .legendCol { flex:0 0 320px; position:sticky; top:12px; display:flex; flex-direction:column; gap:12px; }
+  .legendCol { flex:0 0 340px; position:sticky; top:12px; display:flex; flex-direction:column; gap:12px; }
   .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
   .card h3 { margin:0 0 8px; font-size:13px; color:#111827; display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .legend-list { display:flex; flex-direction:column; gap:4px; max-height:34vh; overflow:auto; }
@@ -28,16 +28,22 @@
   .legend-row { display:flex; gap:8px; margin-bottom:8px; }
   .btn { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:4px 8px; cursor:pointer; font-size:12px; color:#374151; }
   .btn:hover { background:#f3f4f6; }
+
+  /* top control: bubble size */
   .controls { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:0 0 10px; }
   .ctl { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:8px 10px; font-size:12px; display:flex; align-items:center; gap:8px; }
-  select.mult { width:100%; min-height:180px; }
+
+  /* subtype checklist */
+  .checklist { display:flex; flex-direction:column; gap:6px; max-height:34vh; overflow:auto; border:1px solid #e5e7eb; border-radius:10px; padding:8px; }
+  .check-item { display:flex; align-items:center; gap:10px; font-size:12px; }
+  .check-item input { width:14px; height:14px; }
   @media (max-width:980px){ .wrap{flex-direction:column;} .legendCol{position:static;width:100%;} }
 </style>
 </head>
 <body>
 
 <h2>σ (S/cm) vs Doping Type — colored by Structure Group</h2>
-<div class="sub">X = log₁₀(σ). Y = Doping Type. Color = Structure Group. Click subtype items on the right to toggle them; legend is filterable; bubble size is adjustable.</div>
+<div class="sub">X = log₁₀(σ). Y = Doping Type. Color = Structure Group. Use the right-side legend and checkboxes to filter; adjust bubble size above.</div>
 
 <!-- top control: bubble size -->
 <div class="controls">
@@ -65,27 +71,26 @@
       <div id="structItems" class="legend-list"></div>
     </div>
 
-    <!-- Subtype selector below the legend -->
+    <!-- Doping_Subtype checklist -->
     <div class="card">
       <h3>Doping_Subtype</h3>
-      <select id="subtypeSelect" class="mult" multiple size="10" title="Click an item to toggle"></select>
+      <div id="subtypeList" class="checklist" role="group" aria-label="Doping subtypes"></div>
       <div class="legend-row" style="margin-top:8px;">
         <button id="subtypeAll" class="btn">Select All</button>
         <button id="subtypeClear" class="btn">Clear</button>
       </div>
-      <div style="font-size:12px;color:#6b7280;margin-top:6px;">Click an item to include/exclude it from the chart.</div>
     </div>
   </aside>
 </div>
 
 <script>
-/* Column names */
+/* Columns */
 const COL_SIGMA    = "Conductivity σ (S/cm)";
 const COL_STRUCT   = "Structure Group";
 const COL_DOPANT   = "Doping / and or GB Strategy";
 const COL_SUBTYPE  = "Doping_Subtype";
 
-/* Structure color palette */
+/* Structure palette */
 const STRUCT_COLORS = {
   "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a",
   "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
@@ -115,13 +120,12 @@ let x, band, yCenter;
 let sizeFactor=1.0;
 
 /* Controls */
-const subtypeSelect = document.getElementById("subtypeSelect");
 const sizeSlider = document.getElementById("sizeSlider");
 const sizeVal = document.getElementById("sizeVal");
 const sizeReset = document.getElementById("sizeReset");
+const subtypeList = document.getElementById("subtypeList");
 
 d3.csv("data.csv").then(raw=>{
-  // Tidy data
   data = raw.map(d=>({
     sigma:+d[COL_SIGMA],
     structure:(d[COL_STRUCT]||"").trim(),
@@ -132,15 +136,10 @@ d3.csv("data.csv").then(raw=>{
   allSubtypes = Array.from(new Set(data.map(d=>d.subtype))).sort();
   structures  = Array.from(new Set(data.map(d=>d.structure))).sort();
   activeStructures = new Set(structures);
-  activeSubtypes   = new Set(allSubtypes);
+  activeSubtypes   = new Set(allSubtypes); // all checked by default
 
-  // Populate right-hand multi-select
-  for(const s of allSubtypes){
-    const opt=document.createElement('option');
-    opt.value=s; opt.textContent=s;
-    opt.selected=true;
-    subtypeSelect.appendChild(opt);
-  }
+  // Build subtype checklist
+  buildSubtypeChecklist();
 
   // Scales
   x = d3.scaleLog().domain(d3.extent(data,d=>d.sigma)).nice().range([0,W]);
@@ -148,12 +147,10 @@ d3.csv("data.csv").then(raw=>{
   yCenter = s => (band(s)||0) + band.bandwidth()/2;
   xAxisG.call(d3.axisBottom(x).ticks(10,"~g"));
 
-  // UI wiring
+  // UI
   buildStructureLegend();
-  wireSubtypeControls();
   wireSizeControl();
 
-  // First draw
   draw();
 }).catch(()=>{
   d3.select("#chartPane").append("div")
@@ -164,7 +161,6 @@ d3.csv("data.csv").then(raw=>{
 function draw(){
   const rows = data.filter(d=>activeStructures.has(d.structure) && activeSubtypes.has(d.subtype));
 
-  // Compact Y domain to visible subtypes
   const visibleSubtypes = Array.from(activeSubtypes);
   band.domain(visibleSubtypes);
   yAxisG.selectAll(".rowLabel")
@@ -177,14 +173,14 @@ function draw(){
       exit=>exit.remove()
     );
 
-  // Beeswarm per subtype row
   const jitterY=10, baseR=4*sizeFactor;
   const all=[];
   const bySubtype=d3.group(rows,d=>d.subtype);
   for(const [subtype,arr] of bySubtype.entries()){
     const y0=yCenter(subtype);
     const nodes=arr.map(d=>({
-      ...d, targetX:x(d.sigma), targetY:y0,
+      ...d,
+      targetX:x(d.sigma), targetY:y0,
       x:x(d.sigma)+(Math.random()*2-1)*2,
       y:y0+(Math.random()*2-1)*jitterY,
       r:baseR
@@ -221,7 +217,7 @@ function draw(){
     );
 }
 
-/* Structure legend */
+/* Structure legend (click to filter) */
 function buildStructureLegend(){
   const container=d3.select("#structItems");
   container.selectAll("*").remove();
@@ -252,40 +248,41 @@ function refreshStructLegend(){
   });
 }
 
-/* Subtype selector — single-click toggle */
-function wireSubtypeControls(){
-  const sel = subtypeSelect;
+/* Subtype checklist */
+function buildSubtypeChecklist(){
+  subtypeList.innerHTML = "";
+  for(const s of allSubtypes){
+    const id = "chk_"+s.replace(/\W+/g,"_");
+    const row = document.createElement("label");
+    row.className = "check-item";
+    row.htmlFor = id;
+    row.innerHTML = `
+      <input type="checkbox" id="${id}" value="${s}" checked>
+      <span>${s}</span>
+    `;
+    subtypeList.appendChild(row);
+  }
 
-  document.getElementById("subtypeAll").addEventListener("click", ()=>{
-    activeSubtypes = new Set(allSubtypes);
-    setSelectValues(sel, allSubtypes);
-    draw();
-  });
-  document.getElementById("subtypeClear").addEventListener("click", ()=>{
-    activeSubtypes = new Set();
-    setSelectValues(sel, []);
-    draw();
-  });
-
-  // Single click toggles the clicked option (remove/add from chart)
-  sel.addEventListener("click", e=>{
-    if (e.target && e.target.tagName === "OPTION") {
-      const val = e.target.value;
-      if (activeSubtypes.has(val)) {
-        activeSubtypes.delete(val);
-        e.target.selected = false;
-      } else {
-        activeSubtypes.add(val);
-        e.target.selected = true;
-      }
+  // Checkbox change → toggle presence
+  subtypeList.addEventListener("change", (e)=>{
+    const el = e.target;
+    if (el && el.type === "checkbox") {
+      const val = el.value;
+      if (el.checked) activeSubtypes.add(val);
+      else activeSubtypes.delete(val);
       draw();
     }
   });
 
-  // Also update on generic selection change (keyboard)
-  sel.addEventListener("change", ()=>{
-    const chosen = Array.from(sel.selectedOptions).map(o=>o.value);
-    activeSubtypes = new Set(chosen);
+  // Buttons
+  document.getElementById("subtypeAll").addEventListener("click", ()=>{
+    activeSubtypes = new Set(allSubtypes);
+    for (const cb of subtypeList.querySelectorAll('input[type="checkbox"]')) cb.checked = true;
+    draw();
+  });
+  document.getElementById("subtypeClear").addEventListener("click", ()=>{
+    activeSubtypes = new Set();
+    for (const cb of subtypeList.querySelectorAll('input[type="checkbox"]')) cb.checked = false;
     draw();
   });
 }
@@ -298,18 +295,11 @@ function wireSizeControl(){
     draw();
   });
   sizeReset.addEventListener("click", ()=>{
-    sizeFactor = 1.0;
-    sizeSlider.value = "1.0";
-    sizeVal.textContent = "1.00×";
-    draw();
+    sizeFactor=1.0; sizeSlider.value="1.0"; sizeVal.textContent="1.00×"; draw();
   });
 }
 
 /* Helpers */
-function setSelectValues(select, values){
-  const set = new Set(values);
-  for (const opt of select.options) opt.selected = set.has(opt.value);
-}
 function formatSig(v){
   if (!Number.isFinite(v)) return "–";
   const e = Math.log10(v);
