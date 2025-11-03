@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tree — One Legend + Palette (no rings)</title>
+<title>Radial Tree — Ion-colored subtrees (explicit 4 layers)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -96,17 +96,6 @@ const STRUCT_COLORS = {
   "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
 };
 const getIonColor    = n => ION_COLORS[n]    || "#9aa5b1";
-const getStructColor = n => STRUCT_COLORS[n] || "#9aa5b1";
-function colorVariantFromBase(baseHex, seedStr, isFormula){
-  const c0 = d3.hsl(d3.color(baseHex));
-  let h=0; for (let i=0;i<(seedStr||'').length;i++) h=(h*31 + seedStr.charCodeAt(i))|0; h=Math.abs(h);
-  const shift = (isFormula? 90:35) + (h % 40);
-  const h2 = (c0.h + shift) % 360;
-  const s2 = Math.min(0.85, Math.max(0.55, c0.s * (isFormula? 0.85:1.0)));
-  const l2 = isFormula ? Math.min(0.55, Math.max(0.40, c0.l * 0.75))
-                       : Math.min(0.48, Math.max(0.32, c0.l * 0.68));
-  return d3.hsl(h2, s2, l2).formatHex();
-}
 
 /* ---------- Elements & State ---------- */
 const svg = d3.select('#chart');
@@ -220,14 +209,20 @@ function drawTree(rows){
   const H = d3.hierarchy(root);
   d3.cluster().size([2*Math.PI,1])(H);
 
-  // spacing: push Doping (depth 3) a bit farther out for clarity
+  /* ===== Explicit band radii so 4 layers are visually clear ===== */
+  const rIon     = 1 * baseEdge;                  // Ion ring
+  const rStruct  = 2 * baseEdge;                  // Structure ring
+  const rDoping  = 3 * baseEdge + 0.85 * baseEdge; // Doping ring (extra gap after structure)
+  const rFormula = rDoping   + 0.90 * baseEdge;   // Start radius for Formula leaves
+
   H.each(n=>{
     if(!n.children) return;
-    const depth = n.depth;
-    const bump = (depth === 3) ? baseEdge * 0.35 : 0;
-    n.y = Math.min(R, depth * baseEdge + bump);
+    if(n.depth===1) n.y = Math.min(R, rIon);
+    else if(n.depth===2) n.y = Math.min(R, rStruct);
+    else if(n.depth===3) n.y = Math.min(R, rDoping);
   });
 
+  // σ → extra length from rFormula outward
   const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
   const vals = H.leaves().map(l=>+l.data.sigma).filter(v=>Number.isFinite(v)&&v>0);
   let sMin = vals.length? d3.min(vals) : def;
@@ -237,9 +232,9 @@ function drawTree(rows){
   const scaleLog=d3.scaleLog().domain([Math.max(sMin,Number.MIN_VALUE),sMax]).range([leafMin,leafMax]);
   const extra = v => (useLog? scaleLog:scaleLin)(Number.isFinite(+v)&&+v>0? +v : def);
 
-  const leafBase = 4*baseEdge, margin=12, maxExtra=Math.max(8,(R-margin)-leafBase);
+  const margin=12, maxExtra=Math.max(8,(R-margin)-rFormula);
   const rescale = d3.scaleLinear().domain([leafMin,leafMax]).range([leafMin,maxExtra]);
-  H.each(n=>{ if(!n.children) n.y = leafBase + rescale(extra(n.data.sigma)); });
+  H.each(n=>{ if(!n.children) n.y = rFormula + rescale(extra(n.data.sigma)); });
 
   // spread along arc for formulas
   if(spread>0){
@@ -251,36 +246,33 @@ function drawTree(rows){
     });
   }
 
-  // links — color + thickness/dash for Doping
+  // helper: ion color for any node/link by ancestor
+  function ionColorFromNode(node){
+    const ionNode = node.ancestors().find(x => x.depth === 1) || node;
+    const ionName = ionNode?.data?.name || 'Other';
+    return getIonColor(ionName);
+  }
+
+  // links — Doping thicker & dashed, Formula thinner — all colored by Ion
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
   g.append('g').attr('fill','none').selectAll('path').data(H.links()).join('path')
-    .attr('stroke-width', d => d.target.depth === 3 ? 1.6 : 1.0)
-    .attr('stroke-dasharray', d => d.target.depth === 3 ? '2,2' : null)
-    .attr('stroke', d=>{
-      const t=d.target, a=t.ancestors();
-      if(t.depth===1) return getIonColor(t.data?.name);
-      if(t.depth===2) return getStructColor(t.data?.name);
-      const st = a.find(x=>x.depth===2)?.data?.name;
-      const base = getStructColor(st||'');
-      if(t.depth===3) return colorVariantFromBase(base, t.data?.name||'dop', false);
-      return colorVariantFromBase(base, (t.data?.name||'form')+'•f', true);
+    .attr('stroke-width', d => {
+      const dep = d.target.depth;
+      if (dep === 3) return 1.8;   // Doping
+      if (dep >= 4) return 0.8;    // Formula
+      return 1.0;                  // Ion/Structure
     })
+    .attr('stroke-dasharray', d => d.target.depth === 3 ? '2,2' : null)
+    .attr('stroke', d => ionColorFromNode(d.target))
     .attr('d', d => link({source:d.source, target:d.target}));
 
-  // nodes — bigger for Doping, small for Formula
+  // nodes — larger for Doping, small for Formula — all colored by Ion
   const nodes = g.append('g').selectAll('g.n').data(H.descendants()).join('g')
     .attr('class','n')
     .attr('transform',d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`);
   nodes.append('circle')
     .attr('r', d => (d.depth===3 ? 3.0 : (d.children ? 2.2 : 1.6)))
-    .attr('fill',d=>{
-      const a=d.ancestors();
-      if(d.depth===1) return getIonColor(d.data?.name);
-      if(d.depth===2) return getStructColor(d.data?.name);
-      const st=a.find(x=>x.depth===2)?.data?.name; const base=getStructColor(st||'');
-      return d.depth===3 ? colorVariantFromBase(base, d.data?.name||'dop', false)
-                         : colorVariantFromBase(base, (d.data?.name||'form')+'•f', true);
-    })
+    .attr('fill', d => ionColorFromNode(d))
     .attr('stroke','#fff')
     .attr('stroke-width', d => d.depth===3 ? 1.1 : 0.8)
     .attr('stroke-dasharray', d => (!d.children && d.data?.isDefault) ? '3,2' : null)
@@ -322,7 +314,7 @@ function drawTree(rows){
 
   // caption & status
   g.append('text').attr('x',0).attr('y',HEIGHT/2-10).attr('text-anchor','middle').attr('fill','#64748b').attr('font-size',12)
-    .text('Ion → Structure → Doping → Formula • leaf length ∝ σ');
+    .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Ion');
   say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length}`);
 }
 
