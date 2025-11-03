@@ -2,37 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Zoomable Circle Packing — Structure Group / Ion Type (Light + Root Outline)</title>
+  <title>Zoomable Circle Packing — Structure Group / Ion Type</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: #fafafa;
-      color: #222;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial;
-    }
+    html, body { height: 100%; margin: 0; background: #fafafa; color: #222;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
     #chart { height: 100vh; width: 100vw; }
-    text.label {
-      fill: #222;
-      pointer-events: none;
-      text-anchor: middle;
-      dominant-baseline: middle;
-      text-shadow: none;
-    }
+    text.label { fill: #222; pointer-events: none; text-anchor: middle; dominant-baseline: middle; text-shadow: none; }
     .breadcrumb {
-      position: fixed;
-      top: 10px;
-      left: 12px;
-      background: rgba(0,0,0,0.05);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(0,0,0,0.1);
-      padding: 8px 10px;
-      border-radius: 10px;
-      font-size: 13px;
-      z-index: 10;
-      user-select: none;
-      color: #222;
+      position: fixed; top: 10px; left: 12px; background: rgba(0,0,0,0.05); backdrop-filter: blur(8px);
+      border: 1px solid rgba(0,0,0,0.1); padding: 8px 10px; border-radius: 10px; font-size: 13px; z-index: 10; user-select: none; color: #222;
     }
     .breadcrumb a { color: #3366cc; text-decoration: none; cursor: pointer; }
     .breadcrumb .sep { opacity: .6; margin: 0 6px; }
@@ -63,50 +42,29 @@
       }))
     };
 
-    // === Your exact color palettes ===
+    // --- Your exact color palettes ---
     const ION_COLORS = {
-      "Li+":  "#ff5252",  
-      "Na+":  "#81d4fa",  
-      "K+":   "#004d40",  
-      "Ag+":  "#f48fb1",  
-      "O2-":  "#6d4c41",  
-      "Zn2+": "#c2185b",
-      "H+":   "#ffd54f",  
-      "Rb+":  "#43a047",  
-      "F-":   "#ff8a65",  
-      "Cu+":  "#5c6bc0",  
-      "Mg2+": "#26c6da",  
-      "In3+": "#c0ca33",  
-      "I-":   "#ec407a",  
-      "Sn4+": "#7e57c2"  
+      "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
+      "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
+      "F-":   "#ff8a65","Cu+":  "#5c6bc0","Mg2+": "#26c6da","In3+": "#c0ca33",
+      "I-":   "#ec407a","Sn4+": "#7e57c2"
     };
     const STRUCT_COLORS = {
-      "Others": "#9e9e9e",
-      "Polymeric": "#ff7043",
-      "Argyrodite": "#ab47bc",
-      "Halide": "#26a69a",
-      "Amorphous": "#f6bf26",
-      "NASICON": "#66bb6a",
-      "Anti-perovskite": "#0d47a1",
-      "Spinel": "#8d6e63"
+      "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a",
+      "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
     };
 
-    // Tiny helpers (fallback stays visible if there's a name you didn't map)
     const getIonColor = name => ION_COLORS[name] || "#cccccc";
     const getStructColor = name => STRUCT_COLORS[name] || "#cccccc";
 
-    // Keep your original API (we still pass ionColor, though it’s not used anymore)
-    const allIons = Array.from(new Set(raw.map(d => d.ion)));
-    const palette = d3.schemeTableau10.concat(d3.schemeSet3, d3.schemePaired, d3.schemeDark2, d3.schemePastel2).flat();
-    const ionColor = d3.scaleOrdinal(allIons, palette);
+    draw(rootData);
 
-    draw(rootData, ionColor);
   }).catch(() => {
     document.getElementById('trail').textContent =
       "⚠️ Failed to load data.csv — please open this file via a local web server.";
   });
 
-  function draw(data, ionColor) {
+  function draw(data) {
     const size = Math.min(window.innerWidth, window.innerHeight);
     const padding = 3;
 
@@ -128,28 +86,26 @@
     const g = svg.append("g");
     const nodes = root.descendants();
 
-    // Circles (include root, but render as outline only so the "main" boundary is visible)
+    // Circles: root outline, groups by STRUCT_COLORS, leaves by ION_COLORS
     const circles = g.selectAll("circle")
       .data(nodes)
       .join("circle")
-        // >>> Only change: use your maps for colors <<<
         .attr("fill", d => d.depth === 0
             ? "none"
-            : (d.children ? getStructColor(d.data.name)     // structure groups
-                          : getIonColor(d.data.name)))       // ions (leaves)
+            : (d.children ? getStructColor(d.data.name) : getIonColor(d.data.name)))
         .attr("stroke", d => d.depth === 0 ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.2)")
         .attr("stroke-width", d => d.depth === 0 ? 1.5 : (d.children ? 1 : 0.75))
         .style("pointer-events", d => d.depth === 0 ? "none" : null)
         .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
 
-    // GROUP LABELS (parents, depth > 0), positioned near top of circle
+    // Group labels (parents)
     const groupLabels = g.selectAll("text.group-label")
       .data(nodes.filter(d => d.children && d.depth > 0))
       .join("text")
         .attr("class", "label group-label")
         .text(d => d.data.name);
 
-    // ION LABELS (leaves)
+    // Ion labels (leaves)
     const ionLabels = g.selectAll("text.ion-label")
       .data(nodes.filter(d => !d.children))
       .join("text")
@@ -166,12 +122,10 @@
       const k = size / v[2];
       view = v;
 
-      // Circles
       circles
         .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
         .attr("r", d => d.r * k);
 
-      // Group labels near the top of their circle
       groupLabels
         .attr("transform", d => {
           const x = (d.x - v[0]) * k;
@@ -182,7 +136,6 @@
         .style("display", d => (d === focus || d.parent === focus) ? "inline" : "none")
         .style("fill-opacity", d => (d === focus || d.parent === focus) ? 1 : 0);
 
-      // Ion labels centered; hidden if circle too small
       ionLabels
         .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
         .style("font-size", d => `${Math.max(8, (d.r * k) / 4)}px`)
@@ -203,7 +156,7 @@
 
     function updateTrail(d) {
       const trail = document.getElementById('trail');
-      const ancestors = d.ancestors().reverse().slice(1); // drop root from breadcrumb
+      const ancestors = d.ancestors().reverse().slice(1);
       trail.innerHTML = ancestors.length
         ? ancestors.map((a, i) =>
             i === ancestors.length - 1
