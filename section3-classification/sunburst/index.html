@@ -356,7 +356,7 @@ function deriveForStrat(hex) {
   const c0 = d3.hsl(d3.color(hex));
   // Slight hue shift, keep saturation, clamp to darker lightness for white labels
   const h = (c0.h + 12) % 360;
-  const s = Math.max(0.55, Math.min(1, c0.s * 1.10));
+  const s = Math.max(0.55, Math.min(1, c0.s * 1.5));
   const l = Math.min(0.40, c0.l * 0.70);
   return d3.hsl(h, s, l).formatHex();
 }
