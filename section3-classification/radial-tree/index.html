@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tidy Tree</title>
+<title>Radial Tidy Tree — Canonical Grouping (Zoom + Reset)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -81,7 +81,11 @@
     padding:8px 12px;font-size:13px;cursor:pointer;
   }
   .pill:hover{opacity:0.9}
+
+/* Hide old select-based ion filter UI (chips will control filtering) */
+#ionSelect, #selectAllBtn, #clearAllBtn { display: none !important; }
 </style>
+
 </head>
 <body>
 <header>
@@ -164,6 +168,8 @@ const ionColorScale = d3.scaleOrdinal(Object.keys(ION_COLORS), Object.values(ION
 
 
 let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
+// Chip-legend selection state (empty = all enabled)
+const selectedIons = new Set();
 let focusIon = null; // null = all ions
 function say(t){ statusEl.textContent = t; }
 
@@ -188,8 +194,9 @@ function buildLeaves(rows){
   const leaves = [];
   const defSigma = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
 
-  const uiSel = Array.from(document.getElementById('ionSelect').selectedOptions || []).map(o=>o.value);
-  const selectedSet = focusIon ? new Set([focusIon]) : (uiSel.length ? new Set(uiSel) : null);
+  // Use chip-legend state: empty set means "all enabled"
+const usingFilter = selectedIons.size > 0;
+const selectedSet = focusIon ? new Set([focusIon]) : (usingFilter ? selectedIons : null);
 
   for (const r of rows){
     const ionV = (r[ion]||'Other').toString().trim();
@@ -396,7 +403,7 @@ function drawTree(rows){
   }
 
   // Bottom caption (you can move further down if needed by increasing the margin)
-  const caption = "Ion → Structure Group → Doping → Formula";
+  const caption = "Ion → Structure Group (Canonical) → Doping → Formula • leaf length ∝ σ • RAW structure label • dashed = default σ • click Ion to zoom";
   const bottomMargin = 12;
   g.append("text")
     .attr("class","viz-caption")
