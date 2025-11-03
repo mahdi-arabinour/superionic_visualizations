@@ -9,7 +9,6 @@
   :root { color-scheme: light; }
   body { margin: 16px; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; background:#f7f7f7; color:#0f172a; }
   h2 { margin: 8px 0 12px; font-size: 24px; }
-  .status { display:inline-block; margin: 0 0 12px; padding: 6px 10px; background:#fff; border:1px solid #e5e7eb; border-radius: 999px; font-size: 12px; color:#374151; }
   .wrap { display: flex; align-items: flex-start; gap: 16px; }
   #chartPane { flex: 1 1 auto; min-width: 0; }
   svg { width: 100%; height: auto; background:#fff; border:1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
@@ -25,7 +24,6 @@
   .legend-item.inactive { opacity:0.45; }
   .legend-swatch { width:16px; height:16px; border-radius:4px; border:1px solid rgba(0,0,0,0.35); }
   .legend-symbol { width:18px; height:18px; flex:0 0 18px; }
-  .caption { margin-top: 8px; color:#6b7280; font-size: 12px; }
   .reset { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:4px 8px; cursor:pointer; font-size:12px; color:#374151; }
   .reset:hover { background:#f3f4f6; }
   @media (max-width: 980px) {
@@ -37,7 +35,6 @@
 <body>
 
 <h2>Cycle Life vs Retention %</h2>
-
 
 <div class="wrap">
   <div id="chartPane">
@@ -97,6 +94,84 @@ function parseCycleLife(s) {
 }
 function pick(cols, cands){ for(const c of cands) if(cols.includes(c)) return c; return null; }
 
+/* ---------- Your Ion → Shape palette ---------- */
+const ION_SHAPES = {
+  "Li+":  "circle",
+  "Na+":  "square",
+  "K+":   "diamond",
+  "Ag+":  "cross",
+  "O2-":  "triangle-up",
+  "Zn2+": "triangle-down",
+  "H+":   "x",
+  "Rb+":  "star",
+  "F-":   "hexagon",
+  "Cu+":  "triangle-left",
+  "Mg2+": "triangle-right",
+  "In3+": "bowtie",
+  "I-":   "hourglass",
+  "Sn4+": "pentagon"
+};
+
+/* ---- Shape path generator (supports custom names) ----
+   Returns { d: 'M...', rotate: angleDeg, strokeOnly: boolean }
+   size is in px^2 like d3.symbol().size()
+------------------------------------------------------- */
+function symbolPath(type, size = 110){
+  const builtin = n => d3.symbol().type(n).size(size)();
+  const rotSpec = (base, angle) => ({ d: builtin(base), rotate: angle, strokeOnly: false });
+  const area = size, tau = Math.PI * 2;
+
+  function regularPolygon(n){
+    // approximate radius such that area ~ size
+    const r = Math.sqrt((2*area)/(n*Math.sin(2*Math.PI/n)));
+    const pts = [];
+    for(let i=0;i<n;i++){
+      const ang = (tau/n)*i - Math.PI/2; // start at top
+      pts.push([ r*Math.cos(ang), r*Math.sin(ang) ]);
+    }
+    return "M" + pts.map(p=>p.join(",")).join("L") + "Z";
+  }
+
+  switch(type){
+    case "circle":   return { d: builtin(d3.symbolCircle),  rotate:0, strokeOnly:false };
+    case "square":   return { d: builtin(d3.symbolSquare),  rotate:0, strokeOnly:false };
+    case "diamond":  return { d: builtin(d3.symbolDiamond), rotate:0, strokeOnly:false };
+    case "triangle": // alias
+    case "triangle-up":    return { d: builtin(d3.symbolTriangle), rotate:0,   strokeOnly:false };
+    case "triangle-down":  return rotSpec(d3.symbolTriangle, 180);
+    case "triangle-left":  return rotSpec(d3.symbolTriangle, -90);
+    case "triangle-right": return rotSpec(d3.symbolTriangle, 90);
+    case "cross":    return { d: builtin(d3.symbolCross),   rotate:0, strokeOnly:false };
+    case "star":     return { d: builtin(d3.symbolStar),    rotate:0, strokeOnly:false };
+    case "wye":      return { d: builtin(d3.symbolWye),     rotate:0, strokeOnly:false };
+    case "hexagon":  return { d: regularPolygon(6), rotate:0, strokeOnly:false };
+    case "pentagon": return { d: regularPolygon(5), rotate:0, strokeOnly:false };
+    case "bowtie": {
+      const r = Math.sqrt(size/Math.PI);
+      const p1 = `M0,0 L${r},${-r} L${r},${r} Z`;
+      const p2 = `M0,0 L${-r},${-r} L${-r},${r} Z`;
+      return { d: p1 + " " + p2, rotate:0, strokeOnly:false };
+    }
+    case "hourglass": {
+      const r = Math.sqrt(size/Math.PI);
+      const p1 = `M${-r},${-r} L${r},${-r} L0,0 Z`;
+      const p2 = `M${-r},${r} L${r},${r} L0,0 Z`;
+      return { d: p1 + " " + p2, rotate:0, strokeOnly:false };
+    }
+    case "x": {
+      const r = Math.sqrt(size/Math.PI), t = Math.max(1.2, r*0.20);
+      const p = `M${-r},${-t} L${r},${t} M${-r},${t} L${r},${-t}`;
+      return { d: p, rotate:0, strokeOnly:true };
+    }
+    default:         return { d: builtin(d3.symbolCircle),  rotate:0, strokeOnly:false };
+  }
+}
+function ionSpec(ion, size=110){
+  const key = (ion||"").trim();
+  return symbolPath(ION_SHAPES[key] || "circle", size);
+}
+
+/* ---------- Data & draw ---------- */
 d3.csv(CSV_FILE).then(raw => {
   const cols = Object.keys(raw[0] || {});
   const C_FORMULA = pick(cols, ["Formula (Chemical)", "Formula"]);
@@ -117,7 +192,6 @@ d3.csv(CSV_FILE).then(raw => {
     };
   }).filter(d => Number.isFinite(d.CycleLife) && d.CycleLife >= 0 && Number.isFinite(d.Retention));
 
-
   if (!data.length) {
     g.append("text").attr("x", innerW/2).attr("y", innerH/2).attr("text-anchor","middle").attr("fill","#6b7280").text("No data to plot after filtering.");
     return;
@@ -126,24 +200,19 @@ d3.csv(CSV_FILE).then(raw => {
   const structureTypes = [...new Set(data.map(d => d.StructureType).filter(Boolean))];
   const ionTypes = [...new Set(data.map(d => d.IonType).filter(Boolean))];
 
-  // ✅ Sankey color palette
   const structureColors = {
-  "Others": "#9e9e9e",
-  "Polymeric": "#ff7043",
-  "Argyrodite": "#ab47bc",
-  "Halide": "#26a69a",
-  "Amorphous": "#f6bf26",
-  "NASICON": "#66bb6a",
-  "Anti-perovskite": "#0d47a1",
-  "Spinel": "#8d6e63"
-};
-
+    "Others": "#9e9e9e",
+    "Polymeric": "#ff7043",
+    "Argyrodite": "#ab47bc",
+    "Halide": "#26a69a",
+    "Amorphous": "#f6bf26",
+    "NASICON": "#66bb6a",
+    "Anti-perovskite": "#0d47a1",
+    "Spinel": "#8d6e63"
+  };
   const color = d3.scaleOrdinal()
     .domain(structureTypes)
     .range(structureTypes.map(s => structureColors[s] || "#9e9e9e"));
-
-  const shapes = [d3.symbolCircle, d3.symbolSquare, d3.symbolTriangle, d3.symbolDiamond, d3.symbolCross, d3.symbolStar, d3.symbolWye];
-  const getShape = t => shapes[(ionTypes.indexOf(t) >= 0 ? ionTypes.indexOf(t) : 0) % shapes.length];
 
   const x = d3.scaleLinear().domain([0,2000]).range([0,innerW]);
   const y = d3.scaleLinear().domain([0,100]).range([innerH,0]);
@@ -151,24 +220,39 @@ d3.csv(CSV_FILE).then(raw => {
   xAxisG.call(d3.axisBottom(x).tickValues(xTicks).tickFormat(d => d>=1000 ? (d/1000)+"k" : d));
   yAxisG.call(d3.axisLeft(y).ticks(10).tickFormat(d => d+"%"));
 
+  // render points with custom shapes
+  const sizePx2 = 110; // symbol "area"
   const points = g.selectAll(".pt").data(data).join("path")
     .attr("class","pt")
-    .attr("transform", d => `translate(${x(Math.max(0, Math.min(2000, d.CycleLife)))},${y(d.Retention)})`)
-    .attr("d", d => d3.symbol().type(getShape(d.IonType)).size(110)())
-    .attr("fill", d => color(d.StructureType))
-    .attr("stroke","#111827").attr("stroke-width",0.6).attr("opacity",0.95)
+    .attr("transform", d => {
+      const spec = ionSpec(d.IonType, sizePx2);
+      const tx = x(Math.max(0, Math.min(2000, d.CycleLife)));
+      const ty = y(d.Retention);
+      return `translate(${tx},${ty}) rotate(${spec.rotate})`;
+    })
+    .attr("d", d => ionSpec(d.IonType, sizePx2).d)
+    .attr("fill", d => {
+      const spec = ionSpec(d.IonType, sizePx2);
+      return spec.strokeOnly ? "none" : color(d.StructureType);
+    })
+    .attr("stroke", d => {
+      const spec = ionSpec(d.IonType, sizePx2);
+      return spec.strokeOnly ? color(d.StructureType) : "#111827";
+    })
+    .attr("stroke-width", d => ionSpec(d.IonType, sizePx2).strokeOnly ? 1.4 : 0.7)
+    .attr("opacity",0.95)
     .on("mouseover",(event,d)=>{
       tooltip.style("opacity",1).html(`
         <div><b>${d.Formula || "(unknown)"}<\/b></div>
         <div>Structure: ${d.StructureType || "—"}<\/div>
         <div>Ion: ${d.IonType || "—"}<\/div>
-        <div>Cycle Life: ${d3.format(",")(Math.round(d.CycleLife))}<\/div>
+        <div>Cycle Life: ${fmtInt(Math.round(d.CycleLife))}<\/div>
         <div>Retention: ${d.Retention}%<\/div>`);
     })
     .on("mousemove",(event)=>{tooltip.style("left",(event.clientX+14)+"px").style("top",(event.clientY+14)+"px");})
     .on("mouseout",()=>tooltip.style("opacity",0));
 
-  // Filters
+  // filters
   let activeStructures = new Set(structureTypes);
   let activeIons = new Set(ionTypes);
 
@@ -182,7 +266,6 @@ d3.csv(CSV_FILE).then(raw => {
       return !activeIons.has(txt);
     });
   }
-
   function updateVisibility(){
     points.transition().duration(250)
       .style("opacity", d => (activeStructures.has(d.StructureType) && activeIons.has(d.IonType)) ? 0.95 : 0.08)
@@ -209,7 +292,7 @@ d3.csv(CSV_FILE).then(raw => {
     item.append("span").text(s || "—");
   });
 
-  // Ion legend
+  // Ion legend (gray shapes)
   const shapeItems = d3.select("#shapeItems");
   ionTypes.forEach(t => {
     const item = shapeItems.append("div").attr("class","legend-item");
@@ -225,8 +308,14 @@ d3.csv(CSV_FILE).then(raw => {
       refreshLegendStates();
       updateVisibility();
     });
+    const sym = ionSpec(t, 140);
     const symSvg = item.append("svg").attr("class","legend-symbol").attr("viewBox","-10 -10 20 20");
-    symSvg.append("path").attr("d", d3.symbol().type(getShape(t)).size(140)()).attr("fill","#6b7280").attr("stroke","#111827").attr("stroke-width",0.6);
+    symSvg.append("path")
+      .attr("d", sym.d)
+      .attr("transform", `rotate(${sym.rotate})`)
+      .attr("fill", sym.strokeOnly ? "none" : "#6b7280")
+      .attr("stroke", sym.strokeOnly ? "#6b7280" : "#111827")
+      .attr("stroke-width", sym.strokeOnly ? 1.4 : 0.7);
     item.append("span").text(t || "—");
   });
 
