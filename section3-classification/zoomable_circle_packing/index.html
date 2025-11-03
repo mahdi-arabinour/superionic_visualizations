@@ -2,20 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Zoomable Circle Packing — Structure Group & Ion Colors</title>
+  <title>Circle Packing — Structure Group & Ion Labels</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    html, body { height:100%; margin:0; background:#fafafa; color:#222;
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,Cantarell,"Noto Sans",Arial; }
-    #chart { height:100vh; width:100vw; }
-    text.label { fill:#222; pointer-events:none; text-anchor:middle; dominant-baseline:middle; }
-    .breadcrumb {
-      position:fixed; top:10px; left:12px; background:rgba(0,0,0,0.05); backdrop-filter:blur(8px);
-      border:1px solid rgba(0,0,0,0.1); padding:8px 10px; border-radius:10px; font-size:13px;
-      z-index:10; user-select:none; color:#222;
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #fafafa;
+      color: #222;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", Arial;
     }
-    .breadcrumb a { color:#3366cc; text-decoration:none; cursor:pointer; }
-    .breadcrumb .sep { opacity:.6; margin:0 6px; }
+    #chart { height: 100vh; width: 100vw; }
+    text.label {
+      fill: #111;
+      pointer-events: none;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      font-weight: 500;
+    }
+    .breadcrumb {
+      position: fixed;
+      top: 10px;
+      left: 12px;
+      background: rgba(0, 0, 0, 0.05);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      z-index: 10;
+      user-select: none;
+      color: #222;
+    }
+    .breadcrumb a { color: #3366cc; text-decoration: none; cursor: pointer; }
+    .breadcrumb .sep { opacity: .6; margin: 0 6px; }
   </style>
 </head>
 <body>
@@ -26,10 +46,12 @@
   <script>
   d3.csv("data.csv").then(raw => {
     raw = raw.filter(d => d["Structure Group"] && d["Ion Type"])
-             .map(d => ({ group: String(d["Structure Group"]).trim(),
-                          ion:   String(d["Ion Type"]).trim() }));
+             .map(d => ({
+               group: String(d["Structure Group"]).trim(),
+               ion: String(d["Ion Type"]).trim()
+             }));
 
-    // Build hierarchy root → structure group → ion counts
+    // Hierarchy: root -> structure -> ion
     const grouped = d3.group(raw, d => d.group);
     const rootData = {
       name: "All",
@@ -42,7 +64,7 @@
       }))
     };
 
-    // ---------- Your color palettes ----------
+    // 🎨 Your exact color palettes
     const ION_COLORS = {
       "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
       "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
@@ -61,9 +83,7 @@
 
     function draw(data) {
       const size = Math.min(window.innerWidth, window.innerHeight);
-      const padding = 3;
-
-      const pack = data => d3.pack().size([size, size]).padding(padding)(
+      const pack = data => d3.pack().size([size, size]).padding(3)(
         d3.hierarchy(data)
           .sum(d => d.value || 0)
           .sort((a, b) => (b.value || 0) - (a.value || 0))
@@ -92,20 +112,14 @@
           .style("pointer-events", d => d.depth === 0 ? "none" : null)
           .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
 
-      const groupLabels = g.selectAll("text.group-label")
-        .data(nodes.filter(d => d.children && d.depth > 0))
+      // ✅ Labels for ALL nodes (structure + ion)
+      const labels = g.selectAll("text.label")
+        .data(nodes)
         .join("text")
-          .attr("class", "label group-label")
+          .attr("class", "label")
           .text(d => d.data.name);
 
-      const ionLabels = g.selectAll("text.ion-label")
-        .data(nodes.filter(d => !d.children))
-        .join("text")
-          .attr("class", "label ion-label")
-          .text(d => `${d.data.name} (${d.value})`);
-
       svg.on("click", e => zoom(e, root));
-
       zoomTo([root.x, root.y, root.r * 2]);
       updateTrail(root);
 
@@ -116,19 +130,15 @@
           .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
           .attr("r", d => d.r * k);
 
-        groupLabels
-          .attr("transform", d => {
-            const x = (d.x - v[0]) * k;
-            const yTop = (d.y - v[1]) * k - (d.r * k * 0.45);
-            return `translate(${x},${yTop})`;
-          })
-          .style("font-size", d => `${Math.max(10, (d.r * k)/4)}px`)
-          .style("display", d => (d === focus || d.parent === focus) ? "inline" : "none");
-
-        ionLabels
+        labels
           .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
-          .style("font-size", d => `${Math.max(8, (d.r * k)/4)}px`)
-          .style("display", d => (d.r * k >= 14) ? "inline" : "none");
+          .style("font-size", d => `${Math.max(8, (d.r * k) / 3.5)}px`)
+          .style("opacity", d => (d.r * k >= 10 ? 1 : 0.6))
+          .text(d => {
+            const rScaled = d.r * k;
+            if (rScaled < 12) return d.data.name.length > 3 ? d.data.name.slice(0,3) + "…" : d.data.name;
+            return d.data.name;
+          });
       }
 
       function zoom(event, d) {
@@ -169,7 +179,7 @@
     }
   }).catch(() => {
     document.getElementById('trail').textContent =
-      "⚠️ Failed to load data.csv — please open this file via a local web server.";
+      "⚠️ Failed to load data.csv — open via a local web server (python3 -m http.server)";
   });
   </script>
 </body>
