@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Radial Tree — One Legend + Palette + Guide Rings (Doping clarified)</title>
+<title>Radial Tree — One Legend + Palette (no rings)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -224,8 +224,8 @@ function drawTree(rows){
   H.each(n=>{
     if(!n.children) return;
     const depth = n.depth;
-    const bump = (depth === 3) ? (+document.getElementById('baseEdge').value) * 0.35 : 0;
-    n.y = Math.min(R, depth * (+document.getElementById('baseEdge').value) + bump);
+    const bump = (depth === 3) ? baseEdge * 0.35 : 0;
+    n.y = Math.min(R, depth * baseEdge + bump);
   });
 
   const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
@@ -250,15 +250,6 @@ function drawTree(rows){
       kids.forEach((c,i)=>{ const r=Math.max(c.y,1); c.x += ((i-(n-1)/2) * (spread/r)); });
     });
   }
-
-  /* ====== GUIDE RINGS ====== */
-  const rings = svg.append('g')
-    .attr('class','guide-rings')
-    .attr('opacity',0.12)
-    .attr('stroke','#334155')
-    .attr('fill','none');
-  [1,2,3].forEach(d => rings.append('circle').attr('r', Math.min(R, d * baseEdge)));
-  rings.append('circle').attr('r', 4*baseEdge);
 
   // links — color + thickness/dash for Doping
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
