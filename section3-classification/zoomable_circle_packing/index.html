@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Circle Packing — Structure top labels + small child labels</title>
+  <title>Circle Packing — Ion Type + Count</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     html, body {
@@ -18,7 +18,7 @@
       pointer-events: none;
       text-anchor: middle;
       dominant-baseline: middle;
-      font-weight: 600;
+      font-weight: 700;
     }
     text.leaf-label {
       fill: #111;
@@ -40,7 +40,6 @@
       font-size: 13px;
       z-index: 10;
       user-select: none;
-      color: #222;
     }
     .breadcrumb a { color:#3366cc; text-decoration:none; cursor:pointer; }
     .breadcrumb .sep { opacity:.6; margin:0 6px; }
@@ -59,7 +58,7 @@
                ion:   String(d["Ion Type"]).trim()
              }));
 
-    // Build hierarchy: root -> structure group -> ion counts
+    // Build hierarchy
     const grouped = d3.group(raw, d => d.group);
     const rootData = {
       name: "All",
@@ -90,53 +89,47 @@
 
     function draw(data) {
       const size = Math.min(window.innerWidth, window.innerHeight);
-      const pack = data => d3.pack().size([size, size]).padding(3)(
-        d3.hierarchy(data)
-          .sum(d => d.value || 0)
-          .sort((a, b) => (b.value || 0) - (a.value || 0))
-      );
+      const pack = d3.pack().size([size, size]).padding(3);
+      const root = pack(d3.hierarchy(data)
+        .sum(d => d.value || 0)
+        .sort((a,b) => (b.value||0) - (a.value||0)));
 
-      const root = pack(data);
       let focus = root, view;
 
       const svg = d3.select("#chart").append("svg")
         .attr("viewBox", `${-size/2} ${-size/2} ${size} ${size}`)
-        .attr("width", "100%")
-        .attr("height", "100%")
-        .style("cursor", "pointer");
+        .attr("width","100%").attr("height","100%")
+        .style("cursor","pointer");
 
       const g = svg.append("g");
       const nodes = root.descendants();
 
-      // Circles: root outline, structure by STRUCT_COLORS, leaves by ION_COLORS
+      // Circles
       const circles = g.selectAll("circle")
         .data(nodes)
         .join("circle")
-          .attr("fill", d =>
-            d.depth === 0 ? "none" :
-            (d.children ? getStructColor(d.data.name) : getIonColor(d.data.name)))
+          .attr("fill", d => d.depth === 0 ? "none"
+            : (d.children ? getStructColor(d.data.name) : getIonColor(d.data.name)))
           .attr("stroke", d => d.depth === 0 ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.2)")
           .attr("stroke-width", d => d.depth === 0 ? 1.5 : (d.children ? 1 : 0.75))
           .style("pointer-events", d => d.depth === 0 ? "none" : null)
           .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
 
-      // Structure labels at the upper interior (top rim)
-      const structNodes = nodes.filter(d => d.children && d.depth > 0);
+      // Structure labels
       const structLabels = g.selectAll("text.struct-label")
-        .data(structNodes)
+        .data(nodes.filter(d => d.children && d.depth > 0))
         .join("text")
-          .attr("class", "struct-label")
+          .attr("class","struct-label")
           .text(d => d.data.name);
 
-      // NEW: small child labels (ions) centered inside their own circles
-      const leafNodes = nodes.filter(d => !d.children && d.depth > 0);
+      // Ion (leaf) labels with type + count
       const leafLabels = g.selectAll("text.leaf-label")
-        .data(leafNodes)
+        .data(nodes.filter(d => !d.children && d.depth > 0))
         .join("text")
-          .attr("class", "leaf-label");
+          .attr("class","leaf-label");
 
       svg.on("click", e => zoom(e, root));
-      zoomTo([root.x, root.y, root.r * 2]);   // initial layout
+      zoomTo([root.x, root.y, root.r*2]);
       updateTrail(root);
 
       function zoomTo(v) {
@@ -144,114 +137,60 @@
         view = v;
 
         circles
-          .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
+          .attr("transform", d => `translate(${(d.x - v[0])*k},${(d.y - v[1])*k})`)
           .attr("r", d => d.r * k);
 
-        // Structure labels at top; avoid overlaps
-        const yTopFactor = 0.48;
-        structLabels
-          .attr("transform", d => {
-            const x = (d.x - v[0]) * k;
-            const y = (d.y - v[1]) * k - (d.r * k * yTopFactor);
-            return `translate(${x},${y})`;
-          })
-          .style("font-size", d => `${Math.max(11, (d.r * k) / 4.2)}px`)
-          .style("display", "inline");
-        avoidLabelOverlaps(structLabels);
+        // Structure labels
+        const structVisible = structLabels
+          .style("display", d => (d.parent === focus ? "inline" : "none"))
+          .attr("transform", d => `translate(${(d.x - v[0])*k},${(d.y - v[1])*k - d.r*k*0.5})`)
+          .style("font-size", d => `${Math.max(10, (d.r*k)/5)}px`)
+          .text(d => d.data.name);
 
-        // Leaf (ion) labels in the center; scale down and truncate to fit diameter
+        // Ion labels with count
         leafLabels
-          .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
-          .text(d => fitLabel(d.data.name, d.r * k))
-          .style("font-size", d => `${leafFont(d.r * k)}px`)
-          .style("display", d => (d.r * k >= 8 ? "inline" : "none"));
+          .attr("transform", d => `translate(${(d.x - v[0])*k},${(d.y - v[1])*k})`)
+          .style("display", d => (d.r*k >= 8 ? "inline" : "none"))
+          .style("font-size", d => `${Math.max(7, Math.min(12, (d.r*k)/3.8))}px`)
+          .text(d => `${d.data.name} (${d.value})`);
       }
 
-      // --- helpers for leaf labels ---
-      function leafFont(rScaled){
-        // Smaller than structure: keep subtle
-        return Math.max(7, Math.min(12, rScaled / 3.8));
-      }
-      function fitLabel(text, rScaled){
-        // Estimated max width available inside circle
-        const pad = 2;
-        const maxW = Math.max(0, (rScaled * 2) - pad * 2);
-        const fs = leafFont(rScaled);
-        const estCharW = fs * 0.55; // rough average character width
-        const maxChars = Math.max(1, Math.floor(maxW / estCharW));
-        if (text.length <= maxChars) return text;
-        return text.slice(0, Math.max(1, maxChars - 1)) + "…";
-      }
-
-      // Simple overlap avoidance among visible structure labels
-      function avoidLabelOverlaps(selection) {
-        const placed = [];
-        selection.each(function() {
-          const el = this;
-          const bbox = el.getBBox();
-          if (!isFinite(bbox.x) || !isFinite(bbox.y) || bbox.width === 0 || bbox.height === 0) {
-            el.style.display = "none";
-            return;
-          }
-          const pad = 2;
-          const rect = {
-            x: bbox.x - pad, y: bbox.y - pad,
-            w: bbox.width + 2*pad, h: bbox.height + 2*pad,
-            el
-          };
-          let overlaps = false;
-          for (const r of placed) {
-            if (!(rect.x + rect.w < r.x || r.x + r.w < rect.x ||
-                  rect.y + rect.h < r.y || r.y + r.h < rect.y)) {
-              overlaps = true; break;
-            }
-          }
-          if (overlaps) {
-            el.style.display = "none";
-          } else {
-            el.style.display = "inline";
-            placed.push(rect);
-          }
-        });
-      }
-
-      function zoom(event, d) {
+      function zoom(event, d){
         focus = d;
-        const t = svg.transition()
-          .duration(650)
+        const t = svg.transition().duration(650)
           .tween("zoom", () => {
-            const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2]);
+            const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r*2]);
             return t => zoomTo(i(t));
           });
         updateTrail(d);
       }
 
-      function updateTrail(d) {
+      function updateTrail(d){
         const trail = document.getElementById('trail');
         const ancestors = d.ancestors().reverse().slice(1);
         trail.innerHTML = ancestors.length
-          ? ancestors.map((a, i) =>
-              i === ancestors.length - 1
+          ? ancestors.map((a,i)=>
+              i===ancestors.length-1
                 ? `<strong>${a.data.name}</strong>`
                 : `<a data-depth="${i}">${a.data.name}</a>`
             ).join('<span class="sep">›</span>')
           : "";
-        [...trail.querySelectorAll('a')].forEach(a => {
-          a.addEventListener('click', () => {
+        [...trail.querySelectorAll('a')].forEach(a=>{
+          a.addEventListener('click', ()=>{
             const depth = +a.getAttribute('data-depth');
             const target = ancestors[depth];
-            if (target) zoom(null, target);
+            if(target) zoom(null, target);
           });
         });
       }
 
-      window.addEventListener('resize', () => {
+      window.addEventListener('resize', ()=>{
         const s = Math.min(window.innerWidth, window.innerHeight);
         svg.attr("viewBox", `${-s/2} ${-s/2} ${s} ${s}`);
-        zoomTo([focus.x, focus.y, focus.r * 2]);
+        zoomTo([focus.x, focus.y, focus.r*2]);
       });
     }
-  }).catch(() => {
+  }).catch(()=>{
     document.getElementById('trail').textContent =
       "⚠️ Failed to load data.csv — open via a local web server (python3 -m http.server)";
   });
