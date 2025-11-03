@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Zoomable Circle Packing — Structure Group / Ion Type</title>
+  <title>Zoomable Circle Packing — Structure Group / Ion Type (Light + Root Outline)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     html, body {
@@ -102,7 +102,7 @@
       "⚠️ Failed to load data.csv — please open this file via a local web server.";
   });
 
-  function draw(data) {
+  function draw(data, getIonColor, getStructColor) {
     const size = Math.min(window.innerWidth, window.innerHeight);
     const padding = 3;
 
