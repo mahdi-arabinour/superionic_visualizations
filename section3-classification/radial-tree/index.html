@@ -143,6 +143,10 @@
 
   <h3>Ion colors</h3>
   <div id="ionLegend" class="legend"></div>
+  <div id="ion-chip-controls" class="legend-btns" style="display:flex;gap:8px;margin:6px 0 12px 0;">
+    <button id="ion-btn-all" class="pill" style="padding:6px 10px;">Select all</button>
+    <button id="ion-btn-clear" class="pill" style="padding:6px 10px;">Clear all</button>
+  </div>
 
   <h3>Structure Colors</h3>
   <div id="structLegend" class="legend"></div>
@@ -176,7 +180,7 @@ const ionColorScale = d3.scaleOrdinal(Object.keys(ION_COLORS), Object.values(ION
 
 let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
 // Chip-legend selection state (empty = all enabled)
-const selectedIons = new Set();
+let selectedIons = null;
 let focusIon = null; // null = all ions
 function say(t){ statusEl.textContent = t; }
 
@@ -201,13 +205,13 @@ function buildLeaves(rows){
   const leaves = [];
   const defSigma = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
 
-  // Use chip-legend state: empty set means "all enabled"
-const usingFilter = selectedIons.size > 0;
-const selectedSet = focusIon ? new Set([focusIon]) : (usingFilter ? selectedIons : null);
+  // Chip legend filter:
+const selectedSet = focusIon ? new Set([focusIon]) : selectedIons;  // null=all, Set(size>0)=whitelist, Set(size==0)=none
+
 
   for (const r of rows){
     const ionV = (r[ion]||'Other').toString().trim();
-    if (selectedSet && !selectedSet.has(ionV)) continue;
+    if (selectedSet !== null && !selectedSet.has(ionV)) continue;
 
     const structCanon = (r[struct] || 'Other / Novel').toString().trim();
     const structRaw   = (r["Structure Type (raw)"] || structCanon).toString().trim();
@@ -538,14 +542,19 @@ async function initFromCSV(){
           });
         };
         ionLegEl.addEventListener('click', (ev) => {
-          const chip = ev.target.closest('.chip'); if (!chip) return;
-          const name = chip.dataset.ion;
-          if (selectedIons.size === 0) allIons.forEach(x => selectedIons.add(x));
-          if (selectedIons.has(name)) selectedIons.delete(name); else selectedIons.add(name);
-          if (selectedIons.size === allIons.length) selectedIons.clear();
-          update();
-          if (typeof DATA !== 'undefined' && DATA) drawTree(DATA);
-        });
+  const chip = ev.target.closest('.chip'); if (!chip || !ionLegEl.contains(chip)) return;
+  const name = chip.dataset.ion;
+  if (selectedIons === null) {
+    // was "all" -> start a new whitelist with this one
+    selectedIons = new Set([name]);
+  } else {
+    // whitelist (maybe empty or non-empty)
+    if (selectedIons.has(name)) selectedIons.delete(name); else selectedIons.add(name);
+    // if user turned everything off -> keep as empty Set (means 'none')
+  }
+  applyChipVisuals();
+  if (typeof DATA !== 'undefined' && DATA) drawTree(DATA);
+});
         update();
       })();
       const note = document.createElement('div');
