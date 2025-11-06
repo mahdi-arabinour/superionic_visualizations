@@ -57,19 +57,20 @@
 
     /* Legends styling */
     #legends {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
+      position: absolute;
+      bottom: 40px;     /* closer to the main circle */
+      right: 40px;
       display: flex;
       gap: 20px;
       flex-wrap: wrap;
       z-index: 20;
       font-size: 13px;
       background: rgba(255,255,255,0.95);
-      border: 1px solid rgba(0,0,0,0.1);
-      padding: 10px 14px;
+      border: 1px solid rgba(0,0,0,0.15);
+      padding: 8px 12px;
       border-radius: 10px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
     }
 
     .legend-box h4 {
