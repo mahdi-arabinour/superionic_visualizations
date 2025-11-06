@@ -128,10 +128,10 @@
       const circles = g.selectAll("circle")
         .data(nodes)
         .join("circle")
-          .attr("fill", d => d.depth === 0 ? "none"
+          .attr("fill", d => d.depth === 0 ? "#ffffff"
             : (d.children ? getStructColor(d.data.name) : getIonColor(d.data.name)))
-          .attr("stroke", d => d.depth === 0 ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.2)")
-          .attr("stroke-width", d => d.depth === 0 ? 1.5 : (d.children ? 1 : 0.75))
+          .attr("stroke", d => d.depth === 0 ? "#000000" : "rgba(0,0,0,0.2)")
+          .attr("stroke-width", d => d.depth === 0 ? 3 : (d.children ? 1 : 0.75))
           .style("pointer-events", d => d.depth === 0 ? "none" : null)
           .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
 
