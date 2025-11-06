@@ -6,13 +6,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     html, body {
-      height: 90%;
+      height: 100%;
       margin: 0;
-      background: #fafafa;
+      background: #ffffff; /* Set background to white */
+      display: flex;       /* Center chart horizontally and vertically */
+      justify-content: center;
+      align-items: center;
       color: #222;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", Arial;
     }
-    #chart { height: 90vh; width: 90vw; }
+  
+    #chart {
+      height: 90vh;
+      width: 90vw;
+    }
+  
     text.struct-label {
       fill: #111;
       pointer-events: none;
@@ -20,6 +28,7 @@
       dominant-baseline: middle;
       font-weight: 700;
     }
+  
     text.leaf-label {
       fill: #111;
       pointer-events: none;
@@ -28,6 +37,7 @@
       font-weight: 500;
       opacity: .9;
     }
+  
     .breadcrumb {
       position: fixed;
       top: 10px;
@@ -41,9 +51,19 @@
       z-index: 10;
       user-select: none;
     }
-    .breadcrumb a { color:#3366cc; text-decoration:none; cursor:pointer; }
-    .breadcrumb .sep { opacity:.6; margin:0 6px; }
+  
+    .breadcrumb a {
+      color: #3366cc;
+      text-decoration: none;
+      cursor: pointer;
+    }
+  
+    .breadcrumb .sep {
+      opacity: .6;
+      margin: 0 6px;
+    }
   </style>
+
 </head>
 <body>
   <div class="breadcrumb" id="trail"></div>
