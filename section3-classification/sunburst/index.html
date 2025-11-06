@@ -216,7 +216,7 @@
     ui.hideUnsel.onchange = ()=>{ HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
 
     // Data + draw
-    const csvRows = await d3.csv('data (4).csv', d3.autoType);
+    const csvRows = await d3.csv('data.csv', d3.autoType);
     const dataObj = rowsToNested(csvRows);
     fullHierarchy = buildHierarchy(dataObj);
     draw();
