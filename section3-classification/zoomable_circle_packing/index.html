@@ -8,19 +8,19 @@
     html, body {
       height: 100%;
       margin: 0;
-      background: #ffffff; /* Set background to white */
-      display: flex;       /* Center chart horizontally and vertically */
+      background: #ffffff; /* pure white background */
+      display: flex;       /* center the chart */
       justify-content: center;
       align-items: center;
       color: #222;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", Arial;
     }
-  
+
     #chart {
       height: 90vh;
       width: 90vw;
     }
-  
+
     text.struct-label {
       fill: #111;
       pointer-events: none;
@@ -28,7 +28,7 @@
       dominant-baseline: middle;
       font-weight: 700;
     }
-  
+
     text.leaf-label {
       fill: #111;
       pointer-events: none;
@@ -37,7 +37,7 @@
       font-weight: 500;
       opacity: .9;
     }
-  
+
     .breadcrumb {
       position: fixed;
       top: 10px;
@@ -51,23 +51,57 @@
       z-index: 10;
       user-select: none;
     }
-  
-    .breadcrumb a {
-      color: #3366cc;
-      text-decoration: none;
-      cursor: pointer;
+
+    .breadcrumb a { color:#3366cc; text-decoration:none; cursor:pointer; }
+    .breadcrumb .sep { opacity:.6; margin:0 6px; }
+
+    /* Legends styling */
+    #legends {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      z-index: 20;
+      font-size: 13px;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid rgba(0,0,0,0.1);
+      padding: 10px 14px;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
     }
-  
-    .breadcrumb .sep {
-      opacity: .6;
-      margin: 0 6px;
+
+    .legend-box h4 {
+      margin: 0 0 6px 0;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      margin-right: 6px;
+      border: 1px solid #ccc;
     }
   </style>
-
 </head>
 <body>
   <div class="breadcrumb" id="trail"></div>
   <div id="chart"></div>
+
+  <!-- Legends -->
+  <div id="legends">
+    <div id="struct-legend" class="legend-box"></div>
+    <div id="ion-legend" class="legend-box"></div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script>
@@ -128,6 +162,7 @@
       const circles = g.selectAll("circle")
         .data(nodes)
         .join("circle")
+          // Make main (outermost) circle white with dark border
           .attr("fill", d => d.depth === 0 ? "#ffffff"
             : (d.children ? getStructColor(d.data.name) : getIonColor(d.data.name)))
           .attr("stroke", d => d.depth === 0 ? "#000000" : "rgba(0,0,0,0.2)")
@@ -160,14 +195,12 @@
           .attr("transform", d => `translate(${(d.x - v[0])*k},${(d.y - v[1])*k})`)
           .attr("r", d => d.r * k);
 
-        // Structure labels
-        const structVisible = structLabels
+        structLabels
           .style("display", d => (d.parent === focus ? "inline" : "none"))
           .attr("transform", d => `translate(${(d.x - v[0])*k},${(d.y - v[1])*k - d.r*k*0.5})`)
           .style("font-size", d => `${Math.max(10, (d.r*k)/5)}px`)
           .text(d => d.data.name);
 
-        // Ion labels with count
         leafLabels
           .attr("transform", d => `translate(${(d.x - v[0])*k},${(d.y - v[1])*k})`)
           .style("display", d => (d.r*k >= 8 ? "inline" : "none"))
@@ -210,6 +243,29 @@
         zoomTo([focus.x, focus.y, focus.r*2]);
       });
     }
+
+    // === Legends ===
+    function renderLegends() {
+      // Structure Group Legend
+      const structLegend = d3.select("#struct-legend");
+      structLegend.html("<h4>Structure Group</h4>");
+      Object.entries(STRUCT_COLORS).forEach(([name, color]) => {
+        structLegend.append("div")
+          .attr("class", "legend-item")
+          .html(`<div class="legend-color" style="background:${color}"></div>${name}`);
+      });
+
+      // Ion Type Legend
+      const ionLegend = d3.select("#ion-legend");
+      ionLegend.html("<h4>Ion Type</h4>");
+      Object.entries(ION_COLORS).forEach(([name, color]) => {
+        ionLegend.append("div")
+          .attr("class", "legend-item")
+          .html(`<div class="legend-color" style="background:${color}"></div>${name}`);
+      });
+    }
+
+    renderLegends();
   }).catch(()=>{
     document.getElementById('trail').textContent =
       "⚠️ Failed to load data.csv — open via a local web server (python3 -m http.server)";
