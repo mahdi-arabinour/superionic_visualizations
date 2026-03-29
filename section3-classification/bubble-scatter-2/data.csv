@@ -1,122 +1,122 @@
 Ion Type,Structure Group,Activation Energy Ea (eV),Conductivity σ (S/cm),Superionic Conductor Formula (Chemical)
-Li+,Other,0.197,0.00302,Li₀.₃₈₈Ta₀.₂₃₈La₀.₄₇₅Cl₃
-Li+,Other,0.371,0.00214,"β-Li₃N (vacancy-rich, 400 rpm – 16 h)"
-Li+,Other,0.32,0.0003,Li₇La₃Zr₂O₁₂ (LLZO)
-Li+,Other,0.267,0.074,Li₅B₇S₁₃
-Li+,Other,0.32,0.0097,Li₂B₂S₅
-Li+,Halide,0.351,0.0003,Li₃ErCl₆
-Li+,Halide,0.29,0.001,Li₃InCl₆
-Li+,Halide,0.41,0.0003,Li₃ErCl₆ (ball-milled)
-Li+,Halide,0.48,5e-05,Li₃ErCl₆ (annealed)
-Li+,Other,0.175,0.012,Li₁₀GeP₂S₁₂ (LGPS)
-Li+,Argyrodite,0.4,2.87e-05,Li₆PS₅Cl (annealed 200 °C)
-Li+,Argyrodite,0.4,0.000296,Li₆PS₅Cl (annealed 300 °C)
-Li+,Argyrodite,0.4,0.000549,Li₆PS₅Cl (annealed 400 °C)
-Li+,Argyrodite,0.26,0.000793,"Li₆PS₅Cl (annealed 500 °C, pellet)"
-Li+,Argyrodite,0.26,0.000743,"Li₆PS₅Cl (thin film, 500 °C)"
-Li+,Other,0.175,0.012,Li₁₀GeP₂S₁₂ (LGPS)
-K+,Other,0.27,2.5e-06,β-K₃SbS₄
-K+,Other,0.27,7.7e-05,K₂.92Sb₀.92W₀.08S₄
-Li+,Other,0.43,9.9e-06,Li₇La₃Zr₂O₁₂ (LLZ)
-Li+,Other,0.42,0.00041,Li₆.₇₅La₃Zr₁.₇₅Ta₀.₂₅O₁₂
-Li+,Other,0.4,0.00061,Li₆.₅La₃Zr₁.₅Ta₀.₅O₁₂
-Li+,Other,0.42,0.00021,Li₆La₃ZrTaO₁₂
-Li+,Argyrodite,0.135,6e-06,Li₆PS₅Cl
-Na+,Other,0.24,0.00255,Na₁₁Sn₂PS₁₂
-Na+,Other,0.31,0.003,Na₁₁Sn₂PSe₁₂
-Na+,Other,0.34,0.0005499999999999,Na₁₁Sn₂SbS₁₂
-Na+,NASICON,0.28,0.165,Na₃Zr₂Si₂P₁O₁₂
-Na+,NASICON,0.32,0.165,Na₃.₄Zr₂Si₂.₄P₀.₆O₁₂
-Ag+,Other,0.12,1e-05,KAg₃Se₂ (α-phase)
-Li+,Halide,0.22,0.00014,Li₃YCl₆
-Li+,Halide,0.22,0.0061,Li₃YCl₄.₅Br₁.₅
-Li+,Halide,0.25,0.011,Li₃GdCl₃Br₃
-Li+,Other,0.175,0.012,Li₁₀GeP₂S₁₂ (LGPS)
-Li+,Other,0.2,0.023,Li₁₀SiP₂S₁₂
-Li+,Other,0.24,0.006,Li₁₀SnP₂S₁₂
-Li+,Other,0.26,0.004,Li₉P₃S₁₂
-Li+,Other,0.18,0.033,Li₁₁AlP₂S₁₂
-Li+,Other,0.36,3e-05,Li₁₀GeP₂O₁₂
-Li+,Other,0.19,0.024,Li₁₀GeP₂Se₁₂
-Rb+,Amorphous,0.97,0.0009699999999999,(Rb₂O)₃₀(B₂O₃)₇₀
-Li+,Argyrodite,0.135,6e-06,Li₆PS₅Cl
-Li+,Argyrodite,0.255,0.001,Li₆PS₅Br
-Li+,Argyrodite,0.47,1e-06,Li₆PS₅I
-Li+,Argyrodite,0.3,0.001,Li₆PS₅Cl₀.₅Br₀.₅
-Li+,Argyrodite,0.375,2.5e-05,Li₆PS₅Cl₁/₃Br₁/₃I₁/₃
-Ag+,Halide,0.06,0.015,"AgI (PVP-coated nanoparticles, 10–41 nm)"
-Li+,Other,0.134,6.24e-05,Li₂Mo₃S₄
-Li+,Other,0.341,0.00013,Li₆.₅Ta₀.₅W₀.₅N₄
-Li+,Other,0.287,0.00063,Li₆.₅Nb₀.₅W₀.₅N₄
-Li+,Other,0.309,0.00174,Li₇PSe₆
-Li+,Other,0.314,0.00127,Li₁₀Ge(PSe₆)₂
-Li+,Other,0.306,0.0014,Li₁₀Sn(PSe₆)₂
-Li+,Other,0.329,0.00086,Li₁₀Si(PSe₆)₂
-Li+,Other,0.214,0.017,Li₂Mn₀.₇₅Ta₀.₅Sn₀.₅S₄
-Li+,Other,0.363,0.00021,Li₂Zn₀.₅TaS₄
-Li+,Other,0.216,0.0218,Li₇Cu₂N₃
-Li+,Other,0.351,0.0005,Li₅SiP₃ (doped V)
-Li+,Other,0.308,0.0027,Li₁₄MgSi₄ (doped Hf)
-Li+,Other,0.351,0.0005,Li₂MgSi (doped Hf)
-Li+,Other,0.2,0.0025,Li₂₁Ge₈P₃S₃₄
-Li+,Halide,0.287,0.00205,Li₂.₁Zr₀.₉₅Cu₀.₀₅Cl₄.₄O₀.₈
-Li+,Argyrodite,0.17,0.0127,Li₇₋ₓ(GeSi)(₁₋ₓ)/₂SbₓS₅I (x≈1/3)
-Li+,Spinel,0.26,0.0011,Li₃.₆In₇S₁₁.₈Cl
-Li+,Halide,0.34,0.00087,Li₂.₃₇₅Al₀.₃₇₅Zr₀.₆₂₅Cl₆
-Li+,Halide,0.24,0.0107,LiNbOCl₄
-Li+,Halide,0.205,0.0124,LiTaOCl₄
-Li+,Halide,0.185,0.009,LiSbOCl₄
-Li+,Halide,0.185,0.01,LiTiFCl₄
-Li+,Halide,0.185,0.01,LiZrFCl₄
-Li+,Halide,0.2,0.0001375,LiHfFCl₄
-Li+,Halide,0.185,0.01,LiSnFCl₄
-Li+,Other,0.21,0.00027,EG–TiO₂ + LiTFSI (surface conductor)
-Li+,Other,0.12,0.00034,LixLa₂/₃–x/3TiO₃ (0 ≤ x ≤ 0.5)
-Li+,Spinel,0.2515,0.000409,Li₁₇In₉SnO₂₄ (o-LISO)
-Na+,NASICON,0.3382,0.00038,Na₃Zr₂Si₂PO₁₂ (NZSP)
-Na+,NASICON,0.2721,0.00158,Na₃.₂₀Zr₁.₉₀Zn₀.₁₀Si₂PO₁₂
-Na+,NASICON,0.312,0.00075,Na₃.₁₀Zr₁.₉₀Al₀.₁₀Si₂PO₁₂
-Na+,NASICON,0.285,0.0037,Na₃.₄Zr₂Si₂.₄P₀.₆O₁₂ (NaZr)
-Na+,NASICON,0.315,0.0027,Na₃.₄Sc₀.₄Zr₁.₆Si₂PO₁₂ (NaSc)
-Na+,NASICON,0.313,0.0002,Na₃.₄Al₀.₂Y₀.₂Zr₁.₆Si₂PO₁₂ (NaAlY)
+Li+,Other,0.197,0.00302,Li0.388Ta0.238La0.475Cl3
+Li+,Other,0.371,0.00214,Beta-Li3N (vacancy-rich 400 rpm - 16 h)
+Li+,Other,0.32,0.0003,Li7La3Zr2O12 (LLZO)
+Li+,Other,0.267,0.074,Li5B7S13
+Li+,Other,0.32,0.0097,Li2B2S5
+Li+,Halide,0.351,0.0003,Li3ErCl6
+Li+,Halide,0.29,0.001,Li3InCl6
+Li+,Halide,0.41,0.0003,Li3ErCl6 (ball-milled)
+Li+,Halide,0.48,5e-05,Li3ErCl6 (annealed)
+Li+,Other,0.175,0.012,Li10GeP2S12 (LGPS)
+Li+,Argyrodite,0.4,2.87e-05,Li6PS5Cl (annealed 200 C)
+Li+,Argyrodite,0.4,0.000296,Li6PS5Cl (annealed 300 C)
+Li+,Argyrodite,0.4,0.000549,Li6PS5Cl (annealed 400 C)
+Li+,Argyrodite,0.26,0.000793,Li6PS5Cl (annealed 500 C pellet)
+Li+,Argyrodite,0.26,0.000743,Li6PS5Cl (thin film 500 C)
+Li+,Other,0.175,0.012,Li10GeP2S12 (LGPS)
+K+,Other,0.27,2.5e-06,Beta-K3SbS4
+K+,Other,0.27,7.7e-05,K2.92Sb0.92W0.08S4
+Li+,Other,0.43,9.9e-06,Li7La3Zr2O12 (LLZ)
+Li+,Other,0.42,0.00041,Li6.75La3Zr1.75Ta0.25O12
+Li+,Other,0.4,0.00061,Li6.5La3Zr1.5Ta0.5O12
+Li+,Other,0.42,0.00021,Li6La3ZrTaO12
+Li+,Argyrodite,0.135,6e-06,Li6PS5Cl
+Na+,Other,0.24,0.00255,Na11Sn2PS12
+Na+,Other,0.31,0.003,Na11Sn2PSe12
+Na+,Other,0.34,0.00055,Na11Sn2SbS12
+Na+,NASICON,0.28,0.165,Na3Zr2Si2P1O12
+Na+,NASICON,0.32,0.165,Na3.4Zr2Si2.4P0.6O12
+Ag+,Other,0.12,1e-05,KAg3Se2 (Alpha-phase)
+Li+,Halide,0.22,0.00014,Li3YCl6
+Li+,Halide,0.22,0.0061,Li3YCl4.5Br1.5
+Li+,Halide,0.25,0.011,Li3GdCl3Br3
+Li+,Other,0.175,0.012,Li10GeP2S12 (LGPS)
+Li+,Other,0.2,0.023,Li10SiP2S12
+Li+,Other,0.24,0.006,Li10SnP2S12
+Li+,Other,0.26,0.004,Li9P3S12
+Li+,Other,0.18,0.033,Li11AlP2S12
+Li+,Other,0.36,3e-05,Li10GeP2O12
+Li+,Other,0.19,0.024,Li10GeP2Se12
+Rb+,Amorphous,0.97,0.00097,(Rb2O)30(B2O3)70
+Li+,Argyrodite,0.135,6e-06,Li6PS5Cl
+Li+,Argyrodite,0.255,0.001,Li6PS5Br
+Li+,Argyrodite,0.47,1e-06,Li6PS5I
+Li+,Argyrodite,0.3,0.001,Li6PS5Cl0.5Br0.5
+Li+,Argyrodite,0.375,2.5e-05,Li6PS5Cl1/3Br1/3I1/3
+Ag+,Halide,0.06,0.015,AgI (PVP-coated nanoparticles 10-41 nm)
+Li+,Other,0.134,6.24e-05,Li2Mo3S4
+Li+,Other,0.341,0.00013,Li6.5Ta0.5W0.5N4
+Li+,Other,0.287,0.00063,Li6.5Nb0.5W0.5N4
+Li+,Other,0.309,0.00174,Li7PSe6
+Li+,Other,0.314,0.00127,Li10Ge(PSe6)2
+Li+,Other,0.306,0.0014,Li10Sn(PSe6)2
+Li+,Other,0.329,0.00086,Li10Si(PSe6)2
+Li+,Other,0.214,0.017,Li2Mn0.75Ta0.5Sn0.5S4
+Li+,Other,0.363,0.00021,Li2Zn0.5TaS4
+Li+,Other,0.216,0.0218,Li7Cu2N3
+Li+,Other,0.351,0.0005,Li5SiP3 (doped V)
+Li+,Other,0.308,0.0027,Li14MgSi4 (doped Hf)
+Li+,Other,0.351,0.0005,Li2MgSi (doped Hf)
+Li+,Other,0.2,0.0025,Li21Ge8P3S34
+Li+,Halide,0.287,0.00205,Li2.1Zr0.95Cu0.05Cl4.4O0.8
+Li+,Argyrodite,0.17,0.0127,Li7-x(GeSi)(1-x)/2SbxS5I (x~1/3)
+Li+,Spinel,0.26,0.0011,Li3.6In7S11.8Cl
+Li+,Halide,0.34,0.00087,Li2.375Al0.375Zr0.625Cl6
+Li+,Halide,0.24,0.0107,LiNbOCl4
+Li+,Halide,0.205,0.0124,LiTaOCl4
+Li+,Halide,0.185,0.009,LiSbOCl4
+Li+,Halide,0.185,0.01,LiTiFCl4
+Li+,Halide,0.185,0.01,LiZrFCl4
+Li+,Halide,0.2,0.0001375,LiHfFCl4
+Li+,Halide,0.185,0.01,LiSnFCl4
+Li+,Other,0.21,0.00027,EG-TiO2 + LiTFSI (surface conductor)
+Li+,Other,0.12,0.00034,LixLa2/3-x/3TiO3 (0 <= x <= 0.5)
+Li+,Spinel,0.2515,0.000409,Li17In9SnO24 (o-LISO)
+Na+,NASICON,0.3382,0.00038,Na3Zr2Si2PO12 (NZSP)
+Na+,NASICON,0.2721,0.00158,Na3.20Zr1.90Zn0.10Si2PO12
+Na+,NASICON,0.312,0.00075,Na3.10Zr1.90Al0.10Si2PO12
+Na+,NASICON,0.285,0.0037,Na3.4Zr2Si2.4P0.6O12 (NaZr)
+Na+,NASICON,0.315,0.0027,Na3.4Sc0.4Zr1.6Si2PO12 (NaSc)
+Na+,NASICON,0.313,0.0002,Na3.4Al0.2Y0.2Zr1.6Si2PO12 (NaAlY)
 Na+,Other,0.345,0.001,Na1.24[(CB8H9)0.26(CB9H10)0.50(B12H12)0.24] (s1)
 Na+,Other,0.345,0.0055,Na[(CB8H9)0.38(CB9H10)0.62] (s5)
-Na+,Other,0.32,0.00067,"Na₆PS₅Cl (NPSC1, P2₁3)"
-Na+,Other,0.35,0.00025,"Na₅PS₄Cl₂ (NPSC2, Amm2)"
-Na+,Other,0.449,0.026,Na₄TiP₂O₉ (NTP)
-Na+,Other,0.389,1e-07,Na₄SnP₂O₉ (NSP)
-Na+,Other,0.192,1.33e-07,Na₃P (in CSA)
-Ag+,Other,0.33,0.00016,Ag₁₇(CO₃)₃I₁₁
-Ag+,Other,0.38,3e-05,Ag₇P₃O₁₁
-Ag+,Other,0.27,0.00121,Ag₇P₃S₁₁
-Ag+,Other,0.19,0.01398,Ag₇P₃Se₁₁
-Ag+,Other,0.29,0.0011,AgI–AgBr–AgCl/MPA (Br5Cl5)
-Ag+,Other,0.28,0.0009,AgI–AgBr–AgCl/MPA (Br10Cl10)
+Na+,Other,0.32,0.00067,Na6PS5Cl (NPSC1 P213)
+Na+,Other,0.35,0.00025,Na5PS4Cl2 (NPSC2 Amm2)
+Na+,Other,0.449,0.026,Na4TiP2O9 (NTP)
+Na+,Other,0.389,1e-07,Na4SnP2O9 (NSP)
+Na+,Other,0.192,1.33e-07,Na3P (in CSA)
+Ag+,Other,0.33,0.00016,Ag17(CO3)3I11
+Ag+,Other,0.38,3e-05,Ag7P3O11
+Ag+,Other,0.27,0.00121,Ag7P3S11
+Ag+,Other,0.19,0.01398,Ag7P3Se11
+Ag+,Other,0.29,0.0011,AgI-AgBr-AgCl/MPA (Br5Cl5)
+Ag+,Other,0.28,0.0009,AgI-AgBr-AgCl/MPA (Br10Cl10)
 Li+,NASICON,0.3,0.00019,Li1.3Al0.3Ti1.7(PO4)3 (LATP)
-Li+,Anti-perovskite,0.51,0.00031,"Li7O2Br3 + Li–Br Schottky defect (Type I, Br vacancy at site I)"
-Li+,Anti-perovskite,0.27,0.00076,"Li7O2Br3 + Li–Br Schottky defect (Type II, Br vacancy at site II)"
+Li+,Anti-perovskite,0.51,0.00031,Li7O2Br3 + Li-Br Schottky defect (Type I Br vacancy at site I)
+Li+,Anti-perovskite,0.27,0.00076,Li7O2Br3 + Li-Br Schottky defect (Type II Br vacancy at site II)
 Li+,Anti-perovskite,0.31,0.00085,Li3OCl
 Li+,Anti-perovskite,0.37,0.00024,Li3OBr
-Li+,Anti-perovskite,0.3645,0.002725,Li3OBr0.5Cl0.5 (s1–s6 configs)
-Li+,Anti-perovskite,0.35,0.00245,"Li3OBr0.5Cl0.5 (s6, high symmetry)"
+Li+,Anti-perovskite,0.3645,0.002725,Li3OBr0.5Cl0.5 (s1-s6 configs)
+Li+,Anti-perovskite,0.35,0.00245,Li3OBr0.5Cl0.5 (s6 high symmetry)
 Li+,Anti-perovskite,0.375,0.00194,Li3OCl0.5Br0.5
 Na+,Anti-perovskite,0.17,0.014,Na4OI2
 Na+,Anti-perovskite,0.298,1e-05,c-Na3HS (pristine)
 Na+,Anti-perovskite,0.12,0.033,Na2.96HS (Na-vacancy)
-Na+,Anti-perovskite,0.29,0.0085,"Na3OCl (bulk, pristine, cubic)"
-Na+,Anti-perovskite,0.29,0.0066,Na3OCl with Σ3(111) GB
-Na+,Anti-perovskite,0.29,0.0056,Na3OCl with Σ5(021) GB
+Na+,Anti-perovskite,0.29,0.0085,Na3OCl (bulk pristine cubic)
+Na+,Anti-perovskite,0.29,0.0066,Na3OCl with Sigma3(111) GB
+Na+,Anti-perovskite,0.29,0.0056,Na3OCl with Sigma5(021) GB
 Li+,Anti-perovskite,0.098,0.0054,Li2OHCl (pellet)
 Li+,Anti-perovskite,0.31,0.00085,Li3OCl
 Li+,Anti-perovskite,0.37,0.00024,Li3OBr
 Li+,Anti-perovskite,0.375,0.00194,Li3OCl0.5Br0.5
 Li+,Argyrodite,0.23,0.0078,Li5.5PS4.5Cl1.5 (LPSCl1.5)
-Li+,Argyrodite,0.29,0.0078,Li6-aPS5-aCl1+a (0 ≤ a ≤ 0.7) series
-Li+,Argyrodite,0.297456,0.0148,Li3PS4·2LiBH4·0.5LiCl (x=0.5)
-Li+,Argyrodite,0.31,0.0092,Li3PS4·1.5LiBH4·1LiCl (x=1)
-Li+,Argyrodite,0.3,0.0052,Li3PS4·1LiBH4·1.5LiCl (x=1.5)
-Li+,Argyrodite,0.33,0.0024,Li3PS4·0.5LiBH4·2LiCl (x=2)
-Li+,Argyrodite,0.29,0.0004,Li3PS4·2.5LiCl (x=2.5)
+Li+,Argyrodite,0.29,0.0078,Li6-aPS5-aCl1+a (0 <= a <= 0.7) series
+Li+,Argyrodite,0.297456,0.0148,Li3PS4.2LiBH4.0.5LiCl (x=0.5)
+Li+,Argyrodite,0.31,0.0092,Li3PS4.1.5LiBH4.1LiCl (x=1)
+Li+,Argyrodite,0.3,0.0052,Li3PS4.1LiBH4.1.5LiCl (x=1.5)
+Li+,Argyrodite,0.33,0.0024,Li3PS4.0.5LiBH4.2LiCl (x=2)
+Li+,Argyrodite,0.29,0.0004,Li3PS4.2.5LiCl (x=2.5)
 Li+,Other,0.26,0.00588,Li9.9SnP2S11.9Br0.1 (pristine)
 Li+,Other,0.29,0.00408,Li9.9SnP2S10.9Br0.1O1.0
 Li+,Argyrodite,0.18,0.0012,Li6.25Ge0.25As0.75S5I
@@ -129,10 +129,10 @@ Li+,Argyrodite,0.38,0.0013,Li5.375Mg0.125PS4.625Cl1.375
 Li+,Argyrodite,0.36,0.0015,Li5.375Mg0.0625PS4.5Cl1.5
 Li+,Argyrodite,0.38,0.0012,Li5.8Mg0.1PS5Cl
 Li+,Argyrodite,0.22,0.00311,Li6PS5Cl (This work-1)
-Li+,Argyrodite,0.22,0.00571,"Li6PS5Cl (This work-2, scale-up)"
+Li+,Argyrodite,0.22,0.00571,Li6PS5Cl (This work-2 scale-up)
 Li+,Argyrodite,0.417,0.0014,Li6PS5Br
 Li+,Argyrodite,0.419,0.00096,Li6PS5I
-Li+,Halide,0.539,9.6e-08,"Li2MgCl4 (LMC2, pristine)"
+Li+,Halide,0.539,9.6e-08,Li2MgCl4 (LMC2 pristine)
 Li+,Halide,0.476,1.4e-05,Li1.25Zr0.375Mg0.625Cl4 (LZMC1.25)
 Na+,Halide,0.26,0.00286,Na3InCl6
 Na+,Halide,0.2,0.0085,Na3In0.667Sc0.333Cl6
@@ -141,7 +141,7 @@ Na+,Halide,0.24,0.0035,Na3In0.333Sc0.667Cl6
 Na+,Halide,0.43,0.0236,Na3ScCl6
 Na+,Halide,0.3,0.00022,Na2In0.666Cl4
 Na+,Halide,0.52,0.00225,Na2In0.4Sc0.2Cl4
-Na+,Halide,0.38,7.099999999999999e-05,Na2In0.2Sc0.4Cl4
+Na+,Halide,0.38,7.1e-05,Na2In0.2Sc0.4Cl4
 Li+,Halide,0.124,0.000158,Li3AlCl6
 Li+,Halide,0.29,0.00106,Li3ScCl6
 Li+,Halide,0.33,0.001,Li3YCl6
@@ -162,56 +162,56 @@ Li+,Spinel,0.154,0.0121,LiMn1.5Ta0.5O4
 Mg2+,Spinel,0.364,0.00014,MgYb2Se4
 Mg2+,Spinel,0.39,3.95e-05,MgSc0.4Y0.4Er0.4Tm0.4Yb0.4Se4
 Mg2+,Spinel,0.39,3.95e-05,Mg0.75Sc2Se3.5Br0.5
-Na+,Amorphous,0.41,0.0002,"Na3PS4 (x=0, glass–ceramic)"
-Na+,Amorphous,0.43,0.0005,"95Na3PS4–5Ca3N2 (x=5, glass–ceramic)"
-Na+,Amorphous,0.33,0.000814,"92Na3PS4–8Ca3N2 (x=8, glass–ceramic)"
-Na+,Amorphous,0.35,0.0006,"90Na3PS4–10Ca3N2 (x=10, glass–ceramic)"
+Na+,Amorphous,0.41,0.0002,Na3PS4 (x=0 glass-ceramic)
+Na+,Amorphous,0.43,0.0005,95Na3PS4-5Ca3N2 (x=5 glass-ceramic)
+Na+,Amorphous,0.33,0.000814,92Na3PS4-8Ca3N2 (x=8 glass-ceramic)
+Na+,Amorphous,0.35,0.0006,90Na3PS4-10Ca3N2 (x=10 glass-ceramic)
 Li+,Amorphous,0.118,0.0001,Li2ZrCl6
 Li+,Halide,0.294,0.00135,Li3ZrCl4O1.5
 Li+,Amorphous,0.2505,0.0129,r-PS4 (amorphous)
 Li+,Amorphous,0.3065,0.00695,1P2S7 (amorphous)
 Li+,Amorphous,0.237,0.0404,1P2S6 (amorphous)
 Li+,Amorphous,0.295,0.00268,2P2S7 (amorphous)
-Li+,Amorphous,0.349,0.00424,1P2S7–1S
-Li+,Amorphous,0.275,0.0177,1P2S6–2S
-Li+,Amorphous,0.2515,0.00991,2P2S7–2S
-Li+,Amorphous,0.332,0.00114,2P2S6–4S
-Li+,Other,0.301,0.00231,β-Li3PS4 (crystalline)
-Li+,Other,0.235,0.0149,α-Li3PS4 (crystalline)
+Li+,Amorphous,0.349,0.00424,1P2S7-1S
+Li+,Amorphous,0.275,0.0177,1P2S6-2S
+Li+,Amorphous,0.2515,0.00991,2P2S7-2S
+Li+,Amorphous,0.332,0.00114,2P2S6-4S
+Li+,Other,0.301,0.00231,Beta-Li3PS4 (crystalline)
+Li+,Other,0.235,0.0149,Alpha-Li3PS4 (crystalline)
 Li+,Amorphous,0.174,6.35e-05,Li7P3S11 (crystalline)
-Na+,Other,0.18,0.0254,γ–Na3PS4
-Ag+,Amorphous,0.24,0.007,50AgI–25Ag2O–25CrO3 (50SISOCO)
-Ag+,Amorphous,0.27,0.01,60AgI–20Ag2O–20CrO3 (60SISOCO)
-Ag+,Amorphous,0.27,0.011,70AgI–15Ag2O–15CrO3 (70SISOCO)
+Na+,Other,0.18,0.0254,Gamma-Na3PS4
+Ag+,Amorphous,0.24,0.007,50AgI-25Ag2O-25CrO3 (50SISOCO)
+Ag+,Amorphous,0.27,0.01,60AgI-20Ag2O-20CrO3 (60SISOCO)
+Ag+,Amorphous,0.27,0.011,70AgI-15Ag2O-15CrO3 (70SISOCO)
 Li+,Amorphous,0.307,0.00034,Li3PS4 (x=0)
 Li+,Amorphous,0.291,0.001,Li3PS3.5Br0.5 (x=0.5)
 Li+,Amorphous,0.277,0.00186,Li3PS3Br (x=1.0)
 Li+,Other,0.288,0.0007,Li3PS2.5Br1.5 (x=1.5)
 Na+,Other,0.39,7.5e-05,Na3PS4
-Na+,Amorphous,0.51,1.2e-05,95(0.75Na2S·0.25P2S5)·5Na2SO3
-Na+,Amorphous,0.5,1.6e-05,95(0.75Na2S·0.25P2S5)·5Na2SO4
-Na+,Amorphous,0.5,1.1e-05,95(0.75Na2S·0.25P2S5)·5Na3PO4
+Na+,Amorphous,0.51,1.2e-05,95(0.75Na2S.0.25P2S5).5Na2SO3
+Na+,Amorphous,0.5,1.6e-05,95(0.75Na2S.0.25P2S5).5Na2SO4
+Na+,Amorphous,0.5,1.1e-05,95(0.75Na2S.0.25P2S5).5Na3PO4
 Na+,Halide,0.355,0.004,NaTaCl6 (amorphous)
 Na+,Other,0.5,1.3e-05,Na2ZrCl6
 Na+,Other,0.35,8.1e-05,Na0.5ZrCl4.5
 Na+,Halide,0.5,1.3e-05,Na2ZrCl6 (NZC)
 Na+,Halide,0.28,0.000235,2.0-NFZC (x=2.0)
-Na+,Halide,0.359,0.0004015,Na2.25-xY0.25Zr0.75Cl6-x (x=1.375–2.000)
+Na+,Halide,0.359,0.0004015,Na2.25-xY0.25Zr0.75Cl6-x (x=1.375-2.000)
 Rb+,Amorphous,0.95,0.002,(Rb2O)30(B2O3)70
-O2-,Amorphous,0.3,0.0001,"Ce0.8Sm0.2O1.9/Na2CO3 (20 wt% Na2CO3, core–shell)"
+O2-,Amorphous,0.3,0.0001,Ce0.8Sm0.2O1.9/Na2CO3 (20 wt% Na2CO3 core-shell)
 Li+,Polymeric,0.21,0.00058,PVDF-g-PAN + 34 wt% LiTFSI
 Li+,Polymeric,0.25,0.0014,md-PVDF (2:8 PVDC:PVDF)
-H+,Polymeric,0.12,0.00107,"SPPC (Supramolecular Polymer Proton Conductor, DES-GZ/POM)"
+H+,Polymeric,0.12,0.00107,SPPC (Supramolecular Polymer Proton Conductor DES-GZ/POM)
 Li+,Halide,0.35,0.00204,Li3InCl6 (water-mediated synthesis)
 Li+,Halide,0.39,0.00042,Li3HoCl6
 Li+,Halide,0.28,0.0013,Li3Ho0.6In0.4Cl6
 Li+,Halide,0.33,0.001,Li3YCl6
 Li+,Halide,0.31,0.0024,Li3YBr6
 Li+,Halide,0.29,0.0031,Li3YCl6-xBrx (x=1.5)
-Li+,Halide,0.15,0.00239,Li-UCl3 (LiCl–LaCl3–0.5TaCl5)
-Na+,Halide,0.17,0.00363,Na-UCl3 (NaCl–LaCl3–0.5TaCl5)
-K+,Halide,0.41,0.00012,K-UCl3 (KCl–LaCl3–0.5TaCl5)
-Ag+,Halide,0.11,0.0042,Ag-UCl3 (AgCl–LaCl3–0.5TaCl5)
+Li+,Halide,0.15,0.00239,Li-UCl3 (LiCl-LaCl3-0.5TaCl5)
+Na+,Halide,0.17,0.00363,Na-UCl3 (NaCl-LaCl3-0.5TaCl5)
+K+,Halide,0.41,0.00012,K-UCl3 (KCl-LaCl3-0.5TaCl5)
+Ag+,Halide,0.11,0.0042,Ag-UCl3 (AgCl-LaCl3-0.5TaCl5)
 Li+,Halide,0.25,0.00339,LiGaCl3 (predicted)
 Li+,Halide,0.33,0.001,Li3YCl6
 Li+,Halide,0.29,0.00119,Li3Y0.2Zr0.6Cl6
@@ -221,7 +221,7 @@ Li+,Halide,0.4,0.00065,Li3YCl6 (solid-state synthesis)
 Li+,Halide,0.29,0.00119,Li3Y0.2Zr0.6Cl6
 Li+,Halide,0.35,0.002,Li3InCl6
 Li+,Halide,0.29,0.00106,Li3ScCl6
-Na+,Halide,0.23,0.0027,HSE-Na (Halide Heterogeneous Structure Electrolyte – Na+)
+Na+,Halide,0.23,0.0027,HSE-Na (Halide Heterogeneous Structure Electrolyte - Na+)
 Li+,Halide,0.36,0.00038,Li3YbCl6
 Li+,Halide,0.29,0.00095,Li2.8Yb0.8Zr0.2Cl6
 Li+,Halide,0.24,0.0015,Li2.5Yb0.5Zr0.5Cl6
@@ -230,144 +230,3 @@ Li+,Halide,0.25,0.0014,Li2.5Yb0.5Hf0.5Cl6
 Li+,Halide,0.28,0.00117,Li2.5ZrCl5F0.5O0.5 (LZCFO)
 Li+,Halide,0.34,0.00062,Li3ZrCl6 (reference)
 Li+,Halide,0.37,0.0002,Li2ZrCl6 (ordered)
-Li+,Halide,0.23,0.0011,Li2ZrCl6 (disordered Zr)
-Li+,Halide,0.34,0.00032,Li3HoBr6 (x=0)
-Li+,Halide,0.28,0.00068,Li3HoBr5I (x=1)
-Li+,Halide,0.23,0.0012,Li3HoBr4I2 (x=2)
-Li+,Halide,0.2,0.0017,Li3HoBr3I3 (x=3)
-Li+,Argyrodite,0.38,0.001,Li6PS5Cl
-Li+,Argyrodite,0.417,0.0014,Li6PS5Br
-Li+,Argyrodite,0.419,0.00096,Li6PS5I
-Li+,Argyrodite,0.29,0.00053,Li6PS5Cl·LiCl
-Li+,Halide,0.41,0.00049,Li₃YCl₆ (BM-LYC)
-Li+,Halide,0.47,6.7e-05,Li₃YCl₆ (SS-LYC)
-Li+,Halide,0.424,0.00413,Li₂ZrCl₆ (LZC)
-Li+,Halide,0.32,0.0136,"Li₂ZrCl₅I (LZCI, x=1)"
-Li+,Halide,0.3,0.0011,Li₃InCl₆ (anhydrous)
-Li+,Halide,0.424,0.00413,Li₂ZrCl₆ (LZC)
-Li+,Halide,0.31,0.0011,ZrO₂–2Li₂ZrCl₆ (HNSE)
-Li+,Halide,0.33,0.0014,Li₂.5Y₀.5Zr₀.5Cl₆ (x=0.5)
-Li+,Argyrodite,0.34,0.0025,Li₆PS₅Cl (x=0)
-Li+,Argyrodite,0.33,0.0042,Li₅.₇₅PS₄.₇₅Cl₁.₂₅ (x=0.25)
-Li+,Argyrodite,0.31,0.0056,Li₅.₆₂₅PS₄.₆₂₅Cl₁.₃₇₅ (x=0.375)
-Li+,Argyrodite,0.29,0.0094,Li₅.₅PS₄.₅Cl₁.₅ (x=0.5)
-Li+,Amorphous,0.23,0.00135,Li₇Ag₀.₁P₃S₁₁I₀.₁ (270 °C)
-Li+,Halide,0.3,0.0005,Li₂ZrCl₆
-Na+,Halide,0.4,9e-06,Na₂ZrCl₆
-Cu+,Halide,0.19,0.01,Cu₂ZrCl₆
-Ag+,Halide,0.24,0.004,Ag₂ZrCl₆
-Li+,Halide,0.3,0.0005,Li₂ZrCl₆
-Li+,Halide,0.36,0.000735,Li₂.₁ZrCl₅.₉S₀.₁
-Li+,Halide,0.34,0.000855,Li₂.₂ZrCl₅.₈S₀.₂
-Li+,Halide,0.35,0.00079,Li₂.₃ZrCl₅.₇S₀.₃
-Li+,Other,0.268,0.0006,Li₁₀P₃S₁₂Cl (LPSCl)
-Li+,Other,0.288,0.0017,Li₁₀P₃S₁₂Br (LPSBr)
-Li+,Other,0.209,0.0029,Li₁₀P₃S₁₂I (LPSI)
-Li+,Other,0.204,0.0039,Li₁₀P₃S₁₂Br₀.₆I₀.₄
-Li+,Halide,0.36,0.0005,Li₃YCl₆ (x=0)
-Li+,Halide,0.345,0.00087,Li₂.₉Y₀.₉₅Hf₀.₀₅Cl₆ (x=0.05)
-Li+,Halide,0.331,0.00149,Li₂.₇Y₀.₉Hf₀.₁Cl₆ (x=0.1)
-Li+,Halide,0.338,0.0011,Li₂.₅Y₀.₈Hf₀.₂Cl₆ (x=0.2)
-Li+,Argyrodite,0.29,0.0025,Li₆PS₅Cl (x=1)
-Li+,Argyrodite,0.27,0.0031,Li₆.₂₅PS₅.₂₅Cl₀.₇₅ (x=0.75)
-Li+,Argyrodite,0.26,0.0035,Li₆.₅PS₅.₅Cl₀.₅ (x=0.5)
-Li+,Argyrodite,0.28,0.0028,Li₆.₈PS₅.₈Cl₀.₂ (x=0.2)
-Li+,Halide,0.33,0.0023,Li₃InBr₆
-Li+,Halide,0.3,0.0036,Li₃In₀.₉Y₀.₁Br₆
-Li+,Halide,0.31,0.0033,Li₃In₀.₉Ga₀.₁Br₆
-Li+,Halide,0.28,0.0052,Li₃GdBr₆
-Li+,Halide,0.29,0.0048,Li₃TbBr₆
-Li+,Halide,0.3,0.0045,Li₃HoBr₆
-Li+,Halide,0.31,0.0041,Li₃TmBr₆
-Li+,Halide,0.32,0.0039,Li₃LuBr₆
-Li+,Halide,0.35,0.00072,Li₂ZrCl₆ (x=0)
-Li+,Halide,0.29,0.00142,Li1.7Zr0.7Ta0.3Cl6 (x=0.3)
-Li+,Halide,0.28,0.00168,Li₂.₁Zr₀.₈₃Ta₀.₂₇Cl₆
-Li+,Halide,0.37,0.00091,Li₃ScCl₆ (x=0)
-Li+,Halide,0.33,0.00164,Li₃.₂ScCl₆.₂ (x=0.2)
-Li+,Halide,0.3,0.0021,Li₃.₄ScCl₆.₄ (x=0.4)
-Li+,Halide,0.35,0.00072,Li₃YCl₆ (ampule)
-Li+,Halide,0.33,0.00095,Li₃YCl₆ (mechanochemical)
-Li+,Halide,0.34,0.00084,Li₃YBr₆ (ampule)
-Li+,Halide,0.31,0.00105,Li₃YBr₆ (mechanochemical)
-Li+,NASICON,0.34,0.00035,Li1.5Al0.5Ge1.5(PO4)3 (LAGP)
-Li+,NASICON,0.34,0.00054,Li1.5+0.01Al0.5Sb0.01Ge1.49(PO4)3 (Sb1)
-Li+,NASICON,0.34,0.00056,Li1.5+0.03Al0.5Sb0.03Ge1.47(PO4)3 (Sb3)
-Li+,NASICON,0.35,0.0006,Li1.5+0.05Al0.5Sb0.05Ge1.45(PO4)3 (Sb5)
-Li+,NASICON,0.34,0.00077,Li1.5+0.07Al0.5Sb0.07Ge1.43(PO4)3 (Sb7)
-Li+,NASICON,0.36,0.00021,Li1.3Al0.3Ti1.7(PO4)3 (baseline)
-Li+,NASICON,0.34,0.00034,Li1.3Al0.3Ti1.65Zr0.05(PO4)3
-Li+,NASICON,0.35,0.00031,Li1.3Al0.3Ti1.65V0.05(PO4)3
-Li+,NASICON,0.35,0.00029,Li1.3Al0.3Ti1.65Co0.05(PO4)3
-Li+,NASICON,0.36,0.00027,Li1.3Al0.3Ti1.65Cu0.05(PO4)3
-Li+,NASICON,0.35,0.00028,Li1.3Al0.3Ti1.65Sn0.05(PO4)3
-Li+,NASICON,0.36,0.00021,Li₁.₃Al₀.₃Ti₁.₇(PO₄)₃ (NASICON baseline)
-Li+,NASICON,0.32,0.00038,Li₁.₃Al₀.₃As₀.₂Ti₁.₅(PO₄)₃ (As-doped NASICON)
-Li+,NASICON,0.29,0.00052,"LAAs₀.₂TP-G (NASICON–glass composite, 3 wt% glass)"
-Li+,Halide,0.356,0.00048,Li₂ZrCl₆ (baseline)
-Li+,Halide,0.272,0.00167,Li₂.₁Zr₀.₈Dy₀.₁₅Ta₀.₀₅Cl₆ (LZDTC)
-Li+,Halide,0.279,0.00154,Li₂.₁Zr₀.₈Ce₀.₁₅Ta₀.₀₅Cl₆
-Li+,Halide,0.34,0.00082,HELa0.5: 0.5LiCl–xLaCl₃(TaCl₅·ZrCl₄·AlCl₃·CaCl₂)₁/₄(1–x)
-Na+,Other,0.31,0.0004,Na₃SbS₄ (baseline)
-Na+,Other,0.3,0.0006,Na₃Sb₁₋ₓVₓS₄ (x≤0.2)
-Na+,Other,0.3,0.0005,Na₃Sb₁₋ₓNbₓS₄ (x≤0.2)
-Na+,Other,0.31,0.00048,Na₃Sb₁₋ₓTaₓS₄ (x≤0.2)
-Na+,Other,0.17,0.096,Na₂.₉Sb₀.₉W₀.₁S₄
-Li+,Argyrodite,0.28,0.00537,Li₅.₅₄P₀.₉₈Bi₀.₀₂S₄.₅Cl₁.₄₄F₀.₀₆ (LPBiSClF₀.₀₆)
-K+,Other,0.12,0.0148,K₂.875SbS₃.875Cl₀.125 (2v-2Cl)
-Li+,Amorphous,0.253,0.00221,"75Li₂S–25P₂S₅ + 40 mol% LiI (Si-doped, P:Si=6)"
-Li+,Amorphous,0.3,0.001,"75Li₂S–25P₂S₅ + 40 mol% LiI (without Si, “blank”)"
-Li+,Amorphous,0.253,0.00221,0.6((75+0.5x)Li₂S-(25-0.5x)P₂S₅-xSiS₂)-40LiI (optimal P:Si=6 composition)
-Li+,Other,0.44,0.00199,LiTa₂PO₈ (LTPO)
-Li+,Other,0.35,0.00172,Li₁.₀₅Hf₀.₀₅Ta₁.₉₅PO₈ (LHTPO)
-Li+,Other,0.35,0.00079,Li₁.₀₅Hf₀.₀₅Ta₁.₉₅PO₈–0.15LiF (LHTPO–LiF)
-Na+,Halide,0.27,0.0028,Na₀.₈₆SmTa₀.₄₃Cl₆
-Na+,Halide,0.3,0.0025,NaLa₀.₉₅Ta₀.₄₃Cl₆
-Na+,Halide,0.29,0.0023,NaCe₀.₈₃Ta₀.₅Cl₆
-Na+,Halide,0.28,0.0021,NaNd₀.₈₃Ta₀.₅Cl₆
-Li+,Other,0.267,0.074,Li₅B₇S₁₃
-Li+,Halide,0.351,0.0003,Li₃ErCl₆
-Li+,Other,0.32,0.0097,Li₂B₂S₅
-Li+,Other,0.333,0.000584,LiAlS₂
-Li+,Other,0.373,0.000481,Li₂GePbS₄
-Li+,Other,0.194,0.000173,LiBiS₂
-Li+,Other,0.367,0.000129,RbLi₆B₂O₆F
-Li+,Other,0.348,0.00012,BaLi(BS₂)₃
-Li+,Halide,0.39,9.79e-05,Li₂VCl₅
-Li+,Halide,0.48,1.67e-05,LiGaI₄
-Li+,Halide,0.16,6.97e-05,LiSbCl₆ (LSC)
-Li+,Other,0.21,0.012,Li₁₀GeP₂S₁₂ (x=0)
-Li+,Other,0.24,0.006,Li₁₀Ge₀.₆₇Sn₀.₃₃P₂S₁₂
-Li+,Other,0.27,0.0025,Li₁₀Ge₀.₃₃Sn₀.₆₇P₂S₁₂
-Li+,Other,0.3,0.001,Li₁₀SnP₂S₁₂ (x=1)
-Li+,Argyrodite,0.135,6e-06,Li₆PS₅Cl
-Li+,Argyrodite,0.255,0.001,Li₆PS₅Br
-Li+,Argyrodite,0.47,1e-06,Li₆PS₅I
-Li+,Argyrodite,0.3,0.001,Li₆PS₅Cl₀.₅Br₀.₅
-Li+,Argyrodite,0.34,0.000577,Li₆PS₅Br₀.₅I₀.₅
-Li+,Argyrodite,0.135,6e-06,Li₆PS₅Cl
-Li+,Argyrodite,0.255,0.001,Li₆PS₅Br
-Li+,Argyrodite,0.47,1e-06,Li₆PS₅I
-Li+,Polymeric,0.28,0.000123,PTU1 + LiClO₄ (PSE1)
-Li+,Polymeric,0.27,0.000145,PTU2 + LiClO₄ (PSE2)
-Li+,Polymeric,0.25,0.000162,PTU3 + LiClO₄ (PSE3)
-Li+,Polymeric,0.23,0.0004,Composite solid electrolyte (CSE: PEO-LiTFSI + Li-HA-F nanofiber)
-Li+,Polymeric,0.146,0.00025,Li-NC soft filler in PVDF + LiTFSI (TDCT)
-Na+,Other,0.49,2.6e-05,Na₃PS₄ (tetragonal)
-Na+,Other,0.39,0.00022,"Na₃PS₄ (cubic, undoped)"
-Na+,Other,0.36,0.00094,Na₂.₇₃₀Ca₀.₁₃₅PS₄ (Ca-doped)
-Na+,Other,0.28,8.9e-05,Na₃SbS₄ (tetragonal)
-Na+,Other,0.21,0.000375,Na₃SbS₃Se (cubic)
-Na+,Other,0.19,0.00028,Na₃SbS₂Se₂ (cubic)
-Li+,Halide,0.29,0.001,Li₃InCl₆
-Na+,Amorphous,0.25,0.00074,0.1NaI·0.9Na₃SbS₄
-Na+,Amorphous,0.33,0.0003,0.1NaBr·0.9Na₃SbS₄
-Li+,Halide,0.22,0.00014,Li₃YCl₆
-Li+,Halide,0.3,0.00142,Li₃Y₀.₅In₀.₅Cl₆
-Li+,Halide,0.29,0.001,Li₃InCl₆
-Li+,Other,0.29,0.0067,0.7Li(CB₉H₁₀)–0.3Li(CB₁₁H₁₂)
-Na+,Amorphous,0.47,6e-06,Na₃PS₄ glass
-Na+,Amorphous,0.27,0.0002,Na₃PS₄ glass-ceramic (cubic)
-Li+,Halide,0.25,0.0036,3LiCl–GaF₃ (glass)
-Li+,Halide,0.28,0.0018,3LiBr–GaF₃ (glass)
-Li+,Halide,0.25,0.0036,3LiCl–GaF₃ + Li₂CO₃-B coating (as catholyte)
