@@ -9,7 +9,6 @@
 <style>
   :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#e3e3e3; --text:#111; --panel-border:#d0d0d0; --note:#555; --accent:#007aff; }
   * { box-sizing:border-box; }
-  /* Enforcing Master Typography Index on the UI */
   body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); }
 
   header {
@@ -42,7 +41,6 @@
   .panel button { border:1px solid #ddd; background:#f7f7f7; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family: Arial, sans-serif; }
   .panel button:hover { background:#efefef; }
 
-  /* Interactive Legend Rows */
   #ionLegend .row, #structureLegend .row {
     display:flex; align-items:center; gap:8px; padding:6px 8px; margin:5px 0;
     border:1px solid #e3e3e3; border-radius:6px; cursor:pointer; user-select:none; background:#fff; transition: 0.1s;
@@ -121,7 +119,6 @@ const ION_SHAPES = {
   "Cu+": "triangle-down", "H+": "cross", "Mg2+": "hexagon", "O2-": "star", "Rb+": "x"
 };
 
-/* Unicode map for the static export legend */
 const UNICODE_SHAPES = {
   "circle": "●", "diamond": "◆", "square": "■", "triangle-up": "▲",
   "triangle-down": "▼", "cross": "✚", "hexagon": "⬢", "star": "★", "x": "✖"
@@ -152,8 +149,8 @@ function toNum(v){
   const n = Number(s.replace(/,/g,""));
   return Number.isFinite(n) ? n : NaN;
 }
-function getShape(ion){ return ION_SHAPES[norm(ion)] || "hexagon"; } // Defaults to hexagon if unknown
-function getStructColor(fam){ return STRUCT_COLORS[norm(fam)] || "#64748b"; } // Defaults to Other/Slate
+function getShape(ion){ return ION_SHAPES[norm(ion)] || "hexagon"; } 
+function getStructColor(fam){ return STRUCT_COLORS[norm(fam)] || "#64748b"; } 
 
 /* ---------- Data Trace Builder ---------- */
 function buildDataTraces(filteredRows){
@@ -167,11 +164,8 @@ function buildDataTraces(filteredRows){
     traces.push({
       x:[ea], y:[sig], mode:"markers", showlegend:false, name: fam,
       marker:{
-        size:[markerSizePx],
-        color: getStructColor(fam),   
-        symbol: getShape(ion),        
-        line:{ width: 0.6, color: "#222" }, // THINNER, SOFTER border for publication
-        opacity: 0.85 // Density-aware transparency
+        size:[markerSizePx], color: getStructColor(fam), symbol: getShape(ion),        
+        line:{ width: 0.6, color: "#222" }, opacity: 0.85
       },
       text:[`${r[COLS.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}`],
       hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV<br> σ: %{y:.3e} S/cm<extra></extra>",
@@ -182,7 +176,7 @@ function buildDataTraces(filteredRows){
   return traces;
 }
 
-/* ---------- PLOTLY DRAW ROUTINE (PUBLICATION STYLED) ---------- */
+/* ---------- PLOTLY DRAW ROUTINE ---------- */
 function draw(){
   const filtered = rowsGlobal.filter(r=>{
     const ea = toNum(r[COLS.ea]); const s = toNum(r[COLS.sigma]);
@@ -192,49 +186,23 @@ function draw(){
   const dataTraces = buildDataTraces(filtered);
 
   const layout = {
-    // 1. MASTER TYPOGRAPHY INDEX: Global Font Setting
     font: { family: "Arial, Helvetica, sans-serif", size: 12, color: "#111" },
-    paper_bgcolor: "#fff", 
-    plot_bgcolor: "#fff",
-    
-    // 2. MAIN TITLE (Arial 22px)
-    title: {
-      text: "<b>Ionic Conductivity (σ) vs. Activation Energy (Eₐ)</b>",
-      font: { size: 22, color: '#0f172a' },
-      x: 0.05, y: 0.98
-    },
-    
+    paper_bgcolor: "#fff", plot_bgcolor: "#fff",
+    title: { text: "<b>Ionic Conductivity (σ) vs. Activation Energy (Eₐ)</b>", font: { size: 22, color: '#0f172a' }, x: 0.05, y: 0.98 },
     xaxis: { 
-      // 3. AXIS TITLES (Arial 14px Bold)
       title: { text: "<b>Activation Energy E<sub>a</sub> (eV)</b>", font: { size: 14 } },
-      range: [0.05, 0.65], 
-      tickformat: ".1f",   
-      tickmode: "linear",
-      tick0: 0.1,
-      dtick: 0.1, // CLEANER: Ticks every 0.1 instead of 0.05
-      gridcolor: "#e2e8f0",
-      griddash: "dot", // Dotted gridlines for publication
-      zeroline: false
+      range: [0.05, 0.65], tickformat: ".1f", tickmode: "linear", tick0: 0.1, dtick: 0.1, 
+      gridcolor: "#e2e8f0", griddash: "dot", zeroline: false
     },
-    
     yaxis: { 
       title: { text: "<b>Ionic Conductivity σ (S·cm⁻¹)</b>", font: { size: 14 } },
-      type: "log", 
-      gridcolor: "#e2e8f0",
-      griddash: "dot", 
-      zeroline: false,
+      type: "log", gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
       tickvals: [1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8],
       ticktext: ["10⁰", "10⁻¹", "10⁻²", "10⁻³", "10⁻⁴", "10⁻⁵", "10⁻⁶", "10⁻⁷", "10⁻⁸"]
     },
-    
     margin: {t: 50, r: 30, b: 60, l: 70},
     showlegend: false,
-    
-    // 4. THEORETICAL BASELINE: Meyer-Neldel Limit
-    shapes: [{ 
-      type: 'line', x0: 0.05, y0: 5, x1: 0.65, y1: 1e-8, 
-      line: { color: '#94a3b8', width: 1.5, dash: 'dash' } 
-    }]
+    shapes: [{ type: 'line', x0: 0.05, y0: 5, x1: 0.65, y1: 1e-8, line: { color: '#94a3b8', width: 1.5, dash: 'dash' } }]
   };
 
   Plotly.newPlot("chart", dataTraces, layout, {
@@ -256,52 +224,73 @@ function draw(){
   });
 }
 
-/* ---------- EXPORT FUNCTION LOGIC ---------- */
+/* ---------- FULL INTEGRATION EXPORT FUNCTION ---------- */
 async function exportChart(format) {
   const gd = document.getElementById('chart');
-  say(`Generating ${format.toUpperCase()} Figure...`);
+  say(`Generating ${format.toUpperCase()} Figure with Legends...`);
 
   const origMargin = gd.layout.margin;
-  const origShowLegend = gd.layout.showlegend;
 
-  // Build Ion Legend Annotation String dynamically
-  let ionKeyText = "<b>Ion Type</b><br>";
-  const uniqueIons = [...new Set(traceMeta.map(t => t.ion))].sort();
+  // 1. Calculate active counts
+  const structCounts = {};
+  const ionCounts = {};
+  traceMeta.forEach(t => {
+    // Only count if the item is currently visible based on active filters
+    const isVis = (selectedIons === null || selectedIons.has(t.ion)) && 
+                  (selectedStructs === null || selectedStructs.has(t.fam));
+    if(isVis) {
+        structCounts[t.fam] = (structCounts[t.fam] || 0) + 1;
+        ionCounts[t.ion] = (ionCounts[t.ion] || 0) + 1;
+    }
+  });
+
+  // 2. Build Structure Annotation String
+  let structKeyText = "<b>Structure Group Breakdown</b><br><br>";
+  const uniqueStructs = Object.keys(structCounts).sort();
+  uniqueStructs.forEach(fam => {
+      const color = getStructColor(fam);
+      // Fakes the HTML square block design
+      structKeyText += `<span style="color:${color}; font-size:16px;">■</span> ${fam} (${structCounts[fam]})<br>`;
+  });
+
+  // 3. Build Ion Annotation String
+  let ionKeyText = "<b>Ion Type Breakdown</b><br><br>";
+  const uniqueIons = Object.keys(ionCounts).sort();
   uniqueIons.forEach(ion => {
       const pShape = getShape(ion);
       const uShape = UNICODE_SHAPES[pShape] || "●";
-      ionKeyText += `<span style="font-size:14px;">${uShape}</span> ${ion}<br>`;
+      ionKeyText += `<span style="font-size:14px; color:#334155;">${uShape}</span> ${ion} (${ionCounts[ion]})<br>`;
   });
 
-  // Temporarily inject legends matching the Typography Index
+  // 4. Inject rich-text annotations into Plotly layout
   await Plotly.relayout(gd, {
-      showlegend: true, 
-      'legend.title.text': "<b>Structure</b>",
-      'legend.font.family': "Arial, sans-serif",
-      'legend.font.size': 12,
-      'legend.x': 1.02, 'legend.y': 1, 'legend.yanchor': 'top',
-      'legend.bgcolor': 'rgba(255,255,255,0.9)',
-      'legend.bordercolor': '#e2e8f0', 'legend.borderwidth': 1,
-      annotations: [{
-          text: ionKeyText, align: 'left', showarrow: false,
-          xref: 'paper', yref: 'paper',
-          x: 1.02, y: 0.6, yanchor: 'top', 
-          font: { family: "Arial, sans-serif", size: 12, color: '#111' },
-          bgcolor: 'rgba(255,255,255,0.9)',
-          bordercolor: '#e2e8f0', borderwidth: 1, borderpad: 8
-      }],
-      margin: { t: 50, r: 160, b: 60, l: 70 } 
+      annotations: [
+          {
+              text: structKeyText, align: 'left', showarrow: false,
+              xref: 'paper', yref: 'paper', x: 1.02, y: 1, yanchor: 'top', 
+              font: { family: "Arial, sans-serif", size: 12, color: '#111' },
+              bgcolor: 'rgba(255,255,255,0.95)', bordercolor: '#d0d0d0', borderwidth: 1, borderpad: 12
+          },
+          {
+              text: ionKeyText, align: 'left', showarrow: false,
+              xref: 'paper', yref: 'paper', x: 1.02, y: 0.5, yanchor: 'top', 
+              font: { family: "Arial, sans-serif", size: 12, color: '#111' },
+              bgcolor: 'rgba(255,255,255,0.95)', bordercolor: '#d0d0d0', borderwidth: 1, borderpad: 12
+          }
+      ],
+      margin: { t: 50, r: 240, b: 60, l: 70 } // Expand right margin significantly to fit the new text blocks
   });
 
+  // 5. Download the injected layout
   await Plotly.downloadImage(gd, {
       format: format,
       width: format === 'png' ? 1800 : 1200,
       height: format === 'png' ? 1000 : 800,
-      filename: `Conductivity_Ea_Figure`
+      filename: `Conductivity_Ea_Figure_With_Counts`
   });
 
-  // Restore original layout
-  await Plotly.relayout(gd, { showlegend: origShowLegend, annotations: [], margin: origMargin });
+  // 6. Restore original layout
+  await Plotly.relayout(gd, { annotations: [], margin: origMargin });
   say(`Loaded ${rowsGlobal.length} entries`);
 }
 
@@ -413,9 +402,8 @@ function loadCsv(){
     .catch(e=>{ err(`Could not load CSV. Ensure data.csv is in the root folder and running via local server.`); });
 }
 
-/* Master Shape SVG Generator */
 function makeShapeSVG(shape, fill){
-  const size = 16, half = size/2, stroke = "#111"; // Darker stroke for legend accuracy
+  const size = 16, half = size/2, stroke = "#111"; 
   const poly = pts => pts.map(p=>p.join(",")).join(" ");
   let body = "";
   switch(shape){
