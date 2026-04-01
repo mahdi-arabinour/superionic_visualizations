@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Ea vs σ (log Y)</title>
+<title>Ea vs σ (log Y) - Publication Ready</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
   :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#e3e3e3; --text:#111; --panel-border:#d0d0d0; --note:#555; --accent:#007aff; }
   * { box-sizing:border-box; }
+  
+  /* Master Typography: Enforce Arial globally */
   body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); }
 
   header {
@@ -41,6 +43,7 @@
   .panel button { border:1px solid #ddd; background:#f7f7f7; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family: Arial, sans-serif; }
   .panel button:hover { background:#efefef; }
 
+  /* Interactive Legends */
   #ionLegend .row, #structureLegend .row {
     display:flex; align-items:center; gap:8px; padding:6px 8px; margin:5px 0;
     border:1px solid #e3e3e3; border-radius:6px; cursor:pointer; user-select:none; background:#fff; transition: 0.1s;
@@ -200,6 +203,7 @@ function draw(){
       tickvals: [1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8],
       ticktext: ["10⁰", "10⁻¹", "10⁻²", "10⁻³", "10⁻⁴", "10⁻⁵", "10⁻⁶", "10⁻⁷", "10⁻⁸"]
     },
+    // Standard margin for the live interactive view
     margin: {t: 50, r: 30, b: 60, l: 70},
     showlegend: false,
     shapes: [{ type: 'line', x0: 0.05, y0: 5, x1: 0.65, y1: 1e-8, line: { color: '#94a3b8', width: 1.5, dash: 'dash' } }]
@@ -224,7 +228,7 @@ function draw(){
   });
 }
 
-/* ---------- FULL INTEGRATION EXPORT FUNCTION ---------- */
+/* ---------- FULL INTEGRATION EXPORT FUNCTION (FIXED ALIGNMENT) ---------- */
 async function exportChart(format) {
   const gd = document.getElementById('chart');
   say(`Generating ${format.toUpperCase()} Figure with Legends...`);
@@ -235,7 +239,6 @@ async function exportChart(format) {
   const structCounts = {};
   const ionCounts = {};
   traceMeta.forEach(t => {
-    // Only count if the item is currently visible based on active filters
     const isVis = (selectedIons === null || selectedIons.has(t.ion)) && 
                   (selectedStructs === null || selectedStructs.has(t.fam));
     if(isVis) {
@@ -244,22 +247,21 @@ async function exportChart(format) {
     }
   });
 
-  // 2. Build Structure Annotation String
-  let structKeyText = "<b>Structure Group Breakdown</b><br><br>";
+  // 2. Build Structure Annotation String (Scaled up fonts for High-Res)
+  let structKeyText = "<span style='font-size:18px;'><b>Structure Group Breakdown</b></span><br><br>";
   const uniqueStructs = Object.keys(structCounts).sort();
   uniqueStructs.forEach(fam => {
       const color = getStructColor(fam);
-      // Fakes the HTML square block design
-      structKeyText += `<span style="color:${color}; font-size:16px;">■</span> ${fam} (${structCounts[fam]})<br>`;
+      structKeyText += `<span style="color:${color}; font-size:20px;">■</span> <span style="font-size:16px;">${fam} (${structCounts[fam]})</span><br>`;
   });
 
-  // 3. Build Ion Annotation String
-  let ionKeyText = "<b>Ion Type Breakdown</b><br><br>";
+  // 3. Build Ion Annotation String (Scaled up fonts for High-Res)
+  let ionKeyText = "<span style='font-size:18px;'><b>Ion Type Breakdown</b></span><br><br>";
   const uniqueIons = Object.keys(ionCounts).sort();
   uniqueIons.forEach(ion => {
       const pShape = getShape(ion);
       const uShape = UNICODE_SHAPES[pShape] || "●";
-      ionKeyText += `<span style="font-size:14px; color:#334155;">${uShape}</span> ${ion} (${ionCounts[ion]})<br>`;
+      ionKeyText += `<span style="font-size:18px; color:#334155;">${uShape}</span> <span style="font-size:16px;">${ion} (${ionCounts[ion]})</span><br>`;
   });
 
   // 4. Inject rich-text annotations into Plotly layout
@@ -267,26 +269,29 @@ async function exportChart(format) {
       annotations: [
           {
               text: structKeyText, align: 'left', showarrow: false,
-              xref: 'paper', yref: 'paper', x: 1.02, y: 1, yanchor: 'top', 
-              font: { family: "Arial, sans-serif", size: 12, color: '#111' },
-              bgcolor: 'rgba(255,255,255,0.95)', bordercolor: '#d0d0d0', borderwidth: 1, borderpad: 12
+              xref: 'paper', yref: 'paper', 
+              x: 1.04, y: 1, yanchor: 'top', // Pushed further right
+              font: { family: "Arial, sans-serif", color: '#111' },
+              bgcolor: '#ffffff', bordercolor: '#d0d0d0', borderwidth: 1.5, borderpad: 16
           },
           {
               text: ionKeyText, align: 'left', showarrow: false,
-              xref: 'paper', yref: 'paper', x: 1.02, y: 0.5, yanchor: 'top', 
-              font: { family: "Arial, sans-serif", size: 12, color: '#111' },
-              bgcolor: 'rgba(255,255,255,0.95)', bordercolor: '#d0d0d0', borderwidth: 1, borderpad: 12
+              xref: 'paper', yref: 'paper', 
+              x: 1.04, y: 0.45, yanchor: 'top', // Safely positioned below Structure legend
+              font: { family: "Arial, sans-serif", color: '#111' },
+              bgcolor: '#ffffff', bordercolor: '#d0d0d0', borderwidth: 1.5, borderpad: 16
           }
       ],
-      margin: { t: 50, r: 240, b: 60, l: 70 } // Expand right margin significantly to fit the new text blocks
+      // MASSIVE right margin creates a dedicated blank column for the legends
+      margin: { t: 50, r: 400, b: 60, l: 70 } 
   });
 
-  // 5. Download the injected layout
+  // 5. Download the injected layout (Wider canvas prevents the plot from squishing)
   await Plotly.downloadImage(gd, {
       format: format,
-      width: format === 'png' ? 1800 : 1200,
-      height: format === 'png' ? 1000 : 800,
-      filename: `Conductivity_Ea_Figure_With_Counts`
+      width: format === 'png' ? 2200 : 1600,
+      height: format === 'png' ? 1100 : 800,
+      filename: `Conductivity_Ea_Figure_Publication`
   });
 
   // 6. Restore original layout
