@@ -365,21 +365,19 @@ function bestText(hex){
 
 // ---- Download Functions with Embedded Legends ----
 function buildSVGLegend(clone, originalWidth, originalHeight) {
-  // Expand width to fit the legend (e.g., add 260px)
-  const legendWidth = 260;
+  // Expand width to fit the legend (smaller width since we removed doping)
+  const legendWidth = 200;
   const newWidth = originalWidth + legendWidth;
   clone.setAttribute("viewBox", `0 0 ${newWidth} ${originalHeight}`);
   
-  // Create a <g> for the legend, placed on the right
   const lg = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  lg.setAttribute("transform", `translate(${originalWidth}, 36)`); // Align with top margin
+  lg.setAttribute("transform", `translate(${originalWidth}, 36)`);
   
-  // Use JS globals: STRUCT_COLORS, activeStructures, activeSubtypes, sizeFactor
   let yPos = 0;
   
-  // 1. Structure Group (Color) Legend
+  // Structure Group Legend ONLY
   const tTitle1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  tTitle1.textContent = "Structure Group (Color)";
+  tTitle1.textContent = "Structure Group";
   tTitle1.setAttribute("x", 10);
   tTitle1.setAttribute("y", yPos);
   tTitle1.setAttribute("fill", "#111827");
@@ -413,44 +411,16 @@ function buildSVGLegend(clone, originalWidth, originalHeight) {
     });
   }
   
-  yPos += 24; // gap
-  
-  // 2. Doping Type Legend
-  const tTitle2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  tTitle2.textContent = "Doping Type (Active)";
-  tTitle2.setAttribute("x", 10);
-  tTitle2.setAttribute("y", yPos);
-  tTitle2.setAttribute("fill", "#111827");
-  tTitle2.setAttribute("font-size", "14px");
-  tTitle2.setAttribute("font-weight", "bold");
-  lg.appendChild(tTitle2);
-  yPos += 24;
+  yPos += 12; // gap
 
-  if (typeof subtypes !== 'undefined') {
-    subtypes.forEach(name => {
-      if (activeSubtypes.has(name)) {
-        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        t.textContent = "• " + name;
-        t.setAttribute("x", 10);
-        t.setAttribute("y", yPos);
-        t.setAttribute("fill", "#334155");
-        t.setAttribute("font-size", "13px");
-        lg.appendChild(t);
-        yPos += 18;
-      }
-    });
-  }
-
-  yPos += 24; // gap
-
-  // 3. Bubble Size Note
+  // Kept Bubble size note just for transparency
   if (typeof sizeFactor !== 'undefined') {
     const tTitle3 = document.createElementNS("http://www.w3.org/2000/svg", "text");
     tTitle3.textContent = `Bubble Size Scaler: ${sizeFactor.toFixed(2)}x`;
     tTitle3.setAttribute("x", 10);
     tTitle3.setAttribute("y", yPos);
     tTitle3.setAttribute("fill", "#111827");
-    tTitle3.setAttribute("font-size", "13px");
+    tTitle3.setAttribute("font-size", "12px");
     tTitle3.setAttribute("font-style", "italic");
     lg.appendChild(tTitle3);
   }
@@ -475,7 +445,7 @@ function downloadSVG() {
   const baseWidth = 1200;
   const baseHeight = 760;
   const newWidth = buildSVGLegend(clone, baseWidth, baseHeight);
-  clone.setAttribute("width", newWidth); // explicit set
+  clone.setAttribute("width", newWidth); 
   
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   const serializer = new XMLSerializer();
@@ -489,7 +459,7 @@ function downloadSVG() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "chart_with_legend_vector.svg";
+  a.download = "chart_structure_legend_vector.svg";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -539,7 +509,7 @@ function downloadPNG() {
     const pngUrl = canvas.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = pngUrl;
-    a.download = "chart_with_legend_300dpi.png";
+    a.download = "chart_structure_legend_300dpi.png";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
