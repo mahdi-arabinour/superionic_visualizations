@@ -220,6 +220,27 @@ function drawTree(rows){
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','tree');
 
+  // INTERACTIVE TITLE (Top Left)
+  g.append("text")
+      .attr("class", "ui-text") // Tagged to hide during export
+      .attr("x", -WIDTH/2 + 30) 
+      .attr("y", -HEIGHT/2 + 40) 
+      .text("Superionic Conductors: A Radial Taxonomy")
+      .attr("font-weight", "bold")
+      .attr("font-size", "22px")
+      .attr("font-family", "Arial, sans-serif")
+      .attr("fill", "#0f172a");
+
+  // INTERACTIVE SUBTITLE/CAPTION (Top Left, just under Title)
+  g.append("text")
+      .attr("class", "ui-text") // Tagged to hide during export
+      .attr("x", -WIDTH/2 + 30) 
+      .attr("y", -HEIGHT/2 + 65) 
+      .text("Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure")
+      .attr("font-size", "13px")
+      .attr("font-family", "Arial, sans-serif")
+      .attr("fill", "#64748b");
+
   const useLog  = document.getElementById('useLog').checked;
   const baseEdge= +document.getElementById('baseEdge').value;
   const leafMin = +document.getElementById('leafMin').value;
@@ -236,7 +257,6 @@ function drawTree(rows){
   const rDoping  = 2.8 * baseEdge; 
   const rFormula = 3.3 * baseEdge; 
   
-  // The absolute furthest a branch can go, plus padding for the text ring
   const maxR = rFormula + leafMax;
   textRingR = maxR + 10; 
 
@@ -275,7 +295,6 @@ function drawTree(rows){
   const scaleLin=d3.scaleLinear().domain([sMin,sMax]).range([leafMin,leafMax]).nice();
   const scaleLog=d3.scaleLog().domain([Math.max(sMin, 1e-12), sMax]).range([leafMin,leafMax]);
   
-  // IMPORTANT: Apply true physical pixel lengths to the leaves based on conductivity
   H.each(n=>{ 
       if(!n.children) {
           const val = Number.isFinite(+n.data.sigma) && +n.data.sigma > 0 ? +n.data.sigma : def;
@@ -293,24 +312,22 @@ function drawTree(rows){
     });
   }
 
-  // FIX 1: DRAW CONCENTRIC LOG RINGS (The Bar Chart Scale)
+  // CONCENTRIC LOG RINGS
   const axesGroup = g.append('g').attr('class', 'axes');
-  const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; // Typical relevant solid-state milestones
+  const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; 
   
   tickVals.forEach(v => {
       if (v < sMin || v > sMax) return;
       const r = rFormula + (useLog ? scaleLog(v) : scaleLin(v));
       
-      // Draw the faint circular grid line
       axesGroup.append('circle')
           .attr('r', r)
           .attr('fill', 'none')
           .attr('stroke', '#e2e8f0')
           .attr('stroke-dasharray', '4,4');
           
-      // Stamp the conductivity value on the vertical axis
       axesGroup.append('text')
-          .attr('y', -r - 4) // Sit just above the ring
+          .attr('y', -r - 4) 
           .attr('x', 0)
           .attr('text-anchor', 'middle')
           .attr('fill', '#94a3b8')
@@ -319,18 +336,16 @@ function drawTree(rows){
           .text(formatLogLabel(v));
   });
 
-  // FIX 3: INNER BRANCH VISUAL HIERARCHY
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
   g.append('g').attr('fill','none').selectAll('path').data(H.links()).join('path')
     .attr('stroke-width', d => {
-      if (d.target.depth === 1) return 2.0;   // THICK Root to Ion branch
-      if (d.target.depth === 3) return 1.8;   // Doping
-      if (d.target.depth >= 4) return 0.8;    // Formula
+      if (d.target.depth === 1) return 2.0;   
+      if (d.target.depth === 3) return 1.8;   
+      if (d.target.depth >= 4) return 0.8;    
       return 1.2;                             
     })
     .attr('stroke-dasharray', d => d.target.depth === 3 ? '2,2' : null)
     .attr('stroke', d => {
-        // Make the Inner Root (Center->Ion) a bold solid grey. Make everything else the Structure color.
         return d.target.depth > 1 ? structColorFromNode(d.target) : '#64748b';
     })
     .attr('d', d => link({source:d.source, target:d.target}));
@@ -377,13 +392,10 @@ function drawTree(rows){
       arr=kept;
     }
 
-    // FIX 2: DRAW THE DOTTED GUIDE LINES FROM THE SPIKY LEAVES TO THE TEXT RING
     if (L.depth === 4) {
         g.append('g').selectAll('line.guide').data(arr).join('line')
-          // Start the line precisely where the conductivity branch ended
           .attr('x1', d => Math.cos(d.x - Math.PI/2) * (d.y + 4)) 
           .attr('y1', d => Math.sin(d.x - Math.PI/2) * (d.y + 4))
-          // End the line precisely at the outer text ring
           .attr('x2', d => Math.cos(d.x - Math.PI/2) * textRingR)
           .attr('y2', d => Math.sin(d.x - Math.PI/2) * textRingR)
           .attr('stroke', '#cbd5e1')
@@ -395,7 +407,6 @@ function drawTree(rows){
       .selectAll('text').data(arr).join('text').attr('class','lbl')
       .attr('transform',d=>{
         const a=d.x;
-        // Anchor the text labels securely to the perfect outer circle
         const r=(L.depth===4 ? textRingR + 4 : d.y + L.off);
         const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
         const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
@@ -406,9 +417,6 @@ function drawTree(rows){
       .style('cursor', L.depth===1? 'pointer' : null)
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
-
-  g.append('text').attr('x',0).attr('y', HEIGHT/2 - 15).attr('text-anchor','middle').attr('fill','#64748b').attr('font-size',12).attr('font-family','Arial, sans-serif')
-    .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure');
 }
 
 /* ---------- Tooltip ---------- */
@@ -481,17 +489,21 @@ async function exportChart(format) {
         ionCounts[d.ion] = (ionCounts[d.ion] || 0) + 1;
     });
 
+    const titleHeight = 80;   
     const legendWidth = 240;  
     const pad = 160; 
     
     const origViewBox = svgEl.getAttribute("viewBox");
     
     const minX = -textRingR - pad;
-    const minY = -textRingR - pad; // Removed titleHeight gap
+    const minY = -textRingR - pad - titleHeight;
     const exportWidth = (textRingR * 2) + (pad * 2) + legendWidth;
-    const exportHeight = (textRingR * 2) + (pad * 2);
+    const exportHeight = (textRingR * 2) + (pad * 2) + titleHeight;
     
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
+
+    // Hide interactive UI text elements so they don't double render in the export
+    d3Svg.selectAll(".ui-text").style("display", "none");
 
     d3Svg.insert("rect", ":first-child")
         .attr("id", "export-bg")
@@ -501,8 +513,27 @@ async function exportChart(format) {
 
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
+    // EXPORT SPECIFIC TITLE (Crisp, scaled correctly for massive canvas)
+    exportGroup.append("text")
+        .attr("x", minX + 40) 
+        .attr("y", minY + 60) 
+        .text("Superionic Conductors: A Radial Taxonomy")
+        .attr("font-weight", "bold")
+        .attr("font-size", "28px")
+        .attr("font-family", "Arial, sans-serif")
+        .attr("fill", "#0f172a");
+
+    // EXPORT SPECIFIC SUBTITLE (Replacing the old bottom text)
+    exportGroup.append("text")
+        .attr("x", minX + 40) 
+        .attr("y", minY + 90) 
+        .text("Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure")
+        .attr("font-size", "16px")
+        .attr("font-family", "Arial, sans-serif")
+        .attr("fill", "#64748b");
+
     const legX = textRingR + pad; 
-    let curY = minY + 60; // Top aligned spacing
+    let curY = minY + 60; 
 
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
@@ -574,6 +605,7 @@ async function exportChart(format) {
 
     d3Svg.select("#export-elements").remove();
     d3Svg.select("#export-bg").remove();
+    d3Svg.selectAll(".ui-text").style("display", null); // Restore interactive text
     d3Svg.attr("viewBox", origViewBox);
     say(`Loaded ${DATA.length} entries`);
 }
