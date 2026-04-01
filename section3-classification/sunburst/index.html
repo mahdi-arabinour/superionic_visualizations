@@ -2,119 +2,103 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sunburst - Publication Ready</title>
+<title>Sunburst</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
-  :root { --bg:#ffffff; --panel:#f8fafc; --grid:#e5e7eb; --ink:#0f172a; --muted:#64748b; }
   html, body { height:100%; margin:0; }
-  
   body {
-    font-family: Arial, Helvetica, sans-serif;
-    background: var(--bg); color: var(--ink);
-    display: flex; flex-direction: column;
-    font-size: 13px;
+    font-family:system-ui, Segoe UI, Roboto, sans-serif;
+    background:#ffffff; color:#0f172a;
+    display:flex; flex-direction:column;
   }
-  
   header {
-    padding: 12px 16px; background: var(--panel);
-    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
-    border-bottom: 1px solid var(--grid);
-    position: sticky; top: 0; z-index: 5;
+    padding:10px 14px; background:#f8fafc;
+    display:flex; gap:16px; align-items:center; flex-wrap:wrap;
+    border-bottom:1px solid #e5e7eb;
   }
-  
-  label { font-size: 12px; display: flex; align-items: center; gap: 6px; font-weight: bold; }
-  input[type="number"], input[type="range"], select { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-family: Arial, sans-serif; }
-  input[type="range"] { cursor: pointer; }
-  
-  .btn { border: 1px solid #d0d0d0; background: #fff; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; font-family: Arial, sans-serif; }
-  .btn:hover { filter: brightness(0.95); border-color: #aaa; }
-  .btn-primary { background: #007aff; color: #fff; border: none; margin-left: auto; }
-  .btn-success { background: #10b981; color: #fff; border: none; }
-
-  #wrap { flex: 1; display: flex; padding: 16px; gap: 16px; min-height: 0; overflow: hidden; }
+  #wrap { flex:1; display:flex; padding:10px 12px; gap:12px; min-height:0; }
   #chartCard {
-    flex: 1; display: grid; grid-template-columns: minmax(640px, 1.7fr) 340px;
-    gap: 16px; align-items: start; min-height: 0; height: 100%;
+    flex:1; display:grid; grid-template-columns:minmax(640px,1.7fr) 360px;
+    gap:12px; align-items:start; min-height:0;
   }
-  
   .chartBody {
-    background: #ffffff; border: 1px solid var(--grid); border-radius: 10px;
-    position: relative; height: min(88vh, 900px); min-height: 560px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    background:#ffffff; border:1px dashed #e2e8f0; border-radius:12px;
+    position:relative; height:min(88vh,900px); min-height:560px;
   }
-  svg { width: 100%; height: 100%; display: block; }
+  svg { width:100%; height:100%; display:block; }
 
+  /* Legend + controls (light) */
   .legend {
-    background: var(--panel); border: 1px solid var(--grid); border-radius: 10px;
-    padding: 16px; display: flex; flex-direction: column; gap: 10px;
-    box-shadow: -2px 0 10px rgba(0,0,0,0.02); height: min(88vh, 900px); min-height: 560px;
+    background:#ffffff; border:1px solid #e5e7eb; border-radius:12px;
+    padding:10px; overflow:auto; max-height:calc(100vh - 150px);
+    display:flex; flex-direction:column; gap:10px;
   }
-  
-  .legend h4 { margin: 0 0 8px 0; font-size: 14px; color: #0f172a; font-weight: bold; text-transform: none; letter-spacing: normal; }
-  
-  /* Scrollable specific areas */
-  .legendGroup { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 25vh; padding-right: 4px; }
-  
-  #detailsPanel { flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 12px;}
-  #formulaList { flex: 1; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; background: #ffffff; font-size: 12px; }
+  .legend h4 { margin:0 0 8px 0; font-size:12px; color:#334155; letter-spacing:.4px; text-transform:uppercase; }
+  .legendGroup { display:flex; flex-direction:column; gap:6px; }
 
   .ionRow {
-    display: grid; grid-template-columns: 18px 1fr auto;
-    gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px;
-    user-select: none; transition: 0.1s; cursor: pointer; background: #fff; border: 1px solid #cbd5e1;
+    display:grid; grid-template-columns:18px 1fr auto;
+    gap:8px; align-items:center; padding:6px 8px; border-radius:8px;
+    user-select:none;
   }
-  .ionRow:hover { background: #f8fafc; }
-  .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); }
+  .ionRow:hover { background:#f1f5f9; }
+  .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(0,0,0,.25); }
 
-  .controls { border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-  .controls h4 { margin: 4px 0 0 0; font-size: 13px; color: #0f172a; font-weight: bold; }
-  .toggleRow { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #0f172a; font-weight: bold; }
-  fieldset { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-  .levelRow { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; }
-  .levelRow input[type="range"] { width: 100%; }
-  
-  .legendBtns { display: flex; gap: 8px; margin-top: 6px; }
-  .pill { background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 11px; font-weight: bold; font-family: Arial, sans-serif; }
-  .pill:hover { background: #cbd5e1; }
+  .controls { border-top:1px solid #e5e7eb; padding-top:8px; display:flex; flex-direction:column; gap:10px; }
+  .controls h4 { margin:4px 0 0 0; font-size:12px; color:#334155; letter-spacing:.4px; text-transform:uppercase; }
+  .toggleRow { display:flex; align-items:center; gap:8px; font-size:13px; color:#0f172a; }
+  fieldset { border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
+  .levelRow { display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:center; }
+  .levelRow input[type="range"] { width:100%; }
+  .legendBtns { display:flex; gap:8px; margin-top:6px; }
+  .btn {
+    background:#f1f5f9; border:1px solid #e2e8f0; color:#0f172a;
+    padding:6px 10px; border-radius:8px; font-size:12px; cursor:pointer;
+  }
+  .btn:hover { background:#e2e8f0; }
+
+  /* PUBLICATION EXPORT BUTTON STYLES */
+  .btn-primary { background: #007aff; color: #fff; border:none; margin-left: auto; font-weight: bold; }
+  .btn-primary:hover { background: #0062cc; color: #fff; }
+  .btn-success { background: #10b981; color: #fff; border:none; font-weight: bold; }
+  .btn-success:hover { background: #059669; color: #fff; }
 
   .tooltip {
-    position: fixed; pointer-events: none; background: rgba(15,23,42,.95);
-    color: #fff; padding: 10px 12px; border-radius: 6px; font-size: 12px; line-height: 1.4;
-    display: none; z-index: 100; box-shadow: 0 6px 18px rgba(0,0,0,.15);
-    font-family: Arial, sans-serif;
+    position:fixed; pointer-events:none; background:rgba(15,23,42,.95);
+    color:#fff; padding:12px 14px; border-radius:8px; font-size:12px; line-height:1.4;
+    display:none; z-index:10; box-shadow:0 8px 24px rgba(0,0,0,.3);
   }
 
-  .label, .leafLabel {
-    fill: #0f172a; pointer-events: none;
-    paint-order: stroke; stroke: #ffffff; stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round;
-    font-family: Arial, sans-serif;
+  /* Labels: dark text with white halo on light background */
+  .label {
+    fill:#0f172a; pointer-events:none;
+    paint-order:stroke; stroke:#ffffff; stroke-width:3;
   }
-  .hiddenLabel { opacity: 0; transition: opacity .12s ease; }
-  .visibleLabel { opacity: 1; transition: opacity .12s ease; }
-  .dimmed { opacity: 0.15; transition: opacity .12s ease; }
+  .hiddenLabel { opacity:0; transition:opacity .12s ease; }
+  .visibleLabel { opacity:1; transition:opacity .12s ease; }
 
-  .cap { pointer-events: none; }
+  /* Dim for non-selected */
+  .dimmed { opacity: .18; transition: opacity .12s ease; }
+
+  /* Ring captions */
+  .cap { pointer-events:none; }
   .cap text {
-    font-size: 11px; fill: #475569; font-weight: bold; font-family: Arial, sans-serif;
-    paint-order: stroke; stroke: #ffffff; stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round;
+    font-size: 11px; fill: #475569; letter-spacing: .3px;
+    paint-order: stroke; stroke: #ffffff; stroke-width:3px;
   }
 
-  .crumbs { font-size: 12px; color: #475569; font-weight: bold; margin-left: 10px;}
-  .crumbs a { color: #007aff; text-decoration: none; cursor: pointer; }
-  .crumbs a:hover { text-decoration: underline; }
-  
-  /* Scrollbar styles */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  .crumbs { font-size:12px; color:#475569; }
+  .crumbs a { color:#0ea5e9; text-decoration:none; cursor:pointer; }
+  .crumbs a:hover { text-decoration:underline; }
 </style>
 </head>
 <body>
   <header>
-    <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:70px"></label>
-    <label><input type="checkbox" id="useLog" checked> log₁₀(σ) length</label>
-    
+    <strong>Sunburst</strong>
+    <label class="toggleRow">
+      <input type="checkbox" id="toggleAll" checked>
+      Show labels
+    </label>
     <span id="crumbs" class="crumbs"></span>
     
     <button onclick="exportChart('svg')" class="btn btn-primary">⬇ Journal SVG</button>
@@ -126,38 +110,36 @@
       <div id="chart" class="chartBody"></div>
 
       <div class="legend">
-        <h4>Filter by Ion</h4>
-        
-        <div id="csv-fallback" style="display:none; margin-bottom: 12px; padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px;">
-          <p style="margin: 0 0 8px 0; font-size: 12px; color: #475569;">Browser blocked auto-load. Please select your file:</p>
-          <button id="pick-csv" class="pill" style="background: #fff; border-color: #94a3b8;">Choose data.csv…</button>
-          <input id="csv-input" type="file" accept=".csv" style="display:none">
-        </div>
-
-        <div id="ionLegend" class="legendGroup"></div>
+        <h4>Legend</h4>
+        <div class="legendGroup"></div>
 
         <div class="controls">
-          <h4>Label Controls</h4>
-          <label class="toggleRow">
-            <input type="checkbox" id="toggleAll" checked> Show all labels
-          </label>
+          <h4>Label controls</h4>
           <fieldset id="levelsFs">
             <div class="levelRow">
-              <label class="lvlLabel" for="showIon"><input type="checkbox" id="showIon" checked> Ion</label>
-              <input id="fsIon" type="range" min="8" max="24" step="1" value="14">
+              <label class="lvlLabel" for="showIon">
+                <input type="checkbox" id="showIon" checked> Ion
+              </label>
+              <input id="fsIon" type="range" min="8" max="24" step="1" value="13">
             </div>
+
             <div class="levelRow">
-              <label class="lvlLabel" for="showStruct"><input type="checkbox" id="showStruct" checked> Structure</label>
-              <input id="fsStruct" type="range" min="8" max="24" step="1" value="13">
+              <label class="lvlLabel" for="showStruct">
+                <input type="checkbox" id="showStruct" checked> Structure
+              </label>
+              <input id="fsStruct" type="range" min="8" max="24" step="1" value="12">
             </div>
+
             <div class="levelRow">
-              <label class="lvlLabel" for="showStrat"><input type="checkbox" id="showStrat" checked> Doping</label>
+              <label class="lvlLabel" for="showStrat">
+                <input type="checkbox" id="showStrat" checked> Doping strategy
+              </label>
               <input id="fsStrat" type="range" min="8" max="22" step="1" value="11">
             </div>
           </fieldset>
 
           <div class="legendBtns">
-            <button id="btnClearSel" class="pill">Clear selection</button>
+            <button id="btnClearSel" class="btn">Clear selection</button>
           </div>
 
           <label class="toggleRow" style="margin-top:4px;">
@@ -165,12 +147,6 @@
             Hide unselected labels
           </label>
         </div>
-        
-        <div id="detailsPanel">
-            <h4 style="margin-bottom:6px;">Formula Details</h4>
-            <div id="formulaList"></div>
-        </div>
-
       </div>
     </div>
   </div>
@@ -182,19 +158,11 @@
   // ---------------- Tunables ----------------
   const DEF_COND = 1e-6;
   const SCALE_MODE = 'log';
-  const RING_SCALE = [1.0, 1.32, 1.52];  
+  const RING_SCALE = [1.0, 1.32, 1.52];  // root, ion, structure+
   const LEAF_SCALE = [1.0, 1.45, 1.6];
   const CAP_ARC_DEG = 90;
 
-  // PURE ION COLOR PALETTE
-  const ION_COLORS = {
-    "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1",
-    "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047",
-    "F-": "#ff8a65", "Cu+": "#5c6bc0", "Mg2+": "#26c6da", "In3+": "#c0ca33",
-    "I-": "#ec407a", "Sn4+": "#7e57c2"
-  };
-  const getIonColor = n => ION_COLORS[n] || "#94a3b8";
-
+  // ---------------- Format for Axes ----------------
   const SUPERSCRIPTS = {
     "-10":"⁻¹⁰", "-9":"⁻⁹", "-8":"⁻⁸", "-7":"⁻⁷", "-6":"⁻⁶", 
     "-5":"⁻⁵", "-4":"⁻⁴", "-3":"⁻³", "-2":"⁻²", "-1":"⁻¹", "0":"⁰"
@@ -206,44 +174,17 @@
   let maxRGlobal=0, labelsVisible=true;
   let _nodesCache=null, _outerR=null, _defs=null, _g=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
 
+  // Label level toggles (Formula removed for cleanliness)
   let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=true;
-  let FS_ION=14, FS_STRUCT=13, FS_STRAT=11;
+  let FS_ION=13, FS_STRUCT=12, FS_STRAT=11;
 
+  // Legend multi-select state
   const selIons    = new Set();
+  const selStructs = new Set();
+  const selStrats  = new Set();
+
   let HIDE_UNSEL = true;
   const ui = {};
-
-  // ---------------- MANUAL FILE LOADER ----------------
-  async function loadCSVWithFallback() {
-    try { 
-      return await d3.csv(new URL('data.csv', document.baseURI).href, d3.autoType); 
-    } catch(e) {
-      const fb = document.getElementById('csv-fallback');
-      const btn = document.getElementById('pick-csv');
-      const inp = document.getElementById('csv-input');
-      
-      if (!fb || !btn || !inp) throw e;
-      fb.style.display = 'block'; 
-      
-      return await new Promise((resolve, reject) => {
-        btn.addEventListener('click', () => inp.click(), {once:true});
-        inp.addEventListener('change', () => {
-          const f = inp.files && inp.files[0]; 
-          if (!f) return reject(new Error('No file selected'));
-          
-          const r = new FileReader();
-          r.onload = () => { 
-            try { 
-              resolve(d3.csvParse(r.result, d3.autoType)); 
-              fb.style.display = 'none'; 
-            } catch(err) { reject(err); } 
-          };
-          r.onerror = reject; 
-          r.readAsText(f);
-        }, {once:true});
-      });
-    }
-  }
 
   // ---------------- Boot ----------------
   document.addEventListener('DOMContentLoaded', async ()=>{
@@ -268,21 +209,18 @@
     ui.fsStrat.oninput   = ()=>{ FS_STRAT = +ui.fsStrat.value;   layoutLabels(true); };
 
     ui.btnClearSel.onclick = ()=>{
-      selIons.clear();
+      selIons.clear(); selStructs.clear(); selStrats.clear();
       document.querySelectorAll('.legendGroup input[type="checkbox"]').forEach(cb=>{ cb.checked=false; });
       applyLegendFilter();
     };
 
     ui.hideUnsel.onchange = ()=>{ HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
 
-    try {
-      const csvRows = await loadCSVWithFallback();
-      const dataObj = rowsToNested(csvRows);
-      fullHierarchy = buildHierarchy(dataObj);
-      draw();
-    } catch(e) {
-      document.getElementById('chart').innerHTML = `<div style="padding:20px;color:red;font-weight:bold;">Critical Error loading data.</div>`;
-    }
+    // Data + draw (Original File Loader)
+    const csvRows = await d3.csv('data.csv', d3.autoType);
+    const dataObj = rowsToNested(csvRows);
+    fullHierarchy = buildHierarchy(dataObj);
+    draw();
 
     window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(draw,120); });
   });
@@ -364,13 +302,23 @@
     });
     return clone;
   }
-  
   function cloneData(node){
     return { name:node.data.name, values:node.data.values, _uid:node.data._uid,
              children: node.children?.map(c=>cloneData(c)) };
   }
 
-  // ---------------- Color Mapping (Strictly by Ion) ----------------
+  // ---------------- Color Maps (Strictly by Ion) ----------------
+  const ION_COLORS = {
+    "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
+    "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
+    "F-":   "#ff8a65","Cu+":  "#5c6bc0","Mg2+": "#26c6da","In3+": "#c0ca33",
+    "I-":   "#ec407a","Sn4+": "#7e57c2"
+  };
+  const FB_ION_PALETTE    = d3.schemeTableau10;
+  function hashIdx(name, arr){ let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))|0; return Math.abs(h)%arr.length; }
+  const norm=s=>(s??'').trim();
+  function getIonColor(name){ const k=norm(name); return ION_COLORS[k] || FB_ION_PALETTE[hashIdx(k, FB_ION_PALETTE)]; }
+
   function absoluteNames(node){
     const orig = idMap.get(node.data._uid);
     let ion=null, struct=null, strat=null;
@@ -384,8 +332,8 @@
   
   function nodeFill(d){
     if (d.depth === 0) return '#f8fafc'; 
-    const names = absoluteNames(d);
-    return getIonColor(names.ion || 'Other'); 
+    const ion = absoluteNames(d).ion || '(Other)';
+    return getIonColor(ion);
   }
 
   function levelOf(d){
@@ -394,55 +342,18 @@
     return od===1 ? 'ion' : od===2 ? 'struct' : od===3 ? 'strat' : 'formula';
   }
 
-  // ---------------- Update Details Panel ----------------
-  function updateFormulaList(node) {
-      const listEl = document.getElementById('formulaList');
-      if (!node) {
-          listEl.innerHTML = '<em style="color:#94a3b8;">Click a slice to view formulas.</em>';
-          return;
-      }
-
-      let leaves = node.leaves();
-      // Sort by conductivity highest to lowest
-      leaves.sort((a, b) => (b.data.cond || 0) - (a.data.cond || 0));
-
-      if (leaves.length === 0) {
-          listEl.innerHTML = '<em style="color:#94a3b8;">No formulas found.</em>';
-          return;
-      }
-
-      let html = `<div style="margin-bottom:10px; font-weight:bold; color:#0f172a; border-bottom:1px solid #cbd5e1; padding-bottom:6px;">${node.data.name === 'root' ? 'All' : node.data.name} Formulas (${leaves.length})</div>`;
-
-      leaves.forEach(l => {
-          const cond = l.data.hasCond ? `${Number(l.data.cond).toExponential(2)} S/cm` : '<span style="color:#cbd5e1">No data</span>';
-          const color = getIonColor(absoluteNames(l).ion || 'Other');
-          html += `
-          <div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #f1f5f9; align-items:center;">
-              <span style="font-family: monospace; font-size:11px; font-weight:600; color:#334155; word-break: break-all; max-width: 65%;">
-                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px;"></span>
-                  ${l.data.name}
-              </span>
-              <span style="color:#64748b; font-size:11px; text-align:right;">${cond}</span>
-          </div>`;
-      });
-      listEl.innerHTML = html;
-  }
-
-
   // ---------------- Draw ----------------
   function draw(){
     const chartEl=document.getElementById('chart');
-    const legendEl=document.getElementById('ionLegend');
-    chartEl.innerHTML=''; 
+    const legendEl=document.querySelector('.legendGroup');
+    const tt=document.getElementById('tooltip');
+    chartEl.innerHTML=''; legendEl.innerHTML='';
 
     const rect=chartEl.getBoundingClientRect();
     const side=Math.min(Math.max(560, rect.width), Math.max(560, rect.height));
 
     const root = makeFocusRoot();
     _focusDepth = (focusNode?.depth ?? 0);
-
-    // Update the side panel based on current view
-    updateFormulaList(root);
 
     const ringScale=RING_SCALE[Math.min(_focusDepth, RING_SCALE.length-1)];
     const leafScale=LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
@@ -465,16 +376,6 @@
       .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
     _g=svg.append('g'); _defs=svg.append('defs');
 
-    // SUBTITLE
-    _g.append("text")
-      .attr("class", "ui-text") 
-      .attr("x", -maxR + 10) 
-      .attr("y", -maxR + 20) 
-      .text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type")
-      .attr("font-size", "12px")
-      .attr("font-family", "Arial, sans-serif")
-      .attr("fill", "#64748b");
-
     const arc=d3.arc().startAngle(d=>d.x0).endAngle(d=>d.x1)
       .padAngle(d=>Math.min(0.006,(d.x1-d.x0)/6)).padRadius(maxR*0.9)
       .innerRadius(d=>d.y0).outerRadius(d=>_outerR(d));
@@ -490,9 +391,8 @@
         if (!d.children && !d.data.hasCond){ const c=d3.color(base); c.opacity=0.7; return c.formatRgb(); }
         return base;
       })
-      .attr('stroke','#ffffff').attr('stroke-opacity',1.0)
-      .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.8, side*0.0016))
-      .style('cursor', d => d.children ? 'pointer' : 'default');
+      .attr('stroke','#ffffff').attr('stroke-opacity',0.9)
+      .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.8, side*0.0016));
 
     paths.each(function(d){
       const names = absoluteNames(d);
@@ -501,45 +401,56 @@
       this.dataset.strat  = names.strat || '';
     });
 
+    // ---------------- UPGRADED TOOLTIP ----------------
     const tipVal=v=>(!Number.isFinite(v)?'n/a':(v<0.01?`${(v*1000).toFixed(3)} mS·cm⁻¹`:`${Number(v).toPrecision(3)} S·cm⁻¹`));
+    
     paths.on('mousemove',(evt,d)=>{
-      const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
-      let html=`<div style="font-family:Arial,sans-serif;"><b>${trail}</b>`;
-      html += d.children ? `<br/><span style="color:#94a3b8">Sub-formulas: ${d.value}</span>`
-                         : (d.data.hasCond ? `<br/>σ: ${tipVal(d.data.cond)}`
-                                           : `<br/><em style="color:#94a3b8">No conductivity data</em>`);
-      html+='</div>';
+      const names = absoluteNames(d);
+      const isLeaf = !d.children;
+      let html=`<div style="font-family:system-ui, sans-serif;">`;
+
+      if (isLeaf) {
+          // If it's an outer spike, show the Formula clearly
+          html += `<div style="font-size:14px; font-weight:bold; margin-bottom:4px; border-bottom:1px solid #334155; padding-bottom:4px;">${d.data.name}</div>`;
+          html += `<div style="font-size:11px; color:#94a3b8; margin-bottom:4px;">${names.ion} &rarr; ${names.struct} &rarr; ${names.strat}</div>`;
+          html += `<div style="font-size:12px;">σ: ${tipVal(d.data.cond)}</div>`;
+      } else {
+          // If it's an inner ring, show the standard hierarchy
+          const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' &rarr; ');
+          html += `<div style="font-size:12px; font-weight:bold; margin-bottom:4px;">${trail}</div>`;
+          html += `<span style="color:#94a3b8; font-size:11px;">Formulas in group: ${d.value}</span>`;
+      }
+      
+      html += '</div>';
       const tt=document.getElementById('tooltip');
       tt.style.display='block'; tt.innerHTML=html;
-      tt.style.left=(evt.clientX+12)+'px'; tt.style.top=(evt.clientY+12)+'px';
+      tt.style.left=(evt.clientX+15)+'px'; tt.style.top=(evt.clientY+15)+'px';
     }).on('mouseleave',()=>{ document.getElementById('tooltip').style.display='none'; });
 
+    // zoom click
     paths.on('click',(evt,d)=>{
-      if(!d.children) return; 
       const full = idMap.get(d.data._uid);
       if (focusNode && full === focusNode) { focusNode = focusNode.parent || null; }
       else { focusNode = full; }
-      selIons.clear(); 
+      selIons.clear(); selStructs.clear(); selStrats.clear();
       draw();
     });
 
-    const backR = Math.max(20, (midForDepth(root, 1)) * 0.4);
+    const backR = Math.max(16, (_outerR(root) - root.y0) * 0.20);
     _g.append('circle')
       .attr('r', backR)
       .attr('fill', '#ffffff')
       .style('cursor', focusNode ? 'pointer' : 'default')
-      .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; selIons.clear(); draw(); }});
-    
+      .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); }});
     _g.append('text')
       .attr('text-anchor','middle').attr('dy','0.35em')
-      .style('font-size','13px').style('font-weight','bold').style('fill','#0f172a').style('font-family', 'Arial, sans-serif')
-      .text(focusNode ? focusNode.data.name : 'All Ions');
+      .style('font-size','12px').style('fill','#334155')
+      .text(focusNode ? focusNode.data.name : 'All ions');
 
-    // DRAWING ORDER
     layoutLabels();
     renderRingCaptions(root);
 
-    // CONCENTRIC LOG RINGS (Placed on top)
+    // CONCENTRIC LOG RINGS (Placed on top of the spikes so they are visible)
     const axesGroup = _g.append('g').attr('class', 'axes');
     const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; 
     
@@ -567,37 +478,57 @@
     });
 
     renderCrumbs();
-    
-    if(!legendEl.hasChildNodes()) buildLegend(legendEl);
-    
+    buildLegend(legendEl, root);
+
     applyLabelVisibility();
     applyLegendFilter();
   }
 
-  // ---------------- Legend ----------------
-  function buildLegend(container){
+  // ---------------- Legend (multiselect) ----------------
+  function chainName(n, rel){
+    if (!n) return '';
+    const anc = n.ancestors().reverse();
+    if (n.depth===1){ if (rel===1) return n.data.name; return ''; }
+    if (n.depth===2){ if (rel===1) return anc[1]?.data?.name||''; if (rel===0) return n.data.name; }
+    return '';
+  }
+  function buildLegend(container, subtreeRoot){
     container.innerHTML='';
-    const ions = Array.from(new Set(fullHierarchy.leaves().map(d => absoluteNames(d).ion))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+    const depth = (focusNode?.depth ?? 0); 
 
-    ions.forEach(ion=>{
+    (subtreeRoot.children||[]).forEach(node=>{
       const row = document.createElement('label'); row.className='ionRow';
-      
-      const sw = document.createElement('div');
-      sw.className = 'swatch'; 
-      sw.style.background = getIonColor(ion);
-      
+      const sw  = document.createElement('div');  sw.className='swatch';
       const title = document.createElement('div');
       const pick  = document.createElement('input'); pick.type='checkbox';
 
-      title.textContent = ion;
-      title.style.fontSize = '12px';
-      title.style.fontWeight = 'bold';
+      sw.style.background = nodeFill(node);
+      title.textContent = node.data.name;
 
-      pick.checked = selIons.has(ion);
+      if (depth===0)   pick.checked = selIons.has(node.data.name);
+      else if (depth===1){
+        const ion = (focusNode?.data?.name)||'';
+        pick.checked = selStructs.has(`ION:${ion}|STRUCT:${node.data.name}`);
+      } else if (depth===2){
+        const ion = chainName(focusNode,1);
+        const struct = chainName(focusNode,0);
+        pick.checked = selStrats.has(`ION:${ion}|STRUCT:${struct}|STRAT:${node.data.name}`);
+      }
 
       pick.onchange = ()=>{
-          if (pick.checked) selIons.add(ion); else selIons.delete(ion);
-          applyLegendFilter();
+        if (depth===0){
+          if (pick.checked) selIons.add(node.data.name); else selIons.delete(node.data.name);
+        } else if (depth===1){
+          const ion = (focusNode?.data?.name)||'';
+          const key = `ION:${ion}|STRUCT:${node.data.name}`;
+          if (pick.checked) selStructs.add(key); else selStructs.delete(key);
+        } else if (depth===2){
+          const ion    = chainName(focusNode,1);
+          const struct = chainName(focusNode,0);
+          const key = `ION:${ion}|STRUCT:${struct}|STRAT:${node.data.name}`;
+          if (pick.checked) selStrats.add(key); else selStrats.delete(key);
+        }
+        applyLegendFilter();
       };
 
       row.append(sw, title, pick);
@@ -607,19 +538,47 @@
 
   // ---------------- Selection filter ----------------
   function applyLegendFilter(){
-    const hasSel = (selIons.size > 0);
+    const depth = (focusNode?.depth ?? 0);
+    const hasSel =
+      (depth===0 && selIons.size>0) ||
+      (depth===1 && selStructs.size>0) ||
+      (depth===2 && selStrats.size>0);
 
     d3.selectAll('path.slice').each(function(){
-      const ion = this.dataset.ion || '';
+      const ion    = this.dataset.ion    || '';
+      const struct = this.dataset.struct || '';
+      const strat  = this.dataset.strat  || '';
       let on = true;
-      if (hasSel){ on = selIons.has(ion); }
+
+      if (hasSel){
+        if (depth===0){
+          on = selIons.has(ion);
+        } else if (depth===1){
+          on = selStructs.has(`ION:${focusNode?.data?.name||''}|STRUCT:${struct}`);
+        } else if (depth===2){
+          const ionA    = chainName(focusNode,1);
+          const structA = chainName(focusNode,0);
+          on = selStrats.has(`ION:${ionA}|STRUCT:${structA}|STRAT:${strat}`);
+        }
+      }
       this.classList.toggle('dimmed', hasSel && !on);
     });
 
     d3.selectAll('.labels text.levelLabel').each(function(d){
       const names = absoluteNames(d);
       let on = true;
-      if (hasSel){ on = selIons.has(names.ion||''); }
+
+      if (hasSel){
+        if (depth===0){
+          on = selIons.has(names.ion||'');
+        } else if (depth===1){
+          on = selStructs.has(`ION:${focusNode?.data?.name||''}|STRUCT:${names.struct||''}`);
+        } else if (depth===2){
+          const ionA    = chainName(focusNode,1);
+          const structA = chainName(focusNode,0);
+          on = selStrats.has(`ION:${ionA}|STRUCT:${structA}|STRAT:${names.strat||''}`);
+        }
+      }
 
       const sel = d3.select(this);
       if (hasSel && !on && HIDE_UNSEL){
@@ -634,18 +593,18 @@
   function renderCrumbs(){
     const el=document.getElementById('crumbs');
     if (!focusNode || focusNode.depth===0){
-      el.innerHTML='<a data-ix="root">Sunburst Root</a>';
-      el.querySelector('a').onclick=()=>{ focusNode=null; selIons.clear(); draw(); };
+      el.innerHTML='<a data-ix="root">All ions</a>';
+      el.querySelector('a').onclick=()=>{ focusNode=null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); };
       return;
     }
     const chain=focusNode.ancestors().reverse().slice(1);
-    el.innerHTML=['<a data-ix="root">Sunburst Root</a>',
+    el.innerHTML=['<a data-ix="root">All ions</a>',
       ...chain.map((n,i)=>` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
     el.querySelectorAll('a').forEach(a=>{
       a.onclick=()=>{
         const ix=a.getAttribute('data-ix');
         focusNode = (ix==='root') ? null : chain[Number(ix)];
-        selIons.clear();
+        selIons.clear(); selStructs.clear(); selStrats.clear();
         draw();
       };
     });
@@ -664,7 +623,7 @@
     const sel = layer.selectAll('text.levelLabel')
       .data(data, d=>`${d.data._uid}-${levelOf(d)}`)
       .join('text')
-      .attr('class', d=> (levelOf(d)==='formula' ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'))
+      .attr('class', 'label visibleLabel levelLabel') // Removed leafLabel
       .text(d=> d.data.name)
       .style('font-size', d=>{
         const lv = levelOf(d);
@@ -685,6 +644,7 @@
     selection.each(function(d){
       const el = d3.select(this);
       
+      // Removed formula text placement entirely. Text only centers in inner rings.
       const rMid = (d.y0 + d.y1) / 2; 
 
       let amid = (d.x0 + d.x1) / 2;
@@ -745,8 +705,7 @@
     const items = [
       { key:'ion',     text:'Ion Type',                       r:rIon    },
       { key:'struct',  text:'Structure Group',                r:rStruct },
-      { key:'strat',   text:'Doping / and or GB Strategy',    r:rStrat  },
-      { key:'formula', text:'Superionic Conductor Formula',   r:rFormula},
+      { key:'strat',   text:'Doping / and or GB Strategy',    r:rStrat  }
     ];
 
     items.forEach((it)=>{
@@ -766,7 +725,6 @@
     _capLayers.ion.raise();
     _capLayers.struct.raise();
     _capLayers.strat.raise();
-    _capLayers.formula.raise();
   }
 
   function applyLabelVisibility(){
@@ -823,8 +781,6 @@
           .attr("x", exportMinX).attr("y", exportMinY)
           .attr("width", exportW).attr("height", exportH)
           .attr("fill", "#ffffff");
-
-      d3Svg.selectAll(".ui-text").style("display", "none");
 
       const exportGroup = d3Svg.append("g").attr("id", "export-elements");
       
@@ -895,7 +851,6 @@
 
       d3Svg.select("#export-elements").remove();
       d3Svg.select("#export-bg").remove();
-      d3Svg.selectAll(".ui-text").style("display", null);
       d3Svg.attr("viewBox", currentViewBox.join(" "));
   }
   </script>
