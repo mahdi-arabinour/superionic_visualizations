@@ -2,95 +2,198 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Ea vs σh</title>
+<title>Ea vs σ — Publication Quality (Final)</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-  body { margin:0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background:#fff; }
+  :root { --bg:#ffffff; --panel:#f8fafc; --text:#0f172a; --accent:#2563eb; }
+  body { margin:0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text); }
+
   header {
     display:flex; gap:15px; align-items:center;
-    padding:10px 25px; background:#f8fafc; border-bottom:1px solid #e2e8f0;
+    padding:12px 25px; background:var(--panel); border-bottom:1px solid #e2e8f0;
+    position:sticky; top:0; z-index:10;
   }
+  
   .btn { 
     border:1px solid #e2e8f0; background:#fff; border-radius:6px; 
-    padding:8px 16px; cursor:pointer; font-size:12px; font-weight:600;
+    padding:8px 16px; cursor:pointer; font-size:12px; font-weight:600; color:#374151; transition: 0.2s;
   }
+  .btn:hover { background:#f1f5f9; border-color: #cbd5e1; }
   .btn-primary { background: #2563eb; color: #fff; border:none; }
   .btn-success { background: #10b981; color: #fff; border:none; }
-  #chart { width:100%; height:90vh; }
+
+  .wrap { padding:16px; display: flex; justify-content: center; }
+  #chart { width:100%; max-width: 1400px; height:85vh; border:1px solid #e2e8f0; border-radius:8px; background:#fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+  #status { font-size:11px; color:#64748b; margin-left:auto; font-weight: 500; }
 </style>
 </head>
 <body>
 
 <header>
-  <label style="font-size:12px; font-weight:700;">Marker Size</label>
-  <input type="range" id="sizeScale" min="6" max="25" value="10">
-  <button onclick="downloadSVG()" class="btn btn-primary" style="margin-left: auto;">⬇ Journal SVG</button>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <label style="font-size:12px; font-weight:700; color: #475569;">Marker Size:</label>
+    <input type="range" id="sizeScale" min="6" max="25" value="10" style="cursor: pointer;">
+  </div>
+  <button onclick="downloadSVG()" class="btn btn-primary" style="margin-left: auto;">⬇ Journal SVG (Vector)</button>
   <button onclick="downloadPNG()" class="btn btn-success">⬇ 300DPI PNG</button>
+  <span id="status">Syncing Data...</span>
 </header>
 
-<div id="chart"></div>
+<div class="wrap">
+  <div id="chart"></div>
+</div>
 
 <script>
-const COL_SIGMA = "Conductivity σ (S/cm)", COL_EA = "Activation Energy Ea (eV)", COL_STRUCT = "Structure Group", COL_ION = "Ion Type", COL_FORM = "Superionic Conductor Formula (Chemical)";
+/* --- 1. DATA CONFIGURATION --- */
+const COL_SIGMA  = "Conductivity σ (S/cm)";
+const COL_EA     = "Activation Energy Ea (eV)";
+const COL_STRUCT = "Structure Group";
+const COL_ION    = "Ion Type";
+const COL_FORM   = "Superionic Conductor Formula (Chemical)";
 
-const COLORS = { "Amorphous":"#FFB300", "Halide":"#008080", "NASICON":"#2E7D32", "Argyrodite":"#8E24AA", "Anti-perovskite":"#1A237E", "Spinel":"#5D4037", "Polymeric":"#E64A19", "Other":"#64748b" };
-const ION_SHAPES = { "Li+":{p:"circle",u:"●"}, "Na+":{p:"diamond",u:"◆"}, "K+":{p:"square",u:"■"}, "Ag+":{p:"triangle-up",u:"▲"}, "Cu+":{p:"triangle-down",u:"▼"}, "H+":{p:"cross",u:"✚"}, "Mg2+":{p:"hexagon",u:"⬢"}, "O2-":{p:"star",u:"★"}, "Rb+":{p:"x",u:"✖"} };
+/* --- 2. MASTER VISUAL INDEX --- */
+const COLORS = { 
+    "Amorphous": "#FFB300", 
+    "Halide": "#008080", 
+    "NASICON": "#2E7D32", 
+    "Argyrodite": "#8E24AA", 
+    "Anti-perovskite": "#1A237E", 
+    "Spinel": "#5D4037", 
+    "Polymeric": "#E64A19", 
+    "Other": "#64748b",
+    "Others": "#64748b" 
+};
 
+const ION_SHAPES = {
+    "Li+": { plotly: "circle", unicode: "●" },
+    "Na+": { plotly: "diamond", unicode: "◆" },
+    "K+": { plotly: "square", unicode: "■" },
+    "Ag+": { plotly: "triangle-up", unicode: "▲" },
+    "Cu+": { plotly: "triangle-down", unicode: "▼" },
+    "H+": { plotly: "cross", unicode: "✚" },
+    "Mg2+": { plotly: "hexagon", unicode: "⬢" },
+    "O2-": { plotly: "star", unicode: "★" },
+    "Rb+": { plotly: "x", unicode: "✖" }
+};
+
+let rawData = [];
+
+/* --- 3. DATA LOADING --- */
 d3.csv("data.csv").then(data => {
-    const rawData = data.filter(d => +d[COL_SIGMA] > 0 && +d[COL_EA] > 0);
+    // Filter out rows missing vital metrics
+    rawData = data.filter(d => +d[COL_SIGMA] > 0 && +d[COL_EA] > 0);
+    document.getElementById("status").textContent = `Loaded ${rawData.length} entries`;
+    drawChart();
+}).catch(err => {
+    document.getElementById("chart").innerHTML = `<div style="padding:40px; color:#b91c1c; text-align:center;"><b>⚠️ data.csv not found or blocked by browser CORS. Use a local server.</b></div>`;
+});
+
+/* --- 4. RENDER ENGINE --- */
+function drawChart() {
+    const size = document.getElementById('sizeScale').value;
+    const traces = [];
     
-    const traces = d3.groups(rawData, d => d[COL_STRUCT]).map(([name, group]) => ({
-        x: group.map(d => +d[COL_EA]),
-        y: group.map(d => +d[COL_SIGMA]),
-        text: group.map(d => d[COL_FORM]),
-        mode: 'markers',
-        name: name,
-        marker: { 
-            size: document.getElementById('sizeScale').value, 
-            color: COLORS[name] || COLORS['Other'], 
-            symbol: group.map(d => (ION_SHAPES[d[COL_ION]] || {p:"octagon"}).p),
-            line: { width: 0.6, color: '#444' }, // Darker stroke for better definition
-            opacity: 0.65 
-        },
-        customdata: group.map(d => d[COL_ION]),
-        hovertemplate: "<b>%{text}</b><br>Ion: %{customdata}<br>Ea: %{x} eV<br>σ: %{y} S/cm<extra></extra>"
-    }));
+    // Group data by structural family
+    const groups = d3.groups(rawData, d => d[COL_STRUCT]);
 
-    // Generate Ion Legend
+    groups.forEach(([name, data]) => {
+        traces.push({
+            x: data.map(d => +d[COL_EA]),
+            y: data.map(d => +d[COL_SIGMA]),
+            text: data.map(d => d[COL_FORM]),
+            mode: 'markers',
+            name: name, // Links to Color Legend
+            marker: { 
+                size: size, 
+                color: COLORS[name] || COLORS['Other'], 
+                symbol: data.map(d => (ION_SHAPES[d[COL_ION]] || {plotly:"octagon"}).plotly),
+                line: {width: 0.6, color: '#444'}, // Dark border for clear overlap definition
+                opacity: 0.65 // Density-aware transparency
+            },
+            hovertemplate: "<b>%{text}</b><br>Ion: %{customdata}<br>Ea: %{x} eV<br>σ: %{y} S/cm<extra></extra>",
+            customdata: data.map(d => d[COL_ION])
+        });
+    });
+
+    // Generate Custom Ion Shape Legend
     const uniqueIons = [...new Set(rawData.map(d => d[COL_ION]))].filter(Boolean).sort();
-    let ionKey = "<b>Ion Type</b><br>";
-    uniqueIons.forEach(ion => { ionKey += `${ION_SHAPES[ion]?.u || '⬣'} ${ion}<br>`; });
+    let ionKeyText = "<b>Ion Type</b><br>";
+    uniqueIons.forEach(ion => {
+        const symbol = ION_SHAPES[ion] ? ION_SHAPES[ion].unicode : "⬣";
+        ionKeyText += `<span style="font-size:14px;">${symbol}</span> ${ion}<br>`;
+    });
 
+    /* --- 5. PUBLICATION LAYOUT --- */
     const layout = {
         title: {
             text: "Ionic Conductivity (σ) vs. Activation Energy (Eₐ)",
-            font: { size: 20, color: '#1e293b' },
-            x: 0.05, y: 0.98 // Pushed higher to avoid modebar
+            font: { size: 22, color: '#0f172a', family: "Arial, sans-serif" },
+            x: 0.05,
+            y: 0.96
         },
-        xaxis: { title: "Activation Energy E<sub>a</sub> (eV)", range: [0, 1.1], gridcolor: "#f1f5f9", zeroline: false },
+        xaxis: { 
+            title: { text: "Activation Energy E<sub>a</sub> (eV)", font: { size: 14, weight: 'bold' } },
+            range: [0, 1.1],
+            gridcolor: "#f1f5f9",
+            zeroline: false
+        },
         yaxis: { 
-            title: "Ionic Conductivity σ (S·cm⁻¹)", type: "log", gridcolor: "#f1f5f9",
+            title: { text: "Ionic Conductivity σ (S·cm⁻¹)", font: { size: 14, weight: 'bold' } },
+            type: "log", 
+            gridcolor: "#f1f5f9",
+            // Scientific 10^n Notation
             tickvals: [1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10],
-            ticktext: ["10⁰", "10⁻¹", "10⁻²", "10⁻³", "10⁻⁴", "10⁻⁵", "10⁻⁶", "10⁻⁷", "10⁻⁸", "10⁻⁹", "10⁻¹⁰"]
+            ticktext: ["10⁰", "10⁻¹", "10⁻²", "10⁻³", "10⁻⁴", "10⁻⁵", "10⁻⁶", "10⁻⁷", "10⁻⁸", "10⁻⁹", "10⁻¹⁰"],
         },
+        /* COLOR LEGEND (Anchored Top Right) */
         showlegend: true,
-        legend: { x: 1.02, y: 1, bordercolor: '#e2e8f0', borderwidth: 1, title: {text: "<b>Structure</b>"} },
+        legend: {
+            title: { text: "<b>Structure Group</b>" },
+            x: 1.02,
+            y: 1,
+            yanchor: 'top', // Fixes alignment
+            bgcolor: 'rgba(255,255,255,0.9)',
+            bordercolor: '#e2e8f0',
+            borderwidth: 1
+        },
+        /* SHAPE LEGEND (Anchored directly below Color Legend) */
         annotations: [{
-            text: ionKey, align: 'left', showarrow: false, xref: 'paper', yref: 'paper',
-            x: 1.02, y: 0.1, font: { size: 11 }, bgcolor: '#fff', bordercolor: '#e2e8f0', borderwidth: 1, borderpad: 8
+            text: ionKeyText,
+            align: 'left',
+            showarrow: false,
+            xref: 'paper', yref: 'paper',
+            x: 1.02, 
+            y: 0.65, 
+            yanchor: 'top', // Hangs downward from this coordinate
+            font: { size: 12, color: '#334155' },
+            bgcolor: 'rgba(255,255,255,0.9)',
+            bordercolor: '#e2e8f0',
+            borderwidth: 1,
+            borderpad: 10
         }],
-        margin: { t: 100, r: 180, b: 60, l: 80 }, // Wide right margin for legends
+        margin: { t: 90, r: 180, b: 60, l: 80 }, // r:180 protects the legends from being cut off in PNG
         plot_bgcolor: "#fff",
-        shapes: [{ type: 'line', x0: 0.05, y0: 5, x1: 1.1, y1: 1e-11, line: { color: '#94a3b8', width: 1.5, dash: 'dash' } }]
+        // Meyer-Neldel Limit Line
+        shapes: [{ 
+            type: 'line', x0: 0.05, y0: 5, x1: 1.1, y1: 1e-11, 
+            line: { color: '#94a3b8', width: 1.5, dash: 'dash' } 
+        }]
     };
 
-    Plotly.newPlot('chart', traces, layout, { responsive: true, displaylogo: false });
-});
+    Plotly.newPlot('chart', traces, layout, { responsive: true, displayModeBar: true });
+}
 
-function downloadPNG() { Plotly.downloadImage('chart', {format:'png', width:2000, height:1200, filename:'Ea_Sigma_Final'}); }
-function downloadSVG() { Plotly.downloadImage('chart', {format:'svg', width:2000, height:1200, filename:'Ea_Sigma_Vector'}); }
-document.getElementById('sizeScale').oninput = () => location.reload(); // Quick refresh for size
+/* --- 6. EXPORT FUNCTIONS --- */
+function downloadPNG() { 
+    Plotly.downloadImage('chart', {format:'png', width:1800, height:1000, filename:'Sigma_Ea_Publication'}); 
+}
+function downloadSVG() { 
+    Plotly.downloadImage('chart', {format:'svg', width:1800, height:1000, filename:'Sigma_Ea_Vector'}); 
+}
+
+// Auto-redraw on slider move
+document.getElementById('sizeScale').oninput = drawChart;
 </script>
 </body>
 </html>
