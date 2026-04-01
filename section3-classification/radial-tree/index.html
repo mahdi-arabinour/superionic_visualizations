@@ -140,7 +140,8 @@ const D3_SHAPE_MAP = {
 const svg = d3.select('#chart');
 const tip = d3.select('#tooltip');
 const say = t => (document.getElementById('status').textContent = t);
-let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
+let DATA=null, COLS=null, WIDTH=0, HEIGHT=0;
+let textRingR = 0; // Globally stored text ring radius for exports
 let selectedIons = null; 
 let ionLegEl = null;
 
@@ -209,7 +210,6 @@ function drawTree(rows){
     bb = document.getElementById('chart').getBoundingClientRect();
   }
   WIDTH=bb.width; HEIGHT=bb.height; 
-  R=Math.min(WIDTH,HEIGHT)/2 - 160; // Provide massive outer padding for the labels
 
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','tree');
@@ -233,6 +233,16 @@ function drawTree(rows){
   const spread  = +document.getElementById('leafSpread').value;
   document.getElementById('leafMaxLbl').textContent=leafMax;
 
+  // DYNAMIC RADII LOGIC (Restores the Spikes)
+  const rIon     = 1.0 * baseEdge;                  
+  const rStruct  = 2.0 * baseEdge;                  
+  const rDoping  = 2.8 * baseEdge; 
+  const rFormula = 3.3 * baseEdge; // Point where the variable-length leaves start
+  
+  // The absolute furthest a branch can go, plus padding for the text ring
+  const maxR = rFormula + leafMax;
+  textRingR = maxR + 10; 
+
   const leaves = buildLeaves(rows);
   const root = {name:'root',children:[]};
   const grouped = d3.group(leaves, d=>d.ion, d=>d.structure, d=>d.dop);
@@ -252,16 +262,11 @@ function drawTree(rows){
   const H = d3.hierarchy(root);
   d3.cluster().size([2*Math.PI,1])(H);
 
-  const rIon     = 1 * baseEdge;                  
-  const rStruct  = 2 * baseEdge;                  
-  const rDoping  = 3 * baseEdge + 0.85 * baseEdge; 
-  const rFormula = rDoping   + 0.90 * baseEdge;   
-
   H.each(n=>{
     if(!n.children) return;
-    if(n.depth===1) n.y = Math.min(R, rIon);
-    else if(n.depth===2) n.y = Math.min(R, rStruct);
-    else if(n.depth===3) n.y = Math.min(R, rDoping);
+    if(n.depth===1) n.y = rIon;
+    else if(n.depth===2) n.y = rStruct;
+    else if(n.depth===3) n.y = rDoping;
   });
 
   const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
@@ -269,17 +274,17 @@ function drawTree(rows){
   let sMin = vals.length? d3.min(vals) : def;
   let sMax = vals.length? d3.max(vals) : def*10;
   if(sMin===sMax){ sMin*=0.9; sMax*=1.1; }
-  const scaleLin=d3.scaleLinear().domain([sMin,sMax]).range([leafMin,leafMax]).nice();
-  const scaleLog=d3.scaleLog().domain([Math.max(sMin,Number.MIN_VALUE),sMax]).range([leafMin,leafMax]);
-  const extra = v => (useLog? scaleLog:scaleLin)(Number.isFinite(+v)&&+v>0? +v : def);
-
-  const maxExtra = Math.max(8, R - rFormula);
-  const rescale = d3.scaleLinear().domain([leafMin,leafMax]).range([leafMin,maxExtra]);
   
-  // RESTORED FIX: Apply varying lengths to leaves based on conductivity
+  // Direct scaling mapping (no maxExtra crunching)
+  const scaleLin=d3.scaleLinear().domain([sMin,sMax]).range([leafMin,leafMax]).nice();
+  const scaleLog=d3.scaleLog().domain([Math.max(sMin, 1e-12), sMax]).range([leafMin,leafMax]);
+  
+  // Apply true physical pixel lengths to the leaves based on conductivity
   H.each(n=>{ 
       if(!n.children) {
-          n.y = rFormula + rescale(extra(n.data.sigma)); 
+          const val = Number.isFinite(+n.data.sigma) && +n.data.sigma > 0 ? +n.data.sigma : def;
+          const extraLength = useLog ? scaleLog(val) : scaleLin(val);
+          n.y = rFormula + extraLength; 
       }
   });
 
@@ -345,15 +350,15 @@ function drawTree(rows){
       arr=kept;
     }
 
-    // DRAW THE DOTTED GUIDE LINES FROM THE SPKY LEAVES TO THE TEXT RING
+    // DRAW THE DOTTED GUIDE LINES FROM THE SPIKY LEAVES TO THE TEXT RING
     if (L.depth === 4) {
         g.append('g').selectAll('line.guide').data(arr).join('line')
-          // Start the line precisely where the branch ended (d.y)
+          // Start the line precisely where the branch ended
           .attr('x1', d => Math.cos(d.x - Math.PI/2) * (d.y + 4)) 
           .attr('y1', d => Math.sin(d.x - Math.PI/2) * (d.y + 4))
-          // End the line precisely at the outer text ring (R + 10)
-          .attr('x2', d => Math.cos(d.x - Math.PI/2) * (R + 10))
-          .attr('y2', d => Math.sin(d.x - Math.PI/2) * (R + 10))
+          // End the line precisely at the outer text ring
+          .attr('x2', d => Math.cos(d.x - Math.PI/2) * textRingR)
+          .attr('y2', d => Math.sin(d.x - Math.PI/2) * textRingR)
           .attr('stroke', '#cbd5e1')
           .attr('stroke-width', 0.8)
           .attr('stroke-dasharray', '2,2');
@@ -364,7 +369,7 @@ function drawTree(rows){
       .attr('transform',d=>{
         const a=d.x;
         // Anchor the text labels securely to the perfect outer circle
-        const r=(L.depth===4 ? R + 14 : d.y + L.off);
+        const r=(L.depth===4 ? textRingR + 4 : d.y + L.off);
         const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
         const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
         return `translate(${x},${y}) rotate(${rot+flip})`;
@@ -451,13 +456,15 @@ async function exportChart(format) {
 
     const titleHeight = 80;   
     const legendWidth = 240;  
-    const pad = 120;          
+    const pad = 160; // Extra padding so long formula text fits safely
+    
     const origViewBox = svgEl.getAttribute("viewBox");
     
-    const minX = -WIDTH/2 - pad;
-    const minY = -HEIGHT/2 - pad - titleHeight;
-    const exportWidth = WIDTH + (pad * 2) + legendWidth;
-    const exportHeight = HEIGHT + (pad * 2) + titleHeight;
+    // Mathematically derive the flawless bounding box for the entire geometric tree
+    const minX = -textRingR - pad;
+    const minY = -textRingR - pad - titleHeight;
+    const exportWidth = (textRingR * 2) + (pad * 2) + legendWidth;
+    const exportHeight = (textRingR * 2) + (pad * 2) + titleHeight;
     
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
 
@@ -478,7 +485,7 @@ async function exportChart(format) {
         .attr("font-family", "Arial, sans-serif")
         .attr("fill", "#0f172a");
 
-    const legX = WIDTH/2 + pad + 10; 
+    const legX = textRingR + pad; 
     let curY = minY + 60; 
 
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
