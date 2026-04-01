@@ -8,7 +8,6 @@
   :root { --bg:#ffffff; --panel:#f8fafc; --grid:#e5e7eb; --ink:#0f172a; --muted:#64748b; }
   html, body { height:100%; margin:0; }
   
-  /* MASTER TYPOGRAPHY INDEX */
   body {
     font-family: Arial, Helvetica, sans-serif;
     background: var(--bg); color: var(--ink);
@@ -27,7 +26,6 @@
   input[type="number"], input[type="range"], select { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-family: Arial, sans-serif; }
   input[type="range"] { cursor: pointer; }
   
-  /* PUBLICATION BUTTONS */
   .btn { border: 1px solid #d0d0d0; background: #fff; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; font-family: Arial, sans-serif; }
   .btn:hover { filter: brightness(0.95); border-color: #aaa; }
   .btn-primary { background: #007aff; color: #fff; border: none; margin-left: auto; }
@@ -46,7 +44,6 @@
   }
   svg { width: 100%; height: 100%; display: block; }
 
-  /* Legend + controls */
   .legend {
     background: var(--panel); border: 1px solid var(--grid); border-radius: 10px;
     padding: 16px; overflow: auto; max-height: calc(100vh - 120px);
@@ -82,7 +79,6 @@
     font-family: Arial, sans-serif;
   }
 
-  /* SVG Labels: Critical for native vector export */
   .label, .leafLabel {
     fill: #0f172a; pointer-events: none;
     paint-order: stroke; stroke: #ffffff; stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round;
@@ -90,11 +86,8 @@
   }
   .hiddenLabel { opacity: 0; transition: opacity .12s ease; }
   .visibleLabel { opacity: 1; transition: opacity .12s ease; }
-
-  /* Dim for non-selected */
   .dimmed { opacity: 0.15; transition: opacity .12s ease; }
 
-  /* Ring captions */
   .cap { pointer-events: none; }
   .cap text {
     font-size: 11px; fill: #475569; font-weight: bold; font-family: Arial, sans-serif;
@@ -122,8 +115,8 @@
       <div id="chart" class="chartBody"></div>
 
       <div class="legend">
-        <h4>Interactive Focus Filter</h4>
-        <div class="legendGroup"></div>
+        <h4>Filter by Ion</h4>
+        <div id="ionLegend" class="legendGroup"></div>
 
         <div class="controls">
           <h4>Label Controls</h4>
@@ -166,52 +159,27 @@
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
   <script>
-  // ---------------- Tunables & MASTER VISUAL INDEX ----------------
+  // ---------------- Tunables ----------------
   const DEF_COND = 1e-6;
   const SCALE_MODE = 'log';
   const RING_SCALE = [1.0, 1.32, 1.52];  
   const LEAF_SCALE = [1.0, 1.45, 1.6];
   const CAP_ARC_DEG = 90;
 
-  // STRUCTURE PALETTE
-  const STRUCT_COLORS = { 
-    "Amorphous": "#FFB300", "Halide": "#008080", "NASICON": "#2E7D32", 
-    "Argyrodite": "#8E24AA", "Anti-perovskite": "#1A237E", 
-    "Spinel": "#5D4037", "Polymeric": "#E64A19", "Other": "#64748b", "Others": "#64748b"
-  };
-  const getStructColor = n => STRUCT_COLORS[n] || "#64748b";
-
-  // ION PALETTE & SHAPES
+  // ION PALETTE (The Unified Color Master)
   const ION_COLORS = {
     "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1",
     "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047",
     "F-": "#ff8a65", "Cu+": "#5c6bc0", "Mg2+": "#26c6da", "In3+": "#c0ca33",
     "I-": "#ec407a", "Sn4+": "#7e57c2"
   };
-  
-  const ION_SHAPES = {
-    "Li+": "circle", "Na+": "diamond", "K+": "square", "Ag+": "triangle-up",
-    "Cu+": "triangle-down", "H+": "cross", "Mg2+": "star", "O2-": "star", "Rb+": "cross"
-  };
-
-  const UNICODE_SHAPES = {
-    "circle": "●", "diamond": "◆", "square": "■", "triangle-up": "▲",
-    "triangle-down": "▼", "cross": "✚", "star": "★"
-  };
-
   const getIonColor = n => ION_COLORS[n] || "#94a3b8";
-  const getIonShapeString = n => ION_SHAPES[n] || "circle";
-  const getIonUnicode = n => UNICODE_SHAPES[ION_SHAPES[n]] || "●";
 
-  const D3_SHAPE_MAP = {
-      "circle": d3.symbolCircle,
-      "diamond": d3.symbolDiamond,
-      "square": d3.symbolSquare,
-      "triangle-up": d3.symbolTriangle,
-      "triangle-down": d3.symbolTriangle, 
-      "cross": d3.symbolCross,
-      "star": d3.symbolStar
+  const SUPERSCRIPTS = {
+    "-10":"⁻¹⁰", "-9":"⁻⁹", "-8":"⁻⁸", "-7":"⁻⁷", "-6":"⁻⁶", 
+    "-5":"⁻⁵", "-4":"⁻⁴", "-3":"⁻³", "-2":"⁻²", "-1":"⁻¹", "0":"⁰"
   };
+  const formatLogLabel = val => `10${SUPERSCRIPTS[Math.round(Math.log10(val))] || '^' + Math.round(Math.log10(val))}`;
 
   // ---------------- State ----------------
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
@@ -356,7 +324,7 @@ function buildHierarchy(dataObj){
              children: node.children?.map(c=>cloneData(c)) };
   }
 
-  // ---------------- Color Mapping ----------------
+  // ---------------- Color Mapping (Strictly by Ion) ----------------
   function absoluteNames(node){
     const orig = idMap.get(node.data._uid);
     let ion=null, struct=null, strat=null;
@@ -370,9 +338,8 @@ function buildHierarchy(dataObj){
   
   function nodeFill(d){
     if (d.depth === 0) return '#f8fafc'; 
-    if (d.depth === 1) return getIonColor(d.data.name); 
     const names = absoluteNames(d);
-    return getStructColor(names.struct || 'Others');
+    return getIonColor(names.ion || 'Other'); // All descendants inherit the Ion color
   }
 
   function levelOf(d){
@@ -384,9 +351,9 @@ function buildHierarchy(dataObj){
   // ---------------- Draw ----------------
   function draw(){
     const chartEl=document.getElementById('chart');
-    const legendEl=document.querySelector('.legendGroup');
+    const legendEl=document.getElementById('ionLegend');
     const tt=document.getElementById('tooltip');
-    chartEl.innerHTML=''; legendEl.innerHTML='';
+    chartEl.innerHTML=''; 
 
     const rect=chartEl.getBoundingClientRect();
     const side=Math.min(Math.max(560, rect.width), Math.max(560, rect.height));
@@ -400,6 +367,7 @@ function buildHierarchy(dataObj){
     _leafBase=Math.max(12, side*0.03);
     const extraLeafMax=Math.max(90, side*0.22)*leafScale;
 
+    // Pure Sunburst Layout
     d3.partition().size([2*Math.PI, (root.height + 1) * _ringThickness])(root);
 
     const condVals=root.leaves().map(l=>l.data.cond||DEF_COND);
@@ -415,6 +383,16 @@ function buildHierarchy(dataObj){
       .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
     _g=svg.append('g'); _defs=svg.append('defs');
 
+    // SUBTITLE
+    g.append("text")
+      .attr("class", "ui-text") 
+      .attr("x", -maxR + 10) 
+      .attr("y", -maxR + 20) 
+      .text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type")
+      .attr("font-size", "12px")
+      .attr("font-family", "Arial, sans-serif")
+      .attr("fill", "#64748b");
+
     const arc=d3.arc().startAngle(d=>d.x0).endAngle(d=>d.x1)
       .padAngle(d=>Math.min(0.006,(d.x1-d.x0)/6)).padRadius(maxR*0.9)
       .innerRadius(d=>d.y0).outerRadius(d=>_outerR(d));
@@ -427,10 +405,11 @@ function buildHierarchy(dataObj){
       .attr('d', arc)
       .attr('fill', d=>{
         const base = nodeFill(d);
+        // Dim the slice slightly if there is no conductivity data
         if (!d.children && !d.data.hasCond){ const c=d3.color(base); c.opacity=0.7; return c.formatRgb(); }
         return base;
       })
-      .attr('stroke','#ffffff').attr('stroke-opacity',0.95)
+      .attr('stroke','#ffffff').attr('stroke-opacity',1.0)
       .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.8, side*0.0016))
       .style('cursor', d => d.children ? 'pointer' : 'default');
 
@@ -443,11 +422,13 @@ function buildHierarchy(dataObj){
 
     const tipVal=v=>(!Number.isFinite(v)?'n/a':(v<0.01?`${(v*1000).toFixed(3)} mS·cm⁻¹`:`${Number(v).toPrecision(3)} S·cm⁻¹`));
     paths.on('mousemove',(evt,d)=>{
-      const trail=d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
-      let html=`<strong>${trail}</strong>`;
+      const names = absoluteNames(d);
+      const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
+      let html=`<div style="font-family:Arial,sans-serif;"><b>${trail}</b>`;
       html += d.children ? `<br/><span style="color:#94a3b8">Sub-formulas: ${d.value}</span>`
                          : (d.data.hasCond ? `<br/>σ: ${tipVal(d.data.cond)}`
                                            : `<br/><em style="color:#94a3b8">No conductivity data</em>`);
+      html+='</div>';
       const tt=document.getElementById('tooltip');
       tt.style.display='block'; tt.innerHTML=html;
       tt.style.left=(evt.clientX+12)+'px'; tt.style.top=(evt.clientY+12)+'px';
@@ -462,10 +443,10 @@ function buildHierarchy(dataObj){
       draw();
     });
 
-    const backR = Math.max(20, (_outerR(root) - root.y0) * 0.20);
+    const backR = Math.max(20, (rIon) * 0.95);
     _g.append('circle')
       .attr('r', backR)
-      .attr('fill', '#f1f5f9')
+      .attr('fill', '#ffffff')
       .style('cursor', focusNode ? 'pointer' : 'default')
       .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); }});
     
@@ -474,80 +455,65 @@ function buildHierarchy(dataObj){
       .style('font-size','13px').style('font-weight','bold').style('fill','#0f172a').style('font-family', 'Arial, sans-serif')
       .text(focusNode ? focusNode.data.name : 'All Ions');
 
+    // CONCENTRIC LOG RINGS
+    const axesGroup = _g.append('g').attr('class', 'axes');
+    const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; 
+    
+    tickVals.forEach(v => {
+        if (v < sMin || v > sMax) return;
+        const r = rFormula + _leafBase + condScale(v);
+        
+        axesGroup.append('circle')
+            .attr('r', r)
+            .attr('fill', 'none')
+            .attr('stroke', '#e2e8f0')
+            .attr('stroke-dasharray', '4,4');
+            
+        axesGroup.append('text')
+            .attr('y', -r - 4) 
+            .attr('x', 0)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#94a3b8')
+            .attr('font-size', '11px')
+            .attr('font-family', 'Arial, sans-serif')
+            .text(formatLogLabel(v));
+    });
+
     layoutLabels();
     renderRingCaptions(root);
     renderCrumbs();
-    buildLegend(legendEl, root);
+    
+    // Only rebuild legend if it's empty to preserve checkboxes during zoom
+    if(!legendEl.hasChildNodes()) buildLegend(legendEl);
+    
     applyLabelVisibility();
     applyLegendFilter();
   }
 
-  // ---------------- Legend (multiselect) ----------------
-  function chainName(n, rel){
-    if (!n) return '';
-    const anc = n.ancestors().reverse();
-    if (n.depth===1){ if (rel===1) return n.data.name; return ''; }
-    if (n.depth===2){ if (rel===1) return anc[1]?.data?.name||''; if (rel===0) return n.data.name; }
-    return '';
-  }
-  
-  function buildLegend(container, subtreeRoot){
+  // ---------------- Legend ----------------
+  function buildLegend(container){
     container.innerHTML='';
-    const depth = (focusNode?.depth ?? 0); 
+    const ions = Array.from(new Set(fullHierarchy.leaves().map(d => absoluteNames(d).ion))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
 
-    (subtreeRoot.children||[]).forEach(node=>{
+    ions.forEach(ion=>{
       const row = document.createElement('label'); row.className='ionRow';
       
-      // Interactive shape container
       const sw = document.createElement('div');
-      sw.style.display = 'flex'; sw.style.gap = '6px'; sw.style.alignItems = 'center';
-      
-      const colorBox = document.createElement('div'); 
-      colorBox.className = 'swatch'; 
-      colorBox.style.background = nodeFill(node);
-      
-      // If it's an Ion, append its shape indicator
-      if(depth === 0) {
-        const shapeBox = document.createElement('div'); 
-        shapeBox.className = 'shapeBox'; 
-        shapeBox.textContent = getIonUnicode(node.data.name);
-        sw.appendChild(colorBox);
-        sw.appendChild(shapeBox);
-      } else {
-        sw.appendChild(colorBox);
-      }
+      sw.className = 'swatch'; 
+      sw.style.background = getIonColor(ion);
       
       const title = document.createElement('div');
       const pick  = document.createElement('input'); pick.type='checkbox';
 
-      title.textContent = node.data.name;
+      title.textContent = ion;
       title.style.fontSize = '12px';
       title.style.fontWeight = 'bold';
 
-      if (depth===0)   pick.checked = selIons.has(node.data.name);
-      else if (depth===1){
-        const ion = (focusNode?.data?.name)||'';
-        pick.checked = selStructs.has(`ION:${ion}|STRUCT:${node.data.name}`);
-      } else if (depth===2){
-        const ion = chainName(focusNode,1);
-        const struct = chainName(focusNode,0);
-        pick.checked = selStrats.has(`ION:${ion}|STRUCT:${struct}|STRAT:${node.data.name}`);
-      }
+      pick.checked = selIons.has(ion);
 
       pick.onchange = ()=>{
-        if (depth===0){
-          if (pick.checked) selIons.add(node.data.name); else selIons.delete(node.data.name);
-        } else if (depth===1){
-          const ion = (focusNode?.data?.name)||'';
-          const key = `ION:${ion}|STRUCT:${node.data.name}`;
-          if (pick.checked) selStructs.add(key); else selStructs.delete(key);
-        } else if (depth===2){
-          const ion    = chainName(focusNode,1);
-          const struct = chainName(focusNode,0);
-          const key = `ION:${ion}|STRUCT:${struct}|STRAT:${node.data.name}`;
-          if (pick.checked) selStrats.add(key); else selStrats.delete(key);
-        }
-        applyLegendFilter();
+          if (pick.checked) selIons.add(ion); else selIons.delete(ion);
+          applyLegendFilter();
       };
 
       row.append(sw, title, pick);
@@ -557,47 +523,19 @@ function buildHierarchy(dataObj){
 
   // ---------------- Selection filter ----------------
   function applyLegendFilter(){
-    const depth = (focusNode?.depth ?? 0);
-    const hasSel =
-      (depth===0 && selIons.size>0) ||
-      (depth===1 && selStructs.size>0) ||
-      (depth===2 && selStrats.size>0);
+    const hasSel = (selIons.size > 0);
 
     d3.selectAll('path.slice').each(function(){
-      const ion    = this.dataset.ion    || '';
-      const struct = this.dataset.struct || '';
-      const strat  = this.dataset.strat  || '';
+      const ion = this.dataset.ion || '';
       let on = true;
-
-      if (hasSel){
-        if (depth===0){
-          on = selIons.has(ion);
-        } else if (depth===1){
-          on = selStructs.has(`ION:${focusNode?.data?.name||''}|STRUCT:${struct}`);
-        } else if (depth===2){
-          const ionA    = chainName(focusNode,1);
-          const structA = chainName(focusNode,0);
-          on = selStrats.has(`ION:${ionA}|STRUCT:${structA}|STRAT:${strat}`);
-        }
-      }
+      if (hasSel){ on = selIons.has(ion); }
       this.classList.toggle('dimmed', hasSel && !on);
     });
 
     d3.selectAll('.labels text.levelLabel').each(function(d){
       const names = absoluteNames(d);
       let on = true;
-
-      if (hasSel){
-        if (depth===0){
-          on = selIons.has(names.ion||'');
-        } else if (depth===1){
-          on = selStructs.has(`ION:${focusNode?.data?.name||''}|STRUCT:${names.struct||''}`);
-        } else if (depth===2){
-          const ionA    = chainName(focusNode,1);
-          const structA = chainName(focusNode,0);
-          on = selStrats.has(`ION:${ionA}|STRUCT:${structA}|STRAT:${names.strat||''}`);
-        }
-      }
+      if (hasSel){ on = selIons.has(names.ion||''); }
 
       const sel = d3.select(this);
       if (hasSel && !on && HIDE_UNSEL){
@@ -613,7 +551,7 @@ function buildHierarchy(dataObj){
     const el=document.getElementById('crumbs');
     if (!focusNode || focusNode.depth===0){
       el.innerHTML='<a data-ix="root">Sunburst Root</a>';
-      el.querySelector('a').onclick=()=>{ focusNode=null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); };
+      el.querySelector('a').onclick=()=>{ focusNode=null; selIons.clear(); draw(); };
       return;
     }
     const chain=focusNode.ancestors().reverse().slice(1);
@@ -623,7 +561,7 @@ function buildHierarchy(dataObj){
       a.onclick=()=>{
         const ix=a.getAttribute('data-ix');
         focusNode = (ix==='root') ? null : chain[Number(ix)];
-        selIons.clear(); selStructs.clear(); selStrats.clear();
+        selIons.clear();
         draw();
       };
     });
@@ -665,10 +603,14 @@ function buildHierarchy(dataObj){
     selection.each(function(d){
       const el = d3.select(this);
       const lv = levelOf(d);
+      const isLeaf = (lv === 'formula');
       
-      const rMidBase = (d.y0 + (lv==='formula' ? _outerR(d) : d.y1)) / 2;
-      const formulaOffset = Math.max(12, _leafBase * 0.95);
-      const rMid = rMidBase + (lv==='formula' ? formulaOffset : 4);
+      let rMid;
+      if (isLeaf) {
+        rMid = _outerR(d) + 6; // Place formula text just outside the slice
+      } else {
+        rMid = (d.y0 + d.y1) / 2; // Center text inside the slice
+      }
 
       let amid = (d.x0 + d.x1) / 2;
       if (d.x0 < 0 && d.x1 > 0) amid += 0.01;
@@ -677,7 +619,7 @@ function buildHierarchy(dataObj){
       const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
 
       el.attr('dy','0.32em')
-        .attr('text-anchor','middle')
+        .attr('text-anchor', isLeaf ? (upright ? 'start' : 'end') : 'middle')
         .attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`)
         .style('opacity', 1)
         .style('display', null);
@@ -807,63 +749,36 @@ function buildHierarchy(dataObj){
           .attr("width", exportW).attr("height", exportH)
           .attr("fill", "#ffffff");
 
+      d3Svg.selectAll(".ui-text").style("display", "none");
+
       const exportGroup = d3Svg.append("g").attr("id", "export-elements");
       
-      // SUBTITLE ONLY (No Title)
       exportGroup.append("text")
           .attr("x", exportMinX + 40) 
           .attr("y", exportMinY + 60) 
-          .text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Structure Group")
+          .text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type")
           .attr("font-size", "16px")
           .attr("font-family", "Arial, sans-serif")
           .attr("fill", "#64748b");
 
-      // STATIC LEGENDS FOR EXPORT
-      const legX = origX + origW + (pad/2); 
+      const legX = origX + origW + (pad/2) - 40; 
       let curY = exportMinY + 60; 
 
-      // 1. Structure Legend
-      exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
-          .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
-      curY += 28;
-
-      const structCounts = {};
-      const ionCounts = {};
-      
-      fullHierarchy.leaves().forEach(d => {
-          const names = absoluteNames(d);
-          const st = names.struct || 'Others';
-          const ion = names.ion || 'Other';
-          structCounts[st] = (structCounts[st] || 0) + 1;
-          ionCounts[ion] = (ionCounts[ion] || 0) + 1;
-      });
-
-      Object.keys(STRUCT_COLORS).filter(k => k !== 'Others' && structCounts[k]).sort().forEach(st => {
-          exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
-              .attr("width", 14).attr("height", 14).attr("rx", 2)
-              .attr("fill", getStructColor(st)).attr("stroke", "rgba(0,0,0,0.15)");
-              
-          exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
-              .text(`${st} (${structCounts[st]})`)
-              .attr("font-size", "13px").attr("font-family", "Arial, sans-serif").attr("fill", "#0f172a");
-          curY += 22;
-      });
-
-      curY += 30;
-
-      // 2. Ion Legend
       exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
           .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
       curY += 28;
 
-      Object.keys(ionCounts).sort((a,b)=>a.localeCompare(b)).forEach(ion => {
-          const d3Type = D3_SHAPE_MAP[getIonShapeString(ion)] || d3.symbolCircle;
-          const sym = d3.symbol().type(d3Type).size(80)();
-          
-          exportGroup.append("path").attr("d", sym)
-              .attr("transform", `translate(${legX + 7}, ${curY - 5}) ${getIonShapeString(ion)==='triangle-down'?'rotate(180)':''}`)
-              .attr("fill", getIonColor(ion)).attr("stroke", "#334155").attr("stroke-width", 0.5); // Thin dark border so bright colors don't vanish on white bg
-          
+      const ionCounts = {};
+      fullHierarchy.leaves().forEach(d => {
+          const ion = absoluteNames(d).ion || 'Other';
+          ionCounts[ion] = (ionCounts[ion] || 0) + 1;
+      });
+
+      Object.keys(ionCounts).sort().forEach(ion => {
+          exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
+              .attr("width", 14).attr("height", 14).attr("rx", 2)
+              .attr("fill", getIonColor(ion)).attr("stroke", "rgba(0,0,0,0.15)");
+              
           exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
               .text(`${ion} (${ionCounts[ion]})`)
               .attr("font-size", "13px").attr("font-family", "Arial, sans-serif").attr("fill", "#0f172a");
@@ -879,7 +794,7 @@ function buildHierarchy(dataObj){
           link.href = url; link.download = "Sunburst_Publication.svg";
           document.body.appendChild(link); link.click(); document.body.removeChild(link);
       } else {
-          const scale = 4; // 600 DPI 
+          const scale = 4; 
           const canvas = document.createElement("canvas");
           canvas.width = exportW * scale;
           canvas.height = exportH * scale;
@@ -905,6 +820,7 @@ function buildHierarchy(dataObj){
 
       d3Svg.select("#export-elements").remove();
       d3Svg.select("#export-bg").remove();
+      d3Svg.selectAll(".ui-text").style("display", null);
       d3Svg.attr("viewBox", currentViewBox.join(" "));
   }
   </script>
