@@ -56,7 +56,7 @@
 </head>
 <body>
 
-<h2>σ (S/cm) vs Doping Type</h2>
+<h2>σ (S/cm) vs Doping Type — colored by Structure Group</h2>
 
 <div class="controls">
   <div class="ctl">
@@ -221,18 +221,6 @@ d3.csv("data.csv").then(raw=>{
   bmG.append("text").attr("x", bX + 6).attr("y", -8).attr("fill", "#ef4444")
     .attr("font-size", 12).attr("font-weight", "bold").attr("font-family", "ui-sans-serif, system-ui")
     .text("10⁻³ S/cm (Target)");
-
-  // Box Plot Key in Bottom Right
-  const blG = g.append("g").attr("class", "boxplot-key").attr("transform", `translate(${W - 140}, ${H + 35})`);
-  blG.append("text").attr("x", -10).attr("y", 4).attr("fill", "#64748b").attr("font-size", 11).attr("font-weight", "600").attr("text-anchor", "end").text("Box Plot Key:");
-  blG.append("line").attr("x1", 0).attr("x2", 100).attr("y1", 0).attr("y2", 0).attr("stroke", "#94a3b8").attr("stroke-width", 1);
-  blG.append("rect").attr("x", 25).attr("width", 50).attr("y", -6).attr("height", 12).attr("fill", "#e2e8f0").attr("opacity", 0.5).attr("stroke", "#64748b");
-  blG.append("line").attr("x1", 60).attr("x2", 60).attr("y1", -6).attr("y2", 6).attr("stroke", "#475569").attr("stroke-width", 2);
-  blG.append("text").attr("x", 0).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Min");
-  blG.append("text").attr("x", 25).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Q1");
-  blG.append("text").attr("x", 60).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Med");
-  blG.append("text").attr("x", 75).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Q3");
-  blG.append("text").attr("x", 100).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Max");
 
   buildStructureLegend();
   wireSizeControl();
@@ -553,6 +541,60 @@ function prepareSVGForExport(svgNode) {
   tLegEa2.setAttribute("font-size", "11px");
   tLegEa2.setAttribute("font-family", 'ui-sans-serif, system-ui, -apple-system, sans-serif');
   lg.appendChild(tLegEa2);
+
+
+  yPos += 30;
+  const tLegBox = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  tLegBox.textContent = "Box Plot Key";
+  tLegBox.setAttribute("x", 10);
+  tLegBox.setAttribute("y", yPos);
+  tLegBox.setAttribute("fill", "#111827");
+  tLegBox.setAttribute("font-size", "14px");
+  tLegBox.setAttribute("font-weight", "bold");
+  tLegBox.setAttribute("font-family", 'ui-sans-serif, system-ui, -apple-system, sans-serif');
+  lg.appendChild(tLegBox);
+  yPos += 20;
+
+  const blG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  blG.setAttribute("transform", `translate(16, ${yPos})`);
+  
+  const l1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  l1.setAttribute("x1", 0); l1.setAttribute("x2", 140); l1.setAttribute("y1", 0); l1.setAttribute("y2", 0);
+  l1.setAttribute("stroke", "#94a3b8"); l1.setAttribute("stroke-width", 1);
+  blG.appendChild(l1);
+
+  const r1 = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  r1.setAttribute("x", 35); r1.setAttribute("width", 70); r1.setAttribute("y", -6); r1.setAttribute("height", 12);
+  r1.setAttribute("fill", "#e2e8f0"); r1.setAttribute("opacity", 0.5); r1.setAttribute("stroke", "#64748b");
+  blG.appendChild(r1);
+
+  const l2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  l2.setAttribute("x1", 80); l2.setAttribute("x2", 80); l2.setAttribute("y1", -6); l2.setAttribute("y2", 6);
+  l2.setAttribute("stroke", "#475569"); l2.setAttribute("stroke-width", 2);
+  blG.appendChild(l2);
+
+  const fSize = 11;
+  const t1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  t1.setAttribute("x", 0); t1.setAttribute("y", 18); t1.setAttribute("font-size", fSize); t1.setAttribute("fill", "#64748b"); t1.setAttribute("text-anchor", "middle"); t1.setAttribute("font-family", "ui-sans-serif, system-ui, sans-serif"); t1.textContent = "Min";
+  blG.appendChild(t1);
+
+  const t2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  t2.setAttribute("x", 35); t2.setAttribute("y", 18); t2.setAttribute("font-size", fSize); t2.setAttribute("fill", "#64748b"); t2.setAttribute("text-anchor", "middle"); t2.setAttribute("font-family", "ui-sans-serif, system-ui, sans-serif"); t2.textContent = "Q1";
+  blG.appendChild(t2);
+
+  const t3 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  t3.setAttribute("x", 80); t3.setAttribute("y", 18); t3.setAttribute("font-size", fSize); t3.setAttribute("fill", "#64748b"); t3.setAttribute("text-anchor", "middle"); t3.setAttribute("font-family", "ui-sans-serif, system-ui, sans-serif"); t3.textContent = "Med";
+  blG.appendChild(t3);
+
+  const t4 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  t4.setAttribute("x", 105); t4.setAttribute("y", 18); t4.setAttribute("font-size", fSize); t4.setAttribute("fill", "#64748b"); t4.setAttribute("text-anchor", "middle"); t4.setAttribute("font-family", "ui-sans-serif, system-ui, sans-serif"); t4.textContent = "Q3";
+  blG.appendChild(t4);
+
+  const t5 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  t5.setAttribute("x", 140); t5.setAttribute("y", 18); t5.setAttribute("font-size", fSize); t5.setAttribute("fill", "#64748b"); t5.setAttribute("text-anchor", "middle"); t5.setAttribute("font-family", "ui-sans-serif, system-ui, sans-serif"); t5.textContent = "Max";
+  blG.appendChild(t5);
+
+  lg.appendChild(blG);
 
   clone.appendChild(lg);
 
