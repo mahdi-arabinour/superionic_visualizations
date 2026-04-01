@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Ea vs σ — Publication Quality</title>
+<title>Ea vs σ</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
@@ -17,43 +17,44 @@
   
   .btn { 
     border:1px solid #e2e8f0; background:#fff; border-radius:999px; 
-    padding:6px 14px; cursor:pointer; font-size:12px; font-weight:600; color:#374151;
+    padding:6px 14px; cursor:pointer; font-size:12px; font-weight:600; color:#374151; transition: 0.2s;
   }
-  .btn:hover { background:#f1f5f9; }
+  .btn:hover { background:#f1f5f9; border-color: #cbd5e1; }
   .btn-primary { background: #2563eb; color: #fff; border-color: #1d4ed8; }
   .btn-success { background: #10b981; color: #fff; border-color: #059669; }
 
   .wrap { display:grid; grid-template-columns: 1fr 320px; gap:16px; padding:16px; }
-  #chart { width:100%; height:82vh; border:1px solid #e2e8f0; border-radius:12px; background:#fff; }
+  #chart { width:100%; height:80vh; border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
 
-  aside { display:flex; flex-direction:column; gap:16px; max-height:82vh; overflow:auto; }
-  .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-  h3 { margin:0 0 8px; font-size:13px; font-weight:700; color:#1e293b; border-bottom:1px solid #f1f5f9; padding-bottom:4px; }
+  aside { display:flex; flex-direction:column; gap:16px; max-height:80vh; overflow:auto; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  h3 { margin:0 0 8px; font-size:13px; font-weight:700; color:#1e293b; border-bottom:1px solid #f1f5f9; padding-bottom:6px; text-transform: uppercase; letter-spacing: 0.025em; }
 
   .legend-row {
-    display:flex; align-items:center; gap:8px; padding:6px 10px; margin:4px 0;
-    border:1px solid #f1f5f9; border-radius:8px; font-size:12px;
+    display:flex; align-items:center; gap:10px; padding:8px 12px; margin:4px 0;
+    border:1px solid #f1f5f9; border-radius:8px; font-size:12px; cursor: pointer; transition: 0.2s;
   }
-  .swatch { width:12px; height:12px; border-radius:3px; border:1px solid rgba(0,0,0,0.1); }
-  .ion-symbol { font-size: 14px; width: 18px; text-align: center; color: #475569; }
-  #status { font-size:11px; color:#64748b; margin-left:auto; }
+  .legend-row:hover { background: #f8fafc; border-color: #e2e8f0; }
+  .swatch { width:14px; height:14px; border-radius:4px; border:1px solid rgba(0,0,0,0.1); }
+  .ion-symbol { font-size: 16px; width: 20px; text-align: center; color: #334155; font-weight: bold; }
+  #status { font-size:11px; color:#64748b; margin-left:auto; font-weight: 500; }
 </style>
 </head>
 <body>
 
 <header>
-  <div style="display:flex; align-items:center; gap:8px;">
-    <label style="font-size:12px; font-weight:600;">Marker Size:</label>
-    <input type="range" id="sizeScale" min="6" max="25" value="12">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <label style="font-size:12px; font-weight:700; color: #475569;">Marker Size</label>
+    <input type="range" id="sizeScale" min="6" max="25" value="10" style="cursor: pointer;">
   </div>
   <button onclick="downloadSVG()" class="btn btn-primary" style="margin-left: auto;">⬇ Journal SVG (Vector)</button>
   <button onclick="downloadPNG()" class="btn btn-success">⬇ 300DPI PNG</button>
-  <span id="status">Loading data.csv...</span>
+  <span id="status">Syncing Data...</span>
 </header>
 
 <div style="padding: 15px 20px 0;">
-  <h2 id="mainTitle" style="margin:0; font-size:22px;">Ionic Conductivity (σ) vs. Activation Energy (Eₐ)</h2>
-  <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Standardized Mapping: Colors denote Structure | Shapes denote Ion Type.</p>
+  <h2 id="mainTitle" style="margin:0; font-size:24px; color:#0f172a; letter-spacing:-0.02em;">Ionic Conductivity (σ) vs. Activation Energy (Eₐ)</h2>
+  <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Double Encoded Logic: <b style="color:#2563eb;">Color = Structure</b> | <b style="color:#2563eb;">Shape = Ion</b>. Optimized for Peer Review.</p>
 </div>
 
 <div class="wrap">
@@ -72,27 +73,27 @@
 </div>
 
 <script>
-/* Column Mapping */
+/* --- DATA CONFIG --- */
 const COL_SIGMA  = "Conductivity σ (S/cm)";
 const COL_EA      = "Activation Energy Ea (eV)";
 const COL_STRUCT = "Structure Group";
 const COL_ION    = "Ion Type";
 const COL_FORM   = "Superionic Conductor Formula (Chemical)";
 
-/* MASTER INDEX: COLORS */
+/* REFINED COLOR PALETTE (Enhanced Contrast) */
 const COLORS = { 
-    "Amorphous": "#FFBF00", 
+    "Amorphous": "#FFB300", 
     "Halide": "#008080", 
-    "NASICON": "#4CAF50", 
-    "Argyrodite": "#9C27B0", 
-    "Anti-perovskite": "#000080", 
-    "Spinel": "#795548", 
-    "Polymeric": "#FF5722", 
-    "Other": "#708090",
-    "Others": "#708090" 
+    "NASICON": "#2E7D32", // Darker Forest Green for better contrast
+    "Argyrodite": "#8E24AA", 
+    "Anti-perovskite": "#1A237E", 
+    "Spinel": "#5D4037", 
+    "Polymeric": "#E64A19", 
+    "Other": "#64748b",
+    "Others": "#64748b" 
 };
 
-/* MASTER INDEX: SHAPES */
+/* MASTER SHAPE MAP */
 const ION_SHAPES = {
     "Li+": { plotly: "circle", unicode: "●" },
     "Na+": { plotly: "diamond", unicode: "◆" },
@@ -112,9 +113,7 @@ d3.csv("data.csv").then(data => {
     rawData = data.filter(d => +d[COL_SIGMA] > 0 && +d[COL_EA] > 0);
     document.getElementById("status").textContent = `Loaded ${rawData.length} entries`;
     
-    // Sort structures alphabetically for consistent UI
     const structs = [...new Set(rawData.map(d => d[COL_STRUCT]))].filter(Boolean).sort();
-    
     renderLegend(structs);
     drawChart();
 }).catch(err => {
@@ -127,6 +126,7 @@ function renderLegend(structs) {
     structs.forEach(s => {
         const div = document.createElement('div');
         div.className = 'legend-row';
+        div.onclick = () => highlightGroup(s);
         div.innerHTML = `<div class="swatch" style="background:${COLORS[s] || COLORS['Other']}"></div><span>${s}</span>`;
         sCont.appendChild(div);
     });
@@ -141,6 +141,12 @@ function renderLegend(structs) {
         div.innerHTML = `<span class="ion-symbol">${shapeData.unicode}</span><span>${ion}</span>`;
         iCont.appendChild(div);
     });
+}
+
+function highlightGroup(name) {
+    // Simple Plotly restyle to isolate one group on click
+    const visibility = rawData.map(d => d[COL_STRUCT] === name ? 1 : 0.1);
+    Plotly.restyle('chart', { 'marker.opacity': visibility });
 }
 
 function drawChart() {
@@ -159,8 +165,8 @@ function drawChart() {
                 size: size, 
                 color: COLORS[name] || COLORS['Other'], 
                 symbol: data.map(d => (ION_SHAPES[d[COL_ION]] || DEFAULT_SHAPE).plotly),
-                line: {width: 0.5, color: '#fff'}, 
-                opacity: 0.65 // FIXED: Added transparency to solve the "data hairball"
+                line: {width: 0.3, color: '#333'}, // DARKER, THINNER BORDERS for definition
+                opacity: 0.55 // OPTIMIZED TRANSPARENCY for overplotting
             },
             hovertemplate: "<b>%{text}</b><br>Ion: %{customdata}<br>Ea: %{x} eV<br>σ: %{y} S/cm<extra></extra>",
             customdata: data.map(d => d[COL_ION])
@@ -169,33 +175,36 @@ function drawChart() {
 
     const layout = {
         xaxis: { 
-            title: "Activation Energy E<sub>a</sub> (eV)", 
-            range: [0, 1.1], // Zoomed in slightly to reduce empty right-side space
+            title: { text: "Activation Energy E<sub>a</sub> (eV)", font: { size: 14, weight: 'bold' } },
+            range: [0, 0.8], // FOCUS RANGE: Hides right-side empty space by default
             gridcolor: "#f1f5f9",
-            zeroline: false
+            zeroline: false,
+            tickfont: { size: 11 }
         },
         yaxis: { 
-            title: "Ionic Conductivity σ (S·cm⁻¹)", 
+            title: { text: "Ionic Conductivity σ (S·cm⁻¹)", font: { size: 14, weight: 'bold' } },
             type: "log", 
             gridcolor: "#f1f5f9",
-            tickformat: ".1e", // FIXED: Standardized to scientific notation
+            /* PUBLICATION STYLE: 10^x notation */
+            tickvals: [1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10],
+            ticktext: ["10⁰", "10⁻¹", "10⁻²", "10⁻³", "10⁻⁴", "10⁻⁵", "10⁻⁶", "10⁻⁷", "10⁻⁸", "10⁻⁹", "10⁻¹⁰"],
             exponentformat: "power"
         },
-        margin: { t: 20, r: 20, b: 60, l: 80 },
+        margin: { t: 30, r: 30, b: 60, l: 80 },
         showlegend: false,
         plot_bgcolor: "#fff",
-        // Extended Meyer-Neldel Limit line
+        // Extended & Polished Meyer-Neldel Limit
         shapes: [{ 
             type: 'line', x0: 0.05, y0: 5, x1: 1.1, y1: 1e-11, 
-            line: { color: '#94a3b8', width: 1.5, dash: 'dash' } 
+            line: { color: '#64748b', width: 1.5, dash: 'dash' } 
         }]
     };
 
-    Plotly.newPlot('chart', traces, layout, { responsive: true, displayModeBar: false });
+    Plotly.newPlot('chart', traces, layout, { responsive: true, displayModeBar: true });
 }
 
-function downloadPNG() { Plotly.downloadImage('chart', {format:'png', width:1600, height:1000, filename:'Ionic_Conductivity_Ea_Scatter'}); }
-function downloadSVG() { Plotly.downloadImage('chart', {format:'svg', width:1600, height:1000, filename:'Ionic_Conductivity_Ea_Vector'}); }
+function downloadPNG() { Plotly.downloadImage('chart', {format:'png', width:2000, height:1200, filename:'Sigma_Ea_HighRes'}); }
+function downloadSVG() { Plotly.downloadImage('chart', {format:'svg', width:2000, height:1200, filename:'Sigma_Ea_Vector'}); }
 
 document.getElementById('sizeScale').oninput = drawChart;
 </script>
