@@ -103,8 +103,6 @@
   <header>
     <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:70px"></label>
     <label><input type="checkbox" id="useLog" checked> log₁₀(σ) length</label>
-    <label>Leaf scale: <input type="range" id="leafMax" min="20" max="240" step="2" value="120"><span id="leafMaxLbl">120</span> px</label>
-    <button id="resetView" class="pill" style="margin-left: 10px;">↺ Reset View</button>
     
     <span id="crumbs" class="crumbs"></span>
     
@@ -121,6 +119,13 @@
         <div id="ionLegend" class="legendGroup"></div>
 
         <div class="controls">
+          
+          <div id="csv-fallback" style="display:none; margin-bottom: 10px; background: #fee2e2; padding: 10px; border-radius: 6px; border: 1px solid #fca5a5;">
+            <p style="font-size:11px; color:#be123c; margin:0 0 6px 0; font-weight:bold;">Browser blocked local file access. Please select your data.csv manually:</p>
+            <button id="pick-csv" class="pill" style="background:#fff;">Choose data.csv…</button>
+            <input id="csv-input" type="file" accept=".csv" style="display:none">
+          </div>
+
           <h4>Label Controls</h4>
           <label class="toggleRow">
             <input type="checkbox" id="toggleAll" checked> Show all labels
@@ -168,7 +173,7 @@
   const LEAF_SCALE = [1.0, 1.45, 1.6];
   const CAP_ARC_DEG = 90;
 
-  // ION PALETTE
+  // PURE ION COLOR PALETTE
   const ION_COLORS = {
     "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1",
     "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047",
@@ -192,11 +197,40 @@
   let FS_ION=14, FS_STRUCT=13, FS_STRAT=11, FS_FORM=10;
 
   const selIons    = new Set();
-  const selStructs = new Set(); 
-  const selStrats  = new Set(); 
-
   let HIDE_UNSEL = true;
   const ui = {};
+
+  // ---------------- Fallback Loader ----------------
+  async function loadCSVWithFallback(){
+    try { 
+      return await d3.csv(new URL('data.csv', document.baseURI).href, d3.autoType); 
+    }
+    catch(e){
+      const fb = document.getElementById('csv-fallback');
+      const btn = document.getElementById('pick-csv');
+      const inp = document.getElementById('csv-input');
+      if(!fb||!btn||!inp) throw e;
+      
+      fb.style.display = 'block'; // Show warning + button
+      
+      return await new Promise((resolve, reject)=>{
+        btn.addEventListener('click', ()=>inp.click(), {once:true});
+        inp.addEventListener('change', ()=>{
+          const f = inp.files && inp.files[0]; 
+          if(!f) return reject(new Error('No file selected'));
+          const r = new FileReader();
+          r.onload = ()=>{ 
+            try { 
+              resolve(d3.csvParse(r.result, d3.autoType)); 
+              fb.style.display = 'none'; // Hide once successful
+            } catch(err) { reject(err); } 
+          };
+          r.onerror = reject; 
+          r.readAsText(f);
+        }, {once:true});
+      });
+    }
+  }
 
   // ---------------- Boot ----------------
   document.addEventListener('DOMContentLoaded', async ()=>{
@@ -225,7 +259,7 @@
     ui.fsFormula.oninput = ()=>{ FS_FORM  = +ui.fsFormula.value; layoutLabels(true); };
 
     ui.btnClearSel.onclick = ()=>{
-      selIons.clear(); selStructs.clear(); selStrats.clear();
+      selIons.clear();
       document.querySelectorAll('.legendGroup input[type="checkbox"]').forEach(cb=>{ cb.checked=false; });
       applyLegendFilter();
     };
@@ -233,12 +267,12 @@
     ui.hideUnsel.onchange = ()=>{ HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
 
     try {
-      const csvRows = await d3.csv('data.csv', d3.autoType);
+      const csvRows = await loadCSVWithFallback();
       const dataObj = rowsToNested(csvRows);
       fullHierarchy = buildHierarchy(dataObj);
       draw();
     } catch(e) {
-      document.getElementById('chart').innerHTML = `<div style="padding:20px;color:red;font-weight:bold;">Error loading data.csv. Please ensure the file exists in the same directory and you are running a local server.</div>`;
+      document.getElementById('chart').innerHTML = `<div style="padding:20px;color:red;font-weight:bold;">Error loading data.</div>`;
     }
 
     window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(draw,120); });
@@ -263,32 +297,32 @@
   let _uid=1;
   function assignUids(root){ root.each(n=>{ n.data._uid=_uid++; idMap.set(n.data._uid, n); }); }
   
-function rowsToNested(rows){
-  const root = {};
-  const get = (obj, key) => (obj[key] ??= {});
+  function rowsToNested(rows){
+    const root = {};
+    const get = (obj, key) => (obj[key] ??= {});
 
-  rows.forEach(r=>{
-    const ion     = String(r['Ion Type'] ?? '').trim();
-    const struct  = String(r['Structure Group'] ?? '').trim();
-    const strat   = String(r['Doping / and or GB Strategy'] ?? '').trim();
-    const formula = String(r['Superionic Conductor Formula (Chemical)'] ?? '').trim();
-    const rawCond = r['Conductivity σ (S/cm)'];
+    rows.forEach(r=>{
+      const ion     = String(r['Ion Type'] ?? '').trim();
+      const struct  = String(r['Structure Group'] ?? '').trim();
+      const strat   = String(r['Doping / and or GB Strategy'] ?? '').trim();
+      const formula = String(r['Superionic Conductor Formula (Chemical)'] ?? '').trim();
+      const rawCond = r['Conductivity σ (S/cm)'];
 
-    if (!ion || !struct || !strat || !formula) return;
+      if (!ion || !struct || !strat || !formula) return;
 
-    const ionObj    = get(root, ion);
-    const structObj = get(ionObj, struct);
-    const stratObj  = get(structObj, strat);
+      const ionObj    = get(root, ion);
+      const structObj = get(ionObj, struct);
+      const stratObj  = get(structObj, strat);
 
-    const arr = (stratObj[formula] ??= []);
-    const c = (typeof rawCond === 'number') ? rawCond : +String(rawCond).replace(/[, ]/g,'');
-    if (Number.isFinite(c) && c > 0) arr.push(c);
-  });
+      const arr = (stratObj[formula] ??= []);
+      const c = (typeof rawCond === 'number') ? rawCond : +String(rawCond).replace(/[, ]/g,'');
+      if (Number.isFinite(c) && c > 0) arr.push(c);
+    });
 
-  return root;
-}
+    return root;
+  }
 
-function buildHierarchy(dataObj){
+  function buildHierarchy(dataObj){
     const data={ name:'root', children:obj2children(dataObj) };
     const root=d3.hierarchy(data, d=>d.children)
       .sum(d => Array.isArray(d?.values) ? 1 : 0)
@@ -321,6 +355,7 @@ function buildHierarchy(dataObj){
     });
     return clone;
   }
+  
   function cloneData(node){
     return { name:node.data.name, values:node.data.values, _uid:node.data._uid,
              children: node.children?.map(c=>cloneData(c)) };
@@ -354,7 +389,6 @@ function buildHierarchy(dataObj){
   function draw(){
     const chartEl=document.getElementById('chart');
     const legendEl=document.getElementById('ionLegend');
-    const tt=document.getElementById('tooltip');
     chartEl.innerHTML=''; 
 
     const rect=chartEl.getBoundingClientRect();
@@ -422,7 +456,6 @@ function buildHierarchy(dataObj){
 
     const tipVal=v=>(!Number.isFinite(v)?'n/a':(v<0.01?`${(v*1000).toFixed(3)} mS·cm⁻¹`:`${Number(v).toPrecision(3)} S·cm⁻¹`));
     paths.on('mousemove',(evt,d)=>{
-      const names = absoluteNames(d);
       const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
       let html=`<div style="font-family:Arial,sans-serif;"><b>${trail}</b>`;
       html += d.children ? `<br/><span style="color:#94a3b8">Sub-formulas: ${d.value}</span>`
@@ -439,16 +472,16 @@ function buildHierarchy(dataObj){
       const full = idMap.get(d.data._uid);
       if (focusNode && full === focusNode) { focusNode = focusNode.parent || null; }
       else { focusNode = full; }
-      selIons.clear(); selStructs.clear(); selStrats.clear();
+      selIons.clear(); 
       draw();
     });
 
-    const backR = Math.max(20, (rIon) * 0.95);
+    const backR = Math.max(20, (midForDepth(root, 1)) * 0.4);
     _g.append('circle')
       .attr('r', backR)
       .attr('fill', '#ffffff')
       .style('cursor', focusNode ? 'pointer' : 'default')
-      .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); }});
+      .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; selIons.clear(); draw(); }});
     
     _g.append('text')
       .attr('text-anchor','middle').attr('dy','0.35em')
@@ -748,9 +781,10 @@ function buildHierarchy(dataObj){
           .attr("width", exportW).attr("height", exportH)
           .attr("fill", "#ffffff");
 
+      d3Svg.selectAll(".ui-text").style("display", "none");
+
       const exportGroup = d3Svg.append("g").attr("id", "export-elements");
       
-      // SUBTITLE ONLY
       exportGroup.append("text")
           .attr("x", exportMinX + 40) 
           .attr("y", exportMinY + 60) 
@@ -759,8 +793,7 @@ function buildHierarchy(dataObj){
           .attr("font-family", "Arial, sans-serif")
           .attr("fill", "#64748b");
 
-      // STATIC ION LEGEND FOR EXPORT
-      const legX = origX + origW + (pad/2); 
+      const legX = origX + origW + (pad/2) - 40; 
       let curY = exportMinY + 60; 
 
       exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
@@ -793,7 +826,7 @@ function buildHierarchy(dataObj){
           link.href = url; link.download = "Sunburst_Publication.svg";
           document.body.appendChild(link); link.click(); document.body.removeChild(link);
       } else {
-          const scale = 4; // 600 DPI 
+          const scale = 4; 
           const canvas = document.createElement("canvas");
           canvas.width = exportW * scale;
           canvas.height = exportH * scale;
@@ -819,6 +852,7 @@ function buildHierarchy(dataObj){
 
       d3Svg.select("#export-elements").remove();
       d3Svg.select("#export-bg").remove();
+      d3Svg.selectAll(".ui-text").style("display", null);
       d3Svg.attr("viewBox", currentViewBox.join(" "));
   }
   </script>
