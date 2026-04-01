@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Ea vs σ (log Y) - High-Res Publication</title>
+<title>Ea vs σ (log Y) - Publication Ready</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -42,6 +42,7 @@
   .panel button { border:1px solid #ddd; background:#f7f7f7; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family: Arial, sans-serif; }
   .panel button:hover { background:#efefef; }
 
+  /* Interactive Legends */
   #ionLegend .row, #structureLegend .row {
     display:flex; align-items:center; gap:8px; padding:6px 8px; margin:5px 0;
     border:1px solid #e3e3e3; border-radius:6px; cursor:pointer; user-select:none; background:#fff; transition: 0.1s;
@@ -172,7 +173,7 @@ function buildDataTraces(filteredRows){
   return traces;
 }
 
-/* ---------- PLOTLY DRAW ROUTINE ---------- */
+/* ---------- PLOTLY DRAW ROUTINE (Interactive View) ---------- */
 function draw(){
   const filtered = rowsGlobal.filter(r=>{
     const ea = toNum(r[COLS.ea]); const s = toNum(r[COLS.sigma]);
@@ -188,7 +189,8 @@ function draw(){
     xaxis: { 
       title: { text: "<b>Activation Energy E<sub>a</sub> (eV)</b>", font: { size: 14 } },
       range: [0.05, 0.65], tickformat: ".1f", tickmode: "linear", tick0: 0.1, dtick: 0.1, 
-      gridcolor: "#e2e8f0", griddash: "dot", zeroline: false
+      gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
+      domain: [0, 1] // Full width for interactive view
     },
     yaxis: { 
       title: { text: "<b>Ionic Conductivity σ (S·cm⁻¹)</b>", font: { size: 14 } },
@@ -198,7 +200,7 @@ function draw(){
     },
     margin: {t: 50, r: 30, b: 60, l: 70},
     showlegend: false,
-    shapes: [{ type: 'line', x0: 0.05, y0: 5, x1: 0.65, y1: 1e-8, line: { color: '#94a3b8', width: 1.5, dash: 'dash' } }]
+    shapes: [{ type: 'line', x0: 0.05, y0: 5, x1: 0.65, y1: 1e-8, xref: 'x', yref: 'y', line: { color: '#94a3b8', width: 1.5, dash: 'dash' } }]
   };
 
   Plotly.newPlot("chart", dataTraces, layout, {
@@ -220,14 +222,12 @@ function draw(){
   });
 }
 
-/* ---------- HIGH-RES PUBLICATION EXPORT SEQUENCE ---------- */
+/* ---------- BULLETPROOF PUBLICATION EXPORT SEQUENCE ---------- */
 async function exportChart(format) {
   const gd = document.getElementById('chart');
   say(`Generating Ultra High-Res ${format.toUpperCase()} Figure...`);
 
-  const origMargin = gd.layout.margin;
-
-  // 1. Calculate active counts
+  // 1. Calculate active counts based on user filters
   const structCounts = {};
   const ionCounts = {};
   traceMeta.forEach(t => {
@@ -241,80 +241,91 @@ async function exportChart(format) {
 
   const dummyTraces = [];
 
-  // 2. Inject Dummy Traces for Structure (Assigned to primary 'legend')
+  // 2. Inject Dummy Traces for Structure Legend
   Object.keys(structCounts).sort().forEach(fam => {
       dummyTraces.push({
           x: [null], y: [null], 
           name: `${fam} (${structCounts[fam]})`,
           mode: 'markers',
-          marker: { size: 12, color: getStructColor(fam), symbol: 'square' },
+          marker: { size: 16, color: getStructColor(fam), symbol: 'square' }, // Enlarged marker for export
           legend: 'legend',
           showlegend: true, hoverinfo: 'none'
       });
   });
 
-  // 3. Inject Dummy Traces for Ions (Assigned to secondary 'legend2')
+  // 3. Inject Dummy Traces for Ion Legend
   Object.keys(ionCounts).sort().forEach(ion => {
       dummyTraces.push({
           x: [null], y: [null], 
           name: `${ion} (${ionCounts[ion]})`,
           mode: 'markers',
-          marker: { size: 12, color: DARK_GRAY, symbol: getShape(ion) },
+          marker: { size: 16, color: DARK_GRAY, symbol: getShape(ion) }, // Enlarged marker for export
           legend: 'legend2', 
           showlegend: true, hoverinfo: 'none'
       });
   });
 
   const originalTraceCount = gd.data.length;
-
   await Plotly.addTraces(gd, dummyTraces);
 
-  // 4. THE FIX: Strict Right Margin. 
-  // By giving a 260px right margin, the gridlines physically stop, 
-  // and the legends are placed safely inside that blank white space.
+  // 4. THE FIX: Domain Compression + Font Scaling
+  // We compress the X-axis to 75%. Plotly stops drawing lines at 75%.
+  // We place the legends safely at 78% (in the blank space), so Plotly won't auto-shift them.
   await Plotly.relayout(gd, {
+      'xaxis.domain': [0, 0.75], // The magical wall that stops the gridlines
+      
+      'title.font.size': 26,
+      'xaxis.title.font.size': 18,
+      'xaxis.tickfont.size': 14,
+      'yaxis.title.font.size': 18,
+      'yaxis.tickfont.size': 14,
+      
       showlegend: true, 
       'legend.title.text': '<b>Structure Group Breakdown</b>',
       'legend.font.family': 'Arial, sans-serif',
-      'legend.font.size': 12,
+      'legend.font.size': 16,
       'legend.y': 1, 'legend.yanchor': 'top', 
-      'legend.x': 1.02, 'legend.xanchor': 'left', // Places legend inside the margin
-      'legend.bgcolor': 'rgba(255,255,255,1)',
+      'legend.x': 0.78, 'legend.xanchor': 'left', // Safely inside the blank space
+      'legend.bgcolor': '#ffffff',
       'legend.bordercolor': '#d0d0d0',
       'legend.borderwidth': 1,
       
       legend2: {
           title: {text: '<b>Ion Type Breakdown</b>'},
-          font: {family: 'Arial, sans-serif', size: 12},
+          font: {family: 'Arial, sans-serif', size: 16},
           y: 0.45, yanchor: 'top', 
-          x: 1.02, xanchor: 'left',
-          bgcolor: 'rgba(255,255,255,1)',
+          x: 0.78, xanchor: 'left', // Safely inside the blank space
+          bgcolor: '#ffffff',
           bordercolor: '#d0d0d0',
           borderwidth: 1
       },
-      // Massive right margin creates the safe zone
-      margin: { t: 50, r: 260, b: 60, l: 70 } 
+      margin: { t: 80, r: 50, b: 80, l: 90 } // Plenty of breathing room
   });
 
-  // 5. THE FIX: `scale: 3`. This multiplies the base width/height by 3.
-  // 1000x650 base becomes a stunning 3000x1950 pixel output at 300 DPI.
+  // 5. Download the image at massive resolution (1600x900 * scale: 3 = 4800x2700)
   await Plotly.downloadImage(gd, {
       format: format,
-      width: 1000,   // Base layout width
-      height: 650,   // Base layout height
-      scale: format === 'png' ? 3 : 1, // 3x multiplier for ultra-crisp PNG
-      filename: `Conductivity_Ea_HighRes_Figure`
+      width: 1600,   
+      height: 900,   
+      scale: format === 'png' ? 3 : 1, 
+      filename: `Conductivity_Ea_UltraRes_Figure`
   });
 
-  // 6. Cleanup
+  // 6. Cleanup & Restore interactive UI
   const tracesToDelete = [];
   for(let i = originalTraceCount; i < gd.data.length; i++) { tracesToDelete.push(i); }
   
   await Plotly.deleteTraces(gd, tracesToDelete);
   await Plotly.relayout(gd, { 
+      'xaxis.domain': [0, 1], // Restores the live chart to full width
+      'title.font.size': 22,
+      'xaxis.title.font.size': 14,
+      'xaxis.tickfont.size': 12,
+      'yaxis.title.font.size': 14,
+      'yaxis.tickfont.size': 12,
       showlegend: false, 
       legend2: null, 
-      margin: origMargin 
+      margin: { t: 50, r: 30, b: 60, l: 70 }
   });
   
   say(`Loaded ${rowsGlobal.length} entries`);
@@ -323,7 +334,7 @@ async function exportChart(format) {
 function downloadPNG() { exportChart('png'); }
 function downloadSVG() { exportChart('svg'); }
 
-/* ---------- Custom HTML Legends & Filters ---------- */
+/* ---------- Custom HTML Legends & Filters (For Interactive UI Only) ---------- */
 function renderStructureLegend(filteredRows){
   const el = document.getElementById("structureLegend");
   el.innerHTML = "";
@@ -367,7 +378,9 @@ function renderIonLegend(filteredRows){
   ions.forEach(ion=>{
     const row = document.createElement("div"); row.className = "row"; row.dataset.ion = ion;
     const shapeBox = document.createElement("div"); shapeBox.className = "shapeBox";
+    
     shapeBox.innerHTML = makeShapeSVG(getShape(ion), DARK_GRAY);
+    
     const name = document.createElement("div"); name.className = "name"; name.textContent = ion;
     const count = document.createElement("div"); count.className = "count"; count.textContent = counts[ion];
 
