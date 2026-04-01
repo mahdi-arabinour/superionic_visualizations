@@ -220,27 +220,6 @@ function drawTree(rows){
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','tree');
 
-  // INTERACTIVE TITLE (Top Left)
-  g.append("text")
-      .attr("class", "ui-text") // Tagged to hide during export
-      .attr("x", -WIDTH/2 + 30) 
-      .attr("y", -HEIGHT/2 + 40) 
-      .text("Superionic Conductors: A Radial Taxonomy")
-      .attr("font-weight", "bold")
-      .attr("font-size", "22px")
-      .attr("font-family", "Arial, sans-serif")
-      .attr("fill", "#0f172a");
-
-  // INTERACTIVE SUBTITLE/CAPTION (Top Left, just under Title)
-  g.append("text")
-      .attr("class", "ui-text") // Tagged to hide during export
-      .attr("x", -WIDTH/2 + 30) 
-      .attr("y", -HEIGHT/2 + 65) 
-      .text("Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure")
-      .attr("font-size", "13px")
-      .attr("font-family", "Arial, sans-serif")
-      .attr("fill", "#64748b");
-
   const useLog  = document.getElementById('useLog').checked;
   const baseEdge= +document.getElementById('baseEdge').value;
   const leafMin = +document.getElementById('leafMin').value;
@@ -489,21 +468,17 @@ async function exportChart(format) {
         ionCounts[d.ion] = (ionCounts[d.ion] || 0) + 1;
     });
 
-    const titleHeight = 80;   
     const legendWidth = 240;  
     const pad = 160; 
     
     const origViewBox = svgEl.getAttribute("viewBox");
     
     const minX = -textRingR - pad;
-    const minY = -textRingR - pad - titleHeight;
+    const minY = -textRingR - pad; 
     const exportWidth = (textRingR * 2) + (pad * 2) + legendWidth;
-    const exportHeight = (textRingR * 2) + (pad * 2) + titleHeight;
+    const exportHeight = (textRingR * 2) + (pad * 2);
     
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
-
-    // Hide interactive UI text elements so they don't double render in the export
-    d3Svg.selectAll(".ui-text").style("display", "none");
 
     d3Svg.insert("rect", ":first-child")
         .attr("id", "export-bg")
@@ -513,25 +488,6 @@ async function exportChart(format) {
 
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    // EXPORT SPECIFIC TITLE (Crisp, scaled correctly for massive canvas)
-    exportGroup.append("text")
-        .attr("x", minX + 40) 
-        .attr("y", minY + 60) 
-        .text("Superionic Conductors: A Radial Taxonomy")
-        .attr("font-weight", "bold")
-        .attr("font-size", "28px")
-        .attr("font-family", "Arial, sans-serif")
-        .attr("fill", "#0f172a");
-
-    // EXPORT SPECIFIC SUBTITLE (Replacing the old bottom text)
-    exportGroup.append("text")
-        .attr("x", minX + 40) 
-        .attr("y", minY + 90) 
-        .text("Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure")
-        .attr("font-size", "16px")
-        .attr("font-family", "Arial, sans-serif")
-        .attr("fill", "#64748b");
-
     const legX = textRingR + pad; 
     let curY = minY + 60; 
 
@@ -605,7 +561,6 @@ async function exportChart(format) {
 
     d3Svg.select("#export-elements").remove();
     d3Svg.select("#export-bg").remove();
-    d3Svg.selectAll(".ui-text").style("display", null); // Restore interactive text
     d3Svg.attr("viewBox", origViewBox);
     say(`Loaded ${DATA.length} entries`);
 }
