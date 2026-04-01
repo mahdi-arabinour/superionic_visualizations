@@ -2,15 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Ea vs σ (log Y) - Publication Ready</title>
+<title>Ea vs σ (log Y) - Native Plotly Export</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
   :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#e3e3e3; --text:#111; --panel-border:#d0d0d0; --note:#555; --accent:#007aff; }
   * { box-sizing:border-box; }
-  
-  /* Master Typography: Enforce Arial globally */
   body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); }
 
   header {
@@ -43,7 +41,6 @@
   .panel button { border:1px solid #ddd; background:#f7f7f7; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family: Arial, sans-serif; }
   .panel button:hover { background:#efefef; }
 
-  /* Interactive Legends */
   #ionLegend .row, #structureLegend .row {
     display:flex; align-items:center; gap:8px; padding:6px 8px; margin:5px 0;
     border:1px solid #e3e3e3; border-radius:6px; cursor:pointer; user-select:none; background:#fff; transition: 0.1s;
@@ -122,11 +119,6 @@ const ION_SHAPES = {
   "Cu+": "triangle-down", "H+": "cross", "Mg2+": "hexagon", "O2-": "star", "Rb+": "x"
 };
 
-const UNICODE_SHAPES = {
-  "circle": "●", "diamond": "◆", "square": "■", "triangle-up": "▲",
-  "triangle-down": "▼", "cross": "✚", "hexagon": "⬢", "star": "★", "x": "✖"
-};
-
 const DARK_GRAY = "#334155";
 const norm = s => (s ?? "").toString().trim();
 
@@ -203,7 +195,6 @@ function draw(){
       tickvals: [1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8],
       ticktext: ["10⁰", "10⁻¹", "10⁻²", "10⁻³", "10⁻⁴", "10⁻⁵", "10⁻⁶", "10⁻⁷", "10⁻⁸"]
     },
-    // Standard margin for the live interactive view
     margin: {t: 50, r: 30, b: 60, l: 70},
     showlegend: false,
     shapes: [{ type: 'line', x0: 0.05, y0: 5, x1: 0.65, y1: 1e-8, line: { color: '#94a3b8', width: 1.5, dash: 'dash' } }]
@@ -228,14 +219,12 @@ function draw(){
   });
 }
 
-/* ---------- FULL INTEGRATION EXPORT FUNCTION (FIXED ALIGNMENT) ---------- */
+/* ---------- THE NATIVE "DUMMY TRACE" EXPORT SEQUENCE ---------- */
 async function exportChart(format) {
   const gd = document.getElementById('chart');
-  say(`Generating ${format.toUpperCase()} Figure with Legends...`);
+  say(`Generating Native ${format.toUpperCase()} Figure...`);
 
-  const origMargin = gd.layout.margin;
-
-  // 1. Calculate active counts
+  // 1. Calculate active counts based on filters
   const structCounts = {};
   const ionCounts = {};
   traceMeta.forEach(t => {
@@ -247,62 +236,80 @@ async function exportChart(format) {
     }
   });
 
-  // 2. Build Structure Annotation String (Scaled up fonts for High-Res)
-  let structKeyText = "<span style='font-size:18px;'><b>Structure Group Breakdown</b></span><br><br>";
-  const uniqueStructs = Object.keys(structCounts).sort();
-  uniqueStructs.forEach(fam => {
-      const color = getStructColor(fam);
-      structKeyText += `<span style="color:${color}; font-size:20px;">■</span> <span style="font-size:16px;">${fam} (${structCounts[fam]})</span><br>`;
+  const dummyTraces = [];
+
+  // 2. Inject Dummy Traces for Structure (Assigned to primary 'legend')
+  Object.keys(structCounts).sort().forEach(fam => {
+      dummyTraces.push({
+          x: [null], y: [null], // Invisible data points
+          name: `${fam} (${structCounts[fam]})`,
+          mode: 'markers',
+          marker: { size: 12, color: getStructColor(fam), symbol: 'square' },
+          legend: 'legend',
+          showlegend: true, hoverinfo: 'none'
+      });
   });
 
-  // 3. Build Ion Annotation String (Scaled up fonts for High-Res)
-  let ionKeyText = "<span style='font-size:18px;'><b>Ion Type Breakdown</b></span><br><br>";
-  const uniqueIons = Object.keys(ionCounts).sort();
-  uniqueIons.forEach(ion => {
-      const pShape = getShape(ion);
-      const uShape = UNICODE_SHAPES[pShape] || "●";
-      ionKeyText += `<span style="font-size:18px; color:#334155;">${uShape}</span> <span style="font-size:16px;">${ion} (${ionCounts[ion]})</span><br>`;
+  // 3. Inject Dummy Traces for Ions (Assigned to secondary 'legend2')
+  Object.keys(ionCounts).sort().forEach(ion => {
+      dummyTraces.push({
+          x: [null], y: [null], 
+          name: `${ion} (${ionCounts[ion]})`,
+          mode: 'markers',
+          marker: { size: 12, color: DARK_GRAY, symbol: getShape(ion) },
+          legend: 'legend2', // Utilizing Plotly v2+ Multiple Legends feature
+          showlegend: true, hoverinfo: 'none'
+      });
   });
 
-  // 4. Inject rich-text annotations into Plotly layout
+  const originalTraceCount = gd.data.length;
+  const origMargin = gd.layout.margin;
+
+  // 4. Add the traces to the canvas
+  await Plotly.addTraces(gd, dummyTraces);
+
+  // 5. Tell Plotly to render 'legend' and 'legend2' flawlessly
   await Plotly.relayout(gd, {
-      annotations: [
-          {
-              text: structKeyText, align: 'left', showarrow: false,
-              xref: 'paper', yref: 'paper', 
-              x: 1.04, y: 1, yanchor: 'top', // Pushed further right
-              font: { family: "Arial, sans-serif", color: '#111' },
-              bgcolor: '#ffffff', bordercolor: '#d0d0d0', borderwidth: 1.5, borderpad: 16
-          },
-          {
-              text: ionKeyText, align: 'left', showarrow: false,
-              xref: 'paper', yref: 'paper', 
-              x: 1.04, y: 0.45, yanchor: 'top', // Safely positioned below Structure legend
-              font: { family: "Arial, sans-serif", color: '#111' },
-              bgcolor: '#ffffff', bordercolor: '#d0d0d0', borderwidth: 1.5, borderpad: 16
-          }
-      ],
-      // MASSIVE right margin creates a dedicated blank column for the legends
-      margin: { t: 50, r: 400, b: 60, l: 70 } 
+      showlegend: true, 
+      'legend.title.text': '<b>Structure Group</b>',
+      'legend.font.family': 'Arial, sans-serif',
+      'legend.font.size': 13,
+      'legend.y': 1, 'legend.yanchor': 'top', 'legend.x': 1.02,
+      'legend.bgcolor': 'rgba(255,255,255,0)',
+      
+      // Secondary Native Legend
+      legend2: {
+          title: {text: '<b>Ion Type</b>'},
+          font: {family: 'Arial, sans-serif', size: 13},
+          y: 0.45, yanchor: 'top', x: 1.02,
+          bgcolor: 'rgba(255,255,255,0)'
+      },
+      // Safely expand the canvas to hold both legends natively
+      margin: { t: 50, r: 240, b: 60, l: 70 } 
   });
 
-  // 5. Download the injected layout (Wider canvas prevents the plot from squishing)
+  // 6. Download the mathematically perfect native snapshot
   await Plotly.downloadImage(gd, {
       format: format,
-      width: format === 'png' ? 2200 : 1600,
-      height: format === 'png' ? 1100 : 800,
-      filename: `Conductivity_Ea_Figure_Publication`
+      width: format === 'png' ? 1600 : 1200,
+      height: format === 'png' ? 900 : 700,
+      filename: `Conductivity_Ea_Native_Figure`
   });
 
-  // 6. Restore original layout
-  await Plotly.relayout(gd, { annotations: [], margin: origMargin });
+  // 7. Cleanup the dummy traces so the UI goes back to normal
+  const tracesToDelete = [];
+  for(let i = originalTraceCount; i < gd.data.length; i++) { tracesToDelete.push(i); }
+  
+  await Plotly.deleteTraces(gd, tracesToDelete);
+  await Plotly.relayout(gd, { showlegend: false, legend2: null, margin: origMargin });
+  
   say(`Loaded ${rowsGlobal.length} entries`);
 }
 
 function downloadPNG() { exportChart('png'); }
 function downloadSVG() { exportChart('svg'); }
 
-/* ---------- Custom HTML Legends & Filters ---------- */
+/* ---------- Custom HTML Legends & Filters (For Interactive UI Only) ---------- */
 function renderStructureLegend(filteredRows){
   const el = document.getElementById("structureLegend");
   el.innerHTML = "";
