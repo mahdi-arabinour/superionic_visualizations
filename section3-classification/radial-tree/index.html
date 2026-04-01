@@ -426,29 +426,40 @@ async function exportChart(format) {
     // 3. Temporarily change SVG ViewBox to include the newly created right-side space
     d3Svg.attr("viewBox", `${-WIDTH/2} ${-HEIGHT/2} ${exportWidth} ${exportHeight}`);
 
-    // 4. Inject Native SVG Legends
-    const legG = d3Svg.append("g").attr("id", "export-legends");
-    const legX = WIDTH / 2 + 10; // Placed firmly in the new space
+    // 4. Inject Title & Legends
+    const exportGroup = d3Svg.append("g").attr("id", "export-elements");
+    
+    // --- MAIN TITLE ---
+    exportGroup.append("text")
+        .attr("x", -WIDTH/2 + 20) // Perfectly top-left in the empty corner
+        .attr("y", -HEIGHT/2 + 40)
+        .text("Superionic Conductors: Radial Classification Tree")
+        .attr("font-weight", "bold")
+        .attr("font-size", "24px")
+        .attr("font-family", "Arial, sans-serif")
+        .attr("fill", "#0f172a");
+
+    const legX = WIDTH / 2 + 10; 
     const legY = -HEIGHT / 2 + 30;
     
     // Background to ensure clean text
-    legG.append("rect").attr("x", legX - 10).attr("y", -HEIGHT/2)
+    exportGroup.append("rect").attr("x", legX - 10).attr("y", -HEIGHT/2)
         .attr("width", legendWidth + 10).attr("height", HEIGHT)
         .attr("fill", "#ffffff");
 
     let curY = legY;
 
     // Draw Structure Legend
-    legG.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
     curY += 28;
 
     Object.keys(structCounts).sort().forEach(st => {
-        legG.append("rect").attr("x", legX).attr("y", curY - 12)
+        exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
             .attr("width", 14).attr("height", 14).attr("rx", 2)
             .attr("fill", getStructColor(st)).attr("stroke", "rgba(0,0,0,0.15)");
             
-        legG.append("text").attr("x", legX + 24).attr("y", curY)
+        exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
             .text(`${st} (${structCounts[st]})`)
             .attr("font-size", "13px").attr("font-family", "Arial, sans-serif").attr("fill", "#0f172a");
         curY += 22;
@@ -457,7 +468,7 @@ async function exportChart(format) {
     curY += 30;
 
     // Draw Ion Legend
-    legG.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
     curY += 28;
 
@@ -465,11 +476,11 @@ async function exportChart(format) {
         const d3Type = D3_SHAPE_MAP[getIonShapeString(ion)] || d3.symbolCircle;
         const sym = d3.symbol().type(d3Type).size(80)();
         
-        legG.append("path").attr("d", sym)
+        exportGroup.append("path").attr("d", sym)
             .attr("transform", `translate(${legX + 7}, ${curY - 5}) ${getIonShapeString(ion)==='triangle-down'?'rotate(180)':''}`)
             .attr("fill", "#334155").attr("stroke", "#fff").attr("stroke-width", 1);
         
-        legG.append("text").attr("x", legX + 24).attr("y", curY)
+        exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
             .text(`${ion} (${ionCounts[ion]})`)
             .attr("font-size", "13px").attr("font-family", "Arial, sans-serif").attr("fill", "#0f172a");
         curY += 22;
@@ -513,7 +524,7 @@ async function exportChart(format) {
     }
 
     // 7. Cleanup & Restore UI
-    d3Svg.select("#export-legends").remove();
+    d3Svg.select("#export-elements").remove();
     d3Svg.attr("viewBox", origViewBox);
     say(`Loaded ${DATA.length} entries`);
 }
