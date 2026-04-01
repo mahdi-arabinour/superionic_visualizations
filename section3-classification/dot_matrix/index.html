@@ -149,7 +149,7 @@ const sizeReset = document.getElementById("sizeReset");
 const subtypeList = document.getElementById("subtypeList");
 
 // NOTE: Make sure the CSV filename matches your actual file
-d3.csv("data (6).csv").then(raw=>{
+d3.csv("data.csv").then(raw=>{
   data = raw.map(d=>({
     sigma:+d[COL_SIGMA],
     structure:(d[COL_STRUCT]||"").trim(),
