@@ -208,10 +208,22 @@ function drawTree(rows){
     d3.select('#chart').attr('width', p.width).attr('height', Math.max(600, p.height*0.9));
     bb = document.getElementById('chart').getBoundingClientRect();
   }
-  WIDTH=bb.width; HEIGHT=bb.height; R=Math.min(WIDTH,HEIGHT)/2 - 50;
+  WIDTH=bb.width; HEIGHT=bb.height; 
+  // FIX: Shrunk R significantly to make room for outer text ring and titles
+  R=Math.min(WIDTH,HEIGHT)/2 - 140; 
 
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','tree');
+
+  // NATIVE INTERACTIVE TITLE
+  g.append("text")
+      .attr("x", -WIDTH/2 + 30) 
+      .attr("y", -HEIGHT/2 + 40) 
+      .text("Superionic Conductors: A Radial Taxonomy")
+      .attr("font-weight", "bold")
+      .attr("font-size", "22px")
+      .attr("font-family", "Arial, sans-serif")
+      .attr("fill", "#0f172a");
 
   const useLog  = document.getElementById('useLog').checked;
   const baseEdge= +document.getElementById('baseEdge').value;
@@ -265,6 +277,8 @@ function drawTree(rows){
 
   const margin=12, maxExtra=Math.max(8,(R-margin)-rFormula);
   const rescale = d3.scaleLinear().domain([leafMin,leafMax]).range([leafMin,maxExtra]);
+  
+  // Calculate conductivity branch lengths
   H.each(n=>{ if(!n.children) n.y = rFormula + rescale(extra(n.data.sigma)); });
 
   if(spread>0){
@@ -328,10 +342,25 @@ function drawTree(rows){
       for(const d of arr){ if(!kept.length || Math.abs(d.x-kept[kept.length-1].x)>=min) kept.push(d); }
       arr=kept;
     }
+
+    // FIX: Outer Text Ring Guide Lines for Formulas
+    if (L.depth === 4) {
+        g.append('g').selectAll('line.guide').data(arr).join('line')
+          .attr('x1', d => Math.cos(d.x - Math.PI/2) * d.y)
+          .attr('y1', d => Math.sin(d.x - Math.PI/2) * d.y)
+          .attr('x2', d => Math.cos(d.x - Math.PI/2) * R)
+          .attr('y2', d => Math.sin(d.x - Math.PI/2) * R)
+          .attr('stroke', '#cbd5e1')
+          .attr('stroke-width', 0.8)
+          .attr('stroke-dasharray', '2,2');
+    }
+
     g.append('g').attr('font-size',L.fs).attr('font-weight',L.depth===1?'700':'bold')
       .selectAll('text').data(arr).join('text').attr('class','lbl')
       .attr('transform',d=>{
-        const a=d.x, r=(L.depth===4? d.y : d.y+L.off);
+        const a=d.x;
+        // FIX: Force Formula labels to align to the outer R boundary
+        const r=(L.depth===4 ? R + 4 : d.y + L.off);
         const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
         const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
         return `translate(${x},${y}) rotate(${rot+flip})`;
@@ -342,7 +371,8 @@ function drawTree(rows){
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
 
-  g.append('text').attr('x',0).attr('y',HEIGHT/2-10).attr('text-anchor','middle').attr('fill','#64748b').attr('font-size',12).attr('font-family','Arial, sans-serif')
+  // FIX: Push footer securely below the entire tree layout
+  g.append('text').attr('x',0).attr('y', HEIGHT/2 - 15).attr('text-anchor','middle').attr('fill','#64748b').attr('font-size',12).attr('font-family','Arial, sans-serif')
     .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure');
 }
 
@@ -408,7 +438,6 @@ async function exportChart(format) {
     const svgEl = document.getElementById("chart");
     const d3Svg = d3.select("#chart");
 
-    // 1. Calculate precise active data counts for the legends
     const activeLeaves = buildLeaves(DATA);
     const structCounts = {};
     const ionCounts = {};
@@ -417,39 +446,32 @@ async function exportChart(format) {
         ionCounts[d.ion] = (ionCounts[d.ion] || 0) + 1;
     });
 
-    // 2. Expand Canvas dimensions to make room for Legends
+    // FIX: Tighten Export Bounds dynamically to remove Dead Zone
+    const pad = 60;
+    const minX = -WIDTH/2 - pad;
+    const minY = -HEIGHT/2 - pad;
+    
+    // Legend anchors securely to max Tree Radius R
+    const legX = R + 140; 
     const legendWidth = 240;
-    const exportWidth = WIDTH + legendWidth;
-    const exportHeight = HEIGHT;
+    
+    const exportWidth = (legX + legendWidth + 20) - minX;
+    const exportHeight = HEIGHT + (pad * 2);
     const origViewBox = svgEl.getAttribute("viewBox");
     
-    // 3. Temporarily change SVG ViewBox to include the newly created right-side space
-    d3Svg.attr("viewBox", `${-WIDTH/2} ${-HEIGHT/2} ${exportWidth} ${exportHeight}`);
+    d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
 
-    // 4. Inject Title & Legends
-    const exportGroup = d3Svg.append("g").attr("id", "export-elements");
-    
-    // --- MAIN TITLE ---
-    exportGroup.append("text")
-        .attr("x", -WIDTH/2 + 20) // Perfectly top-left in the empty corner
-        .attr("y", -HEIGHT/2 + 40)
-        .text("Superionic Conductors: Radial Classification Tree")
-        .attr("font-weight", "bold")
-        .attr("font-size", "24px")
-        .attr("font-family", "Arial, sans-serif")
-        .attr("fill", "#0f172a");
-
-    const legX = WIDTH / 2 + 10; 
-    const legY = -HEIGHT / 2 + 30;
-    
-    // Background to ensure clean text
-    exportGroup.append("rect").attr("x", legX - 10).attr("y", -HEIGHT/2)
-        .attr("width", legendWidth + 10).attr("height", HEIGHT)
+    d3Svg.insert("rect", ":first-child")
+        .attr("id", "export-bg")
+        .attr("x", minX).attr("y", minY)
+        .attr("width", exportWidth).attr("height", exportHeight)
         .attr("fill", "#ffffff");
 
-    let curY = legY;
+    const exportGroup = d3Svg.append("g").attr("id", "export-elements");
+    
+    // Drawn precisely in the top corner of our dynamic box
+    let curY = -HEIGHT/2 + 40; 
 
-    // Draw Structure Legend
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
     curY += 28;
@@ -467,7 +489,6 @@ async function exportChart(format) {
 
     curY += 30;
 
-    // Draw Ion Legend
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
     curY += 28;
@@ -486,10 +507,8 @@ async function exportChart(format) {
         curY += 22;
     });
 
-    // 5. Extract the modified Canvas
     const svgString = getSVGString(svgEl);
 
-    // 6. Execute Export
     if(format === 'svg') {
         const blob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
         const url = URL.createObjectURL(blob);
@@ -502,9 +521,7 @@ async function exportChart(format) {
         canvas.width = exportWidth * scale;
         canvas.height = exportHeight * scale;
         const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+        
         const img = new Image();
         const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
         const url = URL.createObjectURL(svgBlob);
@@ -523,8 +540,8 @@ async function exportChart(format) {
         });
     }
 
-    // 7. Cleanup & Restore UI
     d3Svg.select("#export-elements").remove();
+    d3Svg.select("#export-bg").remove();
     d3Svg.attr("viewBox", origViewBox);
     say(`Loaded ${DATA.length} entries`);
 }
