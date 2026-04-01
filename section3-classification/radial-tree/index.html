@@ -220,22 +220,11 @@ function drawTree(rows){
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','tree');
 
-  // INTERACTIVE TITLE (Top Left)
+  // INTERACTIVE SUBTITLE/KEY (Top Left)
   g.append("text")
       .attr("class", "ui-text") 
       .attr("x", -WIDTH/2 + 30) 
-      .attr("y", -HEIGHT/2 + 40) 
-      .text("Superionic Conductors: A Radial Taxonomy")
-      .attr("font-weight", "bold")
-      .attr("font-size", "22px")
-      .attr("font-family", "Arial, sans-serif")
-      .attr("fill", "#0f172a");
-
-  // FIX: Subtitle Moved explicitly to the Top Left under the main title
-  g.append("text")
-      .attr("class", "ui-text") 
-      .attr("x", -WIDTH/2 + 30) 
-      .attr("y", -HEIGHT/2 + 65) 
+      .attr("y", -HEIGHT/2 + 40) // Shifted up since the main title is removed
       .text("Ion → Structure → Doping → Formula • leaf length ∝ log₁₀(σ) • color = Structure Group")
       .attr("font-size", "13px")
       .attr("font-family", "Arial, sans-serif")
@@ -251,6 +240,7 @@ function drawTree(rows){
   const spread  = +document.getElementById('leafSpread').value;
   document.getElementById('leafMaxLbl').textContent=leafMax;
 
+  // DYNAMIC RADII LOGIC 
   const rIon     = 1.0 * baseEdge;                  
   const rStruct  = 2.0 * baseEdge;                  
   const rDoping  = 2.8 * baseEdge; 
@@ -311,6 +301,7 @@ function drawTree(rows){
     });
   }
 
+  // CONCENTRIC LOG RINGS
   const axesGroup = g.append('g').attr('class', 'axes');
   const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; 
   
@@ -492,7 +483,6 @@ async function exportChart(format) {
     
     const origViewBox = svgEl.getAttribute("viewBox");
     
-    // Bounds explicitly locked to the geometry of the tree and text rings
     const minX = -textRingR - pad;
     const minY = -textRingR - pad; 
     const exportWidth = (textRingR * 2) + (pad * 2) + legendWidth;
@@ -500,7 +490,7 @@ async function exportChart(format) {
     
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
 
-    // FIX: Completely hide the interactive UI text during the export snapshot
+    // Hide interactive text elements so they don't double render
     d3Svg.selectAll(".ui-text").style("display", "none");
 
     d3Svg.insert("rect", ":first-child")
@@ -511,20 +501,10 @@ async function exportChart(format) {
 
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    // EXPORT SPECIFIC TITLE (Hard-anchored to the strict top-left bound `minX, minY`)
+    // EXPORT SPECIFIC KEY (Anchored to top-left bounds without the main title)
     exportGroup.append("text")
         .attr("x", minX + 40) 
         .attr("y", minY + 60) 
-        .text("Superionic Conductors: A Radial Taxonomy")
-        .attr("font-weight", "bold")
-        .attr("font-size", "28px")
-        .attr("font-family", "Arial, sans-serif")
-        .attr("fill", "#0f172a");
-
-    // EXPORT SPECIFIC SUBTITLE (Hard-anchored to the strict top-left bound)
-    exportGroup.append("text")
-        .attr("x", minX + 40) 
-        .attr("y", minY + 90) 
         .text("Ion → Structure → Doping → Formula • leaf length ∝ log₁₀(σ) • color = Structure Group")
         .attr("font-size", "16px")
         .attr("font-family", "Arial, sans-serif")
@@ -604,7 +584,7 @@ async function exportChart(format) {
     d3Svg.select("#export-elements").remove();
     d3Svg.select("#export-bg").remove();
     
-    // FIX: Unhide interactive text after export is finished
+    // Restore interactive text
     d3Svg.selectAll(".ui-text").style("display", null); 
     
     d3Svg.attr("viewBox", origViewBox);
