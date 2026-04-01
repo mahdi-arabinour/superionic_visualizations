@@ -220,6 +220,27 @@ function drawTree(rows){
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','tree');
 
+  // INTERACTIVE TITLE (Top Left)
+  g.append("text")
+      .attr("class", "ui-text") 
+      .attr("x", -WIDTH/2 + 30) 
+      .attr("y", -HEIGHT/2 + 40) 
+      .text("Superionic Conductors: A Radial Taxonomy")
+      .attr("font-weight", "bold")
+      .attr("font-size", "22px")
+      .attr("font-family", "Arial, sans-serif")
+      .attr("fill", "#0f172a");
+
+  // FIX: Subtitle Moved explicitly to the Top Left under the main title
+  g.append("text")
+      .attr("class", "ui-text") 
+      .attr("x", -WIDTH/2 + 30) 
+      .attr("y", -HEIGHT/2 + 65) 
+      .text("Ion → Structure → Doping → Formula • leaf length ∝ log₁₀(σ) • color = Structure Group")
+      .attr("font-size", "13px")
+      .attr("font-family", "Arial, sans-serif")
+      .attr("fill", "#64748b");
+
   const useLog  = document.getElementById('useLog').checked;
   const baseEdge= +document.getElementById('baseEdge').value;
   const leafMin = +document.getElementById('leafMin').value;
@@ -230,7 +251,6 @@ function drawTree(rows){
   const spread  = +document.getElementById('leafSpread').value;
   document.getElementById('leafMaxLbl').textContent=leafMax;
 
-  // DYNAMIC RADII LOGIC 
   const rIon     = 1.0 * baseEdge;                  
   const rStruct  = 2.0 * baseEdge;                  
   const rDoping  = 2.8 * baseEdge; 
@@ -291,7 +311,6 @@ function drawTree(rows){
     });
   }
 
-  // CONCENTRIC LOG RINGS
   const axesGroup = g.append('g').attr('class', 'axes');
   const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; 
   
@@ -396,18 +415,6 @@ function drawTree(rows){
       .style('cursor', L.depth===1? 'pointer' : null)
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
-
-  // FIX: Dynamic Anchoring - Moves naturally with the size of the tree
-  // Hide this completely during export so the journal caption handles it.
-  g.append('text')
-    .attr('class', 'ui-text') 
-    .attr('x',0)
-    .attr('y', textRingR + 40) // Anchored safely 40px below the formulas
-    .attr('text-anchor','middle')
-    .attr('fill','#64748b')
-    .attr('font-size',12)
-    .attr('font-family','Arial, sans-serif')
-    .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure');
 }
 
 /* ---------- Tooltip ---------- */
@@ -485,6 +492,7 @@ async function exportChart(format) {
     
     const origViewBox = svgEl.getAttribute("viewBox");
     
+    // Bounds explicitly locked to the geometry of the tree and text rings
     const minX = -textRingR - pad;
     const minY = -textRingR - pad; 
     const exportWidth = (textRingR * 2) + (pad * 2) + legendWidth;
@@ -492,7 +500,7 @@ async function exportChart(format) {
     
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
 
-    // EXPORT AUTO-HIDE: Turn off the bottom UI text temporarily
+    // FIX: Completely hide the interactive UI text during the export snapshot
     d3Svg.selectAll(".ui-text").style("display", "none");
 
     d3Svg.insert("rect", ":first-child")
@@ -503,6 +511,25 @@ async function exportChart(format) {
 
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
+    // EXPORT SPECIFIC TITLE (Hard-anchored to the strict top-left bound `minX, minY`)
+    exportGroup.append("text")
+        .attr("x", minX + 40) 
+        .attr("y", minY + 60) 
+        .text("Superionic Conductors: A Radial Taxonomy")
+        .attr("font-weight", "bold")
+        .attr("font-size", "28px")
+        .attr("font-family", "Arial, sans-serif")
+        .attr("fill", "#0f172a");
+
+    // EXPORT SPECIFIC SUBTITLE (Hard-anchored to the strict top-left bound)
+    exportGroup.append("text")
+        .attr("x", minX + 40) 
+        .attr("y", minY + 90) 
+        .text("Ion → Structure → Doping → Formula • leaf length ∝ log₁₀(σ) • color = Structure Group")
+        .attr("font-size", "16px")
+        .attr("font-family", "Arial, sans-serif")
+        .attr("fill", "#64748b");
+
     const legX = textRingR + pad; 
     let curY = minY + 60; 
 
@@ -577,8 +604,8 @@ async function exportChart(format) {
     d3Svg.select("#export-elements").remove();
     d3Svg.select("#export-bg").remove();
     
-    // EXPORT AUTO-HIDE RESTORE: Turn the bottom text back on for the screen
-    d3Svg.selectAll(".ui-text").style("display", null);
+    // FIX: Unhide interactive text after export is finished
+    d3Svg.selectAll(".ui-text").style("display", null); 
     
     d3Svg.attr("viewBox", origViewBox);
     say(`Loaded ${DATA.length} entries`);
