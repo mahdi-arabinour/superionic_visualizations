@@ -122,8 +122,7 @@ const ION_COLORS = {
 const ionColor = ion => ION_COLORS[ion] || "#6b7280";
 
 /* Layout */
-// INCREASED right margin from 20 to 180 to leave room for long text labels
-const margin = {top:36,right:180,bottom:64,left:200}; 
+const margin = {top:36,right:20,bottom:64,left:200};
 const W = 1200 - margin.left - margin.right;
 const H = 760  - margin.top  - margin.bottom;
 
@@ -137,7 +136,6 @@ const boxG = g.append("g").attr("class", "boxes"); // 3. Boxplots behind bubbles
 const xAxisG = g.append("g").attr("class","axis").attr("transform",`translate(0,${H})`);
 const yAxisG = g.append("g");
 const dotG = g.append("g").attr("class", "dots");
-const labelG = g.append("g").attr("class", "labels"); // 4. Top performer labels
 const bmG = g.append("g").attr("class", "benchmark"); // 1. Benchmark line
 
 g.append("text").attr("x", W/2).attr("y", H+44).attr("text-anchor","middle")
@@ -160,7 +158,7 @@ const sizeReset = document.getElementById("sizeReset");
 const subtypeList = document.getElementById("subtypeList");
 
 // NOTE: Make sure the CSV filename matches your actual file
-d3.csv("data.csv").then(raw=>{
+d3.csv("data (6).csv").then(raw=>{
   data = raw.map(d=>({
     sigma:+d[COL_SIGMA],
     structure:(d[COL_STRUCT]||"").trim(),
@@ -171,7 +169,15 @@ d3.csv("data.csv").then(raw=>{
     ea:+d[COL_EA] || null
   })).filter(d=>d.sigma>0 && d.structure && d.subtype);
 
-  allSubtypes = Array.from(new Set(data.map(d=>d.subtype))).sort();
+  
+  const subtypeMedians = new Map();
+  const bySub = d3.group(data, d => d.subtype);
+  for(const [sub, arr] of bySub.entries()){
+      const sigmas = arr.map(d=>d.sigma).sort(d3.ascending);
+      subtypeMedians.set(sub, d3.median(sigmas));
+  }
+  allSubtypes = Array.from(bySub.keys()).sort((a,b) => subtypeMedians.get(b) - subtypeMedians.get(a));
+
   structures  = Array.from(new Set(data.map(d=>d.structure))).sort();
   activeStructures = new Set(structures);
   activeSubtypes   = new Set(allSubtypes);
@@ -191,8 +197,20 @@ d3.csv("data.csv").then(raw=>{
   rScale = d3.scaleLinear().domain([eaMax, eaMin]).range([3, 11]).clamp(true);
 
   // Axes and Grid
-  xAxisG.call(d3.axisBottom(x).ticks(10,"~g"));
-  gridG.call(d3.axisBottom(x).ticks(10).tickSize(H).tickFormat(""))
+  
+  const superscripts = {"-":"⁻", "0":"⁰", "1":"¹", "2":"²", "3":"³", "4":"⁴", "5":"⁵", "6":"⁶", "7":"⁷", "8":"⁸", "9":"⁹"};
+  function toSuperscript(num) {
+      return num.toString().split('').map(c => superscripts[c] || c).join('');
+  }
+  const pExtent = d3.extent(data, d=>Math.log10(d.sigma));
+  const pMin = Math.floor(pExtent[0]);
+  const pMax = Math.ceil(pExtent[1]);
+  const tickVals = d3.range(pMin, pMax+1).map(p => Math.pow(10, p));
+  
+  const xAxis = d3.axisBottom(x).tickValues(tickVals).tickFormat(d => "10" + toSuperscript(Math.log10(d)));
+  xAxisG.call(xAxis);
+
+  gridG.call(d3.axisBottom(x).tickValues(tickVals).tickSize(H).tickFormat(""))
        .selectAll("line").attr("stroke", "#e2e8f0").attr("stroke-dasharray", "2 2");
   gridG.selectAll(".domain").remove();
 
@@ -203,6 +221,18 @@ d3.csv("data.csv").then(raw=>{
   bmG.append("text").attr("x", bX + 6).attr("y", -8).attr("fill", "#ef4444")
     .attr("font-size", 12).attr("font-weight", "bold").attr("font-family", "ui-sans-serif, system-ui")
     .text("10⁻³ S/cm (Target)");
+
+  // Box Plot Key in Bottom Right
+  const blG = g.append("g").attr("class", "boxplot-key").attr("transform", `translate(${W - 140}, ${H + 35})`);
+  blG.append("text").attr("x", -10).attr("y", 4).attr("fill", "#64748b").attr("font-size", 11).attr("font-weight", "600").attr("text-anchor", "end").text("Box Plot Key:");
+  blG.append("line").attr("x1", 0).attr("x2", 100).attr("y1", 0).attr("y2", 0).attr("stroke", "#94a3b8").attr("stroke-width", 1);
+  blG.append("rect").attr("x", 25).attr("width", 50).attr("y", -6).attr("height", 12).attr("fill", "#e2e8f0").attr("opacity", 0.5).attr("stroke", "#64748b");
+  blG.append("line").attr("x1", 60).attr("x2", 60).attr("y1", -6).attr("y2", 6).attr("stroke", "#475569").attr("stroke-width", 2);
+  blG.append("text").attr("x", 0).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Min");
+  blG.append("text").attr("x", 25).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Q1");
+  blG.append("text").attr("x", 60).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Med");
+  blG.append("text").attr("x", 75).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Q3");
+  blG.append("text").attr("x", 100).attr("y", 16).attr("font-size", 10).attr("fill", "#64748b").attr("text-anchor", "middle").text("Max");
 
   buildStructureLegend();
   wireSizeControl();
@@ -217,7 +247,7 @@ d3.csv("data.csv").then(raw=>{
 function draw(){
   const rows = data.filter(d=>activeStructures.has(d.structure) && activeSubtypes.has(d.subtype));
 
-  const visibleSubtypes = Array.from(activeSubtypes);
+  const visibleSubtypes = Array.from(activeSubtypes).sort((a,b) => allSubtypes.indexOf(a) - allSubtypes.indexOf(b));
   band.domain(visibleSubtypes);
   yAxisG.selectAll(".rowLabel")
     .data(visibleSubtypes, d=>d)
@@ -298,68 +328,6 @@ function draw(){
       update=>update.attr("r",d=>d.r).attr("cx",d=>d.x).attr("cy",d=>d.y),
       exit=>exit.remove()
     );
-
-  // 4. Smart Annotations for "Top Performers" (Now with Anti-Overlap physics)
-  const topRows = rows.filter(d=>d.formula && d.formula !== "—").sort((a,b)=>b.sigma - a.sigma);
-  const seenF = new Set();
-  const topN = [];
-  for(let r of topRows){
-    if(!seenF.has(r.formula)){
-      seenF.add(r.formula);
-      topN.push(r);
-      if(topN.length >= 4) break; // keep top 4
-    }
-  }
-  
-  const topNodes = all.filter(n => topN.some(tr => tr.formula === n.formula && tr.sigma === n.sigma));
-  
-  // Create a static simulation just for the labels to push them apart
-  const labelData = topNodes.map(d => ({
-      id: d.formula,
-      tx: d.x,
-      ty: d.y,
-      x: d.x + 35, // starting guess (pushed out to the right)
-      y: d.y - 35, // starting guess (pushed up)
-      formula: d.formula
-  }));
-
-  // D3 force simulation to resolve overlaps
-  const labelSim = d3.forceSimulation(labelData)
-      // High collision radius to account for long text boxes
-      .force("collide", d3.forceCollide().radius(22).iterations(3)) 
-      // Gentle pull towards their anchor points
-      .force("y", d3.forceY(d => d.ty - 40).strength(0.3)) 
-      .force("x", d3.forceX(d => d.tx + 40).strength(0.3))
-      .stop();
-
-  // Fast-forward the simulation so it applies instantly before drawing
-  for (let i = 0; i < 200; i++) labelSim.tick();
-
-  labelG.selectAll(".top-label").data(labelData, d=>d.id)
-    .join(
-      enter => {
-        const gLabel = enter.append("g").attr("class", "top-label");
-        gLabel.append("line")
-          .attr("stroke", "#475569").attr("stroke-width", 1).attr("opacity", 0.7);
-        gLabel.append("text")
-          .attr("fill", "#0f172a").attr("font-size", 11).attr("font-weight", "600")
-          .attr("font-family", "ui-monospace, monospace");
-        return gLabel;
-      },
-      update => update,
-      exit => exit.remove()
-    )
-    .each(function(d) {
-      const sel = d3.select(this);
-      // Draw connector line from the bubble (tx, ty) to the resolved label position (x, y)
-      sel.select("line")
-         .attr("x1", d.tx).attr("y1", d.ty)
-         .attr("x2", d.x).attr("y2", d.y);
-      // Place the text slightly offset from the end of the line
-      sel.select("text")
-         .attr("x", d.x + 4).attr("y", d.y + 4)
-         .text(d.formula);
-    });
 }
 
 /* Structure legend (click to filter) */
