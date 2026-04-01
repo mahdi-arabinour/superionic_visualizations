@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Sunburst - Publication Ready</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  :root { --bg:#ffffff; --panel:#f8fafc; --grid:#e5e7eb; --ink:#0f172a; --muted:#64748b; }
+  html, body { height:100%; margin:0; }
+  
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--bg); color: var(--ink);
+    display: flex; flex-direction: column;
+    font-size: 13px;
+  }
+  
+  header {
+    padding: 12px 16px; background: var(--panel);
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+    border-bottom: 1px solid var(--grid);
+    position: sticky; top: 0; z-index: 5;
+  }
+  
+  label { font-size: 12px; display: flex; align-items: center; gap: 6px; font-weight: bold; }
+  input[type="number"], input[type="range"], select { background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-family: Arial, sans-serif; }
+  input[type="range"] { cursor: pointer; }
+  
+  .btn { border: 1px solid #d0d0d0; background: #fff; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; font-family: Arial, sans-serif; }
+  .btn:hover { filter: brightness(0.95); border-color: #aaa; }
+  .btn-primary { background: #007aff; color: #fff; border: none; margin-left: auto; }
+  .btn-success { background: #10b981; color: #fff; border: none; }
+
+  #wrap { flex: 1; display: flex; padding: 16px; gap: 16px; min-height: 0; overflow: hidden; }
+  #chartCard {
+    flex: 1; display: grid; grid-template-columns: minmax(640px, 1.7fr) 340px;
+    gap: 16px; align-items: start; min-height: 0; height: 100%;
+  }
+  
+  .chartBody {
+    background: #ffffff; border: 1px solid var(--grid); border-radius: 10px;
+    position: relative; height: min(88vh, 900px); min-height: 560px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+  svg { width: 100%; height: 100%; display: block; }
+
+  .legend {
+    background: var(--panel); border: 1px solid var(--grid); border-radius: 10px;
+    padding: 16px; display: flex; flex-direction: column; gap: 10px;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.02); height: min(88vh, 900px); min-height: 560px;
+  }
+  
+  .legend h4 { margin: 0 0 8px 0; font-size: 14px; color: #0f172a; font-weight: bold; text-transform: none; letter-spacing: normal; }
+  
+  /* Scrollable specific areas */
+  .legendGroup { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 25vh; padding-right: 4px; }
+  
+  #detailsPanel { flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 12px;}
+  #formulaList { flex: 1; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; background: #ffffff; font-size: 12px; }
+
+  .ionRow {
+    display: grid; grid-template-columns: 18px 1fr auto;
+    gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px;
+    user-select: none; transition: 0.1s; cursor: pointer; background: #fff; border: 1px solid #cbd5e1;
+  }
+  .ionRow:hover { background: #f8fafc; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); }
+
+  .controls { border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .controls h4 { margin: 4px 0 0 0; font-size: 13px; color: #0f172a; font-weight: bold; }
+  .toggleRow { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #0f172a; font-weight: bold; }
+  fieldset { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .levelRow { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; }
+  .levelRow input[type="range"] { width: 100%; }
+  
+  .legendBtns { display: flex; gap: 8px; margin-top: 6px; }
+  .pill { background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 11px; font-weight: bold; font-family: Arial, sans-serif; }
+  .pill:hover { background: #cbd5e1; }
+
+  .tooltip {
+    position: fixed; pointer-events: none; background: rgba(15,23,42,.95);
+    color: #fff; padding: 10px 12px; border-radius: 6px; font-size: 12px; line-height: 1.4;
+    display: none; z-index: 100; box-shadow: 0 6px 18px rgba(0,0,0,.15);
+    font-family: Arial, sans-serif;
+  }
+
+  .label, .leafLabel {
+    fill: #0f172a; pointer-events: none;
+    paint-order: stroke; stroke: #ffffff; stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round;
+    font-family: Arial, sans-serif;
+  }
+  .hiddenLabel { opacity: 0; transition: opacity .12s ease; }
+  .visibleLabel { opacity: 1; transition: opacity .12s ease; }
+  .dimmed { opacity: 0.15; transition: opacity .12s ease; }
+
+  .cap { pointer-events: none; }
+  .cap text {
+    font-size: 11px; fill: #475569; font-weight: bold; font-family: Arial, sans-serif;
+    paint-order: stroke; stroke: #ffffff; stroke-width: 3px; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  .crumbs { font-size: 12px; color: #475569; font-weight: bold; margin-left: 10px;}
+  .crumbs a { color: #007aff; text-decoration: none; cursor: pointer; }
+  .crumbs a:hover { text-decoration: underline; }
+  
+  /* Scrollbar styles */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+</style>
+</head>
+<body>
+  <header>
+    <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:70px"></label>
+    <label><input type="checkbox" id="useLog" checked> log₁₀(σ) length</label>
+    
+    <span id="crumbs" class="crumbs"></span>
+    
+    <button onclick="exportChart('svg')" class="btn btn-primary">⬇ Journal SVG</button>
+    <button onclick="exportChart('png')" class="btn btn-success">⬇ 300DPI PNG</button>
+  </header>
+
+  <div id="wrap">
+    <div id="chartCard">
+      <div id="chart" class="chartBody"></div>
+
+      <div class="legend">
+        <h4>Filter by Ion</h4>
+        
+        <div id="csv-fallback" style="display:none; margin-bottom: 12px; padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px;">
+          <p style="margin: 0 0 8px 0; font-size: 12px; color: #475569;">Browser blocked auto-load. Please select your file:</p>
+          <button id="pick-csv" class="pill" style="background: #fff; border-color: #94a3b8;">Choose data.csv…</button>
+          <input id="csv-input" type="file" accept=".csv" style="display:none">
+        </div>
+
+        <div id="ionLegend" class="legendGroup"></div>
+
+        <div class="controls">
+          <h4>Label Controls</h4>
+          <label class="toggleRow">
+            <input type="checkbox" id="toggleAll" checked> Show all labels
+          </label>
+          <fieldset id="levelsFs">
+            <div class="levelRow">
+              <label class="lvlLabel" for="showIon"><input type="checkbox" id="showIon" checked> Ion</label>
+              <input id="fsIon" type="range" min="8" max="24" step="1" value="14">
+            </div>
+            <div class="levelRow">
+              <label class="lvlLabel" for="showStruct"><input type="checkbox" id="showStruct" checked> Structure</label>
+              <input id="fsStruct" type="range" min="8" max="24" step="1" value="13">
+            </div>
+            <div class="levelRow">
+              <label class="lvlLabel" for="showStrat"><input type="checkbox" id="showStrat" checked> Doping</label>
+              <input id="fsStrat" type="range" min="8" max="22" step="1" value="11">
+            </div>
+          </fieldset>
+
+          <div class="legendBtns">
+            <button id="btnClearSel" class="pill">Clear selection</button>
+          </div>
+
+          <label class="toggleRow" style="margin-top:4px;">
+            <input type="checkbox" id="hideUnsel" checked>
+            Hide unselected labels
+          </label>
+        </div>
+        
+        <div id="detailsPanel">
+            <h4 style="margin-bottom:6px;">Formula Details</h4>
+            <div id="formulaList"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script>
+  // ---------------- Tunables ----------------
+  const DEF_COND = 1e-6;
+  const SCALE_MODE = 'log';
+  const RING_SCALE = [1.0, 1.32, 1.52];  
+  const LEAF_SCALE = [1.0, 1.45, 1.6];
+  const CAP_ARC_DEG = 90;
+
+  // PURE ION COLOR PALETTE
+  const ION_COLORS = {
+    "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1",
+    "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047",
+    "F-": "#ff8a65", "Cu+": "#5c6bc0", "Mg2+": "#26c6da", "In3+": "#c0ca33",
+    "I-": "#ec407a", "Sn4+": "#7e57c2"
+  };
+  const getIonColor = n => ION_COLORS[n] || "#94a3b8";
+
+  const SUPERSCRIPTS = {
+    "-10":"⁻¹⁰", "-9":"⁻⁹", "-8":"⁻⁸", "-7":"⁻⁷", "-6":"⁻⁶", 
+    "-5":"⁻⁵", "-4":"⁻⁴", "-3":"⁻³", "-2":"⁻²", "-1":"⁻¹", "0":"⁰"
+  };
+  const formatLogLabel = val => `10${SUPERSCRIPTS[Math.round(Math.log10(val))] || '^' + Math.round(Math.log10(val))}`;
+
+  // ---------------- State ----------------
+  let fullHierarchy=null, idMap=new Map(), focusNode=null;
+  let maxRGlobal=0, labelsVisible=true;
+  let _nodesCache=null, _outerR=null, _defs=null, _g=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
+
+  let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=true;
+  let FS_ION=14, FS_STRUCT=13, FS_STRAT=11;
+
+  const selIons    = new Set();
+  let HIDE_UNSEL = true;
+  const ui = {};
+
+  // ---------------- MANUAL FILE LOADER ----------------
+  async function loadCSVWithFallback() {
+    try { 
+      return await d3.csv(new URL('data.csv', document.baseURI).href, d3.autoType); 
+    } catch(e) {
+      const fb = document.getElementById('csv-fallback');
+      const btn = document.getElementById('pick-csv');
+      const inp = document.getElementById('csv-input');
+      
+      if (!fb || !btn || !inp) throw e;
+      fb.style.display = 'block'; 
+      
+      return await new Promise((resolve, reject) => {
+        btn.addEventListener('click', () => inp.click(), {once:true});
+        inp.addEventListener('change', () => {
+          const f = inp.files && inp.files[0]; 
+          if (!f) return reject(new Error('No file selected'));
+          
+          const r = new FileReader();
+          r.onload = () => { 
+            try { 
+              resolve(d3.csvParse(r.result, d3.autoType)); 
+              fb.style.display = 'none'; 
+            } catch(err) { reject(err); } 
+          };
+          r.onerror = reject; 
+          r.readAsText(f);
+        }, {once:true});
+      });
+    }
+  }
+
+  // ---------------- Boot ----------------
+  document.addEventListener('DOMContentLoaded', async ()=>{
+    ui.toggleAll   = document.getElementById('toggleAll');
+    ui.showIon     = document.getElementById('showIon');
+    ui.showStruct  = document.getElementById('showStruct');
+    ui.showStrat   = document.getElementById('showStrat');
+    ui.fsIon       = document.getElementById('fsIon');
+    ui.fsStruct    = document.getElementById('fsStruct');
+    ui.fsStrat     = document.getElementById('fsStrat');
+    ui.btnClearSel = document.getElementById('btnClearSel');
+    ui.hideUnsel   = document.getElementById('hideUnsel');
+
+    ui.toggleAll.onchange = ()=>{ labelsVisible = ui.toggleAll.checked; applyLabelVisibility(); };
+
+    ui.showIon.onchange     = ()=>{ SHOW_ION     = ui.showIon.checked;     layoutLabels(); applyLegendFilter(); };
+    ui.showStruct.onchange  = ()=>{ SHOW_STRUCT  = ui.showStruct.checked;  layoutLabels(); applyLegendFilter(); };
+    ui.showStrat.onchange   = ()=>{ SHOW_STRAT   = ui.showStrat.checked;   layoutLabels(); applyLegendFilter(); };
+
+    ui.fsIon.oninput     = ()=>{ FS_ION   = +ui.fsIon.value;     layoutLabels(true); };
+    ui.fsStruct.oninput  = ()=>{ FS_STRUCT= +ui.fsStruct.value;  layoutLabels(true); };
+    ui.fsStrat.oninput   = ()=>{ FS_STRAT = +ui.fsStrat.value;   layoutLabels(true); };
+
+    ui.btnClearSel.onclick = ()=>{
+      selIons.clear();
+      document.querySelectorAll('.legendGroup input[type="checkbox"]').forEach(cb=>{ cb.checked=false; });
+      applyLegendFilter();
+    };
+
+    ui.hideUnsel.onchange = ()=>{ HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
+
+    try {
+      const csvRows = await loadCSVWithFallback();
+      const dataObj = rowsToNested(csvRows);
+      fullHierarchy = buildHierarchy(dataObj);
+      draw();
+    } catch(e) {
+      document.getElementById('chart').innerHTML = `<div style="padding:20px;color:red;font-weight:bold;">Critical Error loading data.</div>`;
+    }
+
+    window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(draw,120); });
+  });
+
+  // ---------------- Build hierarchy ----------------
+  function obj2children(obj){
+    return Object.entries(obj).map(([ion, structures])=>({
+      name:ion,
+      children:Object.entries(structures||{}).map(([structure, strategies])=>({
+        name:structure,
+        children:Object.entries(strategies||{}).map(([strategy, formulas])=>({
+          name:strategy,
+          children:Object.entries(formulas||{}).map(([formula, vals])=>{
+            const nums=Array.isArray(vals)?vals.map(Number).filter(x=>Number.isFinite(x)&&x>0):[];
+            return { name:formula, values:nums };
+          })
+        }))
+      }))
+    }));
+  }
+  let _uid=1;
+  function assignUids(root){ root.each(n=>{ n.data._uid=_uid++; idMap.set(n.data._uid, n); }); }
+  
+  function rowsToNested(rows){
+    const root = {};
+    const get = (obj, key) => (obj[key] ??= {});
+
+    rows.forEach(r=>{
+      const ion     = String(r['Ion Type'] ?? '').trim();
+      const struct  = String(r['Structure Group'] ?? '').trim();
+      const strat   = String(r['Doping / and or GB Strategy'] ?? '').trim();
+      const formula = String(r['Superionic Conductor Formula (Chemical)'] ?? '').trim();
+      const rawCond = r['Conductivity σ (S/cm)'];
+
+      if (!ion || !struct || !strat || !formula) return;
+
+      const ionObj    = get(root, ion);
+      const structObj = get(ionObj, struct);
+      const stratObj  = get(structObj, strat);
+
+      const arr = (stratObj[formula] ??= []);
+      const c = (typeof rawCond === 'number') ? rawCond : +String(rawCond).replace(/[, ]/g,'');
+      if (Number.isFinite(c) && c > 0) arr.push(c);
+    });
+
+    return root;
+  }
+
+  function buildHierarchy(dataObj){
+    const data={ name:'root', children:obj2children(dataObj) };
+    const root=d3.hierarchy(data, d=>d.children)
+      .sum(d => Array.isArray(d?.values) ? 1 : 0)
+      .sort((a,b)=>(b.value||0)-(a.value||0));
+    root.each(n=>{
+      if (Array.isArray(n.data.values)) {
+        const vals = n.data.values.filter(Number.isFinite);
+        n.data.cond = vals.length ? vals[0] : DEF_COND;
+        n.data.hasCond = vals.length>0;
+      }
+    });
+    assignUids(root);
+    return root;
+  }
+
+  function makeFocusRoot(){
+    if (!focusNode || focusNode.depth===0) return fullHierarchy.copy();
+    const clone = d3.hierarchy({
+      name:focusNode.data.name, _uid:focusNode.data._uid,
+      children: focusNode.children?.map(child=>cloneData(child))
+    }, d=>d.children);
+    clone.sum(d=>Array.isArray(d?.values)?1:0)
+         .sort((a,b)=>(b.value||0)-(a.value||0));
+    clone.each(n=>{
+      if (Array.isArray(n.data.values)) {
+        const vals=n.data.values.filter(Number.isFinite);
+        n.data.cond = vals.length ? vals[0] : DEF_COND;
+        n.data.hasCond = vals.length>0;
+      }
+    });
+    return clone;
+  }
+  
+  function cloneData(node){
+    return { name:node.data.name, values:node.data.values, _uid:node.data._uid,
+             children: node.children?.map(c=>cloneData(c)) };
+  }
+
+  // ---------------- Color Mapping (Strictly by Ion) ----------------
+  function absoluteNames(node){
+    const orig = idMap.get(node.data._uid);
+    let ion=null, struct=null, strat=null;
+    if (!orig) return {ion,struct,strat};
+    const chain = orig.ancestors().reverse();
+    if (chain[1]) ion    = chain[1].data.name;
+    if (chain[2]) struct = chain[2].data.name;
+    if (chain[3]) strat  = chain[3].data.name;
+    return {ion,struct,strat};
+  }
+  
+  function nodeFill(d){
+    if (d.depth === 0) return '#f8fafc'; 
+    const names = absoluteNames(d);
+    return getIonColor(names.ion || 'Other'); 
+  }
+
+  function levelOf(d){
+    const orig = idMap.get(d.data._uid);
+    const od = orig?.depth ?? 0; 
+    return od===1 ? 'ion' : od===2 ? 'struct' : od===3 ? 'strat' : 'formula';
+  }
+
+  // ---------------- Update Details Panel ----------------
+  function updateFormulaList(node) {
+      const listEl = document.getElementById('formulaList');
+      if (!node) {
+          listEl.innerHTML = '<em style="color:#94a3b8;">Click a slice to view formulas.</em>';
+          return;
+      }
+
+      let leaves = node.leaves();
+      // Sort by conductivity highest to lowest
+      leaves.sort((a, b) => (b.data.cond || 0) - (a.data.cond || 0));
+
+      if (leaves.length === 0) {
+          listEl.innerHTML = '<em style="color:#94a3b8;">No formulas found.</em>';
+          return;
+      }
+
+      let html = `<div style="margin-bottom:10px; font-weight:bold; color:#0f172a; border-bottom:1px solid #cbd5e1; padding-bottom:6px;">${node.data.name === 'root' ? 'All' : node.data.name} Formulas (${leaves.length})</div>`;
+
+      leaves.forEach(l => {
+          const cond = l.data.hasCond ? `${Number(l.data.cond).toExponential(2)} S/cm` : '<span style="color:#cbd5e1">No data</span>';
+          const color = getIonColor(absoluteNames(l).ion || 'Other');
+          html += `
+          <div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #f1f5f9; align-items:center;">
+              <span style="font-family: monospace; font-size:11px; font-weight:600; color:#334155; word-break: break-all; max-width: 65%;">
+                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px;"></span>
+                  ${l.data.name}
+              </span>
+              <span style="color:#64748b; font-size:11px; text-align:right;">${cond}</span>
+          </div>`;
+      });
+      listEl.innerHTML = html;
+  }
+
+
+  // ---------------- Draw ----------------
+  function draw(){
+    const chartEl=document.getElementById('chart');
+    const legendEl=document.getElementById('ionLegend');
+    chartEl.innerHTML=''; 
+
+    const rect=chartEl.getBoundingClientRect();
+    const side=Math.min(Math.max(560, rect.width), Math.max(560, rect.height));
+
+    const root = makeFocusRoot();
+    _focusDepth = (focusNode?.depth ?? 0);
+
+    // Update the side panel based on current view
+    updateFormulaList(root);
+
+    const ringScale=RING_SCALE[Math.min(_focusDepth, RING_SCALE.length-1)];
+    const leafScale=LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
+    _ringThickness=Math.max(44, side*0.085)*ringScale;
+    _leafBase=Math.max(12, side*0.03);
+    const extraLeafMax=Math.max(90, side*0.22)*leafScale;
+
+    d3.partition().size([2*Math.PI, (root.height + 1) * _ringThickness])(root);
+
+    const condVals=root.leaves().map(l=>l.data.cond||DEF_COND);
+    let [cmin,cmax]=d3.extent(condVals); if(!(cmax>cmin)){ cmin=Math.max(1e-12,cmin*0.8); cmax=cmin*10; }
+    const baseScale=(SCALE_MODE==='linear'? d3.scaleLinear().domain([cmin,cmax])
+                                          : d3.scaleLog().domain([Math.max(cmin,1e-12), Math.max(cmax,1e-12)]));
+    const condScale=baseScale.range([0,extraLeafMax]).clamp(true);
+
+    _outerR = d => d.children ? d.y1 : d.y1 + _leafBase + condScale(d.data.cond || DEF_COND);
+    const maxR = d3.max(root.descendants(), d=>_outerR(d)) + 6; maxRGlobal = maxR;
+
+    const svg=d3.select(chartEl).append('svg').attr('width','100%').attr('height','100%')
+      .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
+    _g=svg.append('g'); _defs=svg.append('defs');
+
+    // SUBTITLE
+    _g.append("text")
+      .attr("class", "ui-text") 
+      .attr("x", -maxR + 10) 
+      .attr("y", -maxR + 20) 
+      .text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type")
+      .attr("font-size", "12px")
+      .attr("font-family", "Arial, sans-serif")
+      .attr("fill", "#64748b");
+
+    const arc=d3.arc().startAngle(d=>d.x0).endAngle(d=>d.x1)
+      .padAngle(d=>Math.min(0.006,(d.x1-d.x0)/6)).padRadius(maxR*0.9)
+      .innerRadius(d=>d.y0).outerRadius(d=>_outerR(d));
+
+    const nodes = root.descendants().filter(d => d.depth>0);
+    _nodesCache = nodes;
+
+    const paths=_g.selectAll('path.slice').data(nodes, d=>d.data._uid).join('path')
+      .attr('class','slice')
+      .attr('d', arc)
+      .attr('fill', d=>{
+        const base = nodeFill(d);
+        if (!d.children && !d.data.hasCond){ const c=d3.color(base); c.opacity=0.7; return c.formatRgb(); }
+        return base;
+      })
+      .attr('stroke','#ffffff').attr('stroke-opacity',1.0)
+      .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.8, side*0.0016))
+      .style('cursor', d => d.children ? 'pointer' : 'default');
+
+    paths.each(function(d){
+      const names = absoluteNames(d);
+      this.dataset.ion    = names.ion || '';
+      this.dataset.struct = names.struct || '';
+      this.dataset.strat  = names.strat || '';
+    });
+
+    const tipVal=v=>(!Number.isFinite(v)?'n/a':(v<0.01?`${(v*1000).toFixed(3)} mS·cm⁻¹`:`${Number(v).toPrecision(3)} S·cm⁻¹`));
+    paths.on('mousemove',(evt,d)=>{
+      const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
+      let html=`<div style="font-family:Arial,sans-serif;"><b>${trail}</b>`;
+      html += d.children ? `<br/><span style="color:#94a3b8">Sub-formulas: ${d.value}</span>`
+                         : (d.data.hasCond ? `<br/>σ: ${tipVal(d.data.cond)}`
+                                           : `<br/><em style="color:#94a3b8">No conductivity data</em>`);
+      html+='</div>';
+      const tt=document.getElementById('tooltip');
+      tt.style.display='block'; tt.innerHTML=html;
+      tt.style.left=(evt.clientX+12)+'px'; tt.style.top=(evt.clientY+12)+'px';
+    }).on('mouseleave',()=>{ document.getElementById('tooltip').style.display='none'; });
+
+    paths.on('click',(evt,d)=>{
+      if(!d.children) return; 
+      const full = idMap.get(d.data._uid);
+      if (focusNode && full === focusNode) { focusNode = focusNode.parent || null; }
+      else { focusNode = full; }
+      selIons.clear(); 
+      draw();
+    });
+
+    const backR = Math.max(20, (midForDepth(root, 1)) * 0.4);
+    _g.append('circle')
+      .attr('r', backR)
+      .attr('fill', '#ffffff')
+      .style('cursor', focusNode ? 'pointer' : 'default')
+      .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; selIons.clear(); draw(); }});
+    
+    _g.append('text')
+      .attr('text-anchor','middle').attr('dy','0.35em')
+      .style('font-size','13px').style('font-weight','bold').style('fill','#0f172a').style('font-family', 'Arial, sans-serif')
+      .text(focusNode ? focusNode.data.name : 'All Ions');
+
+    // DRAWING ORDER
+    layoutLabels();
+    renderRingCaptions(root);
+
+    // CONCENTRIC LOG RINGS (Placed on top)
+    const axesGroup = _g.append('g').attr('class', 'axes');
+    const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; 
+    
+    let d3Node = root.descendants().find(d => d.depth === 3);
+    let baseLeafY = d3Node ? d3Node.y1 : (3 * _ringThickness);
+
+    tickVals.forEach(v => {
+        if (v < cmin || v > cmax) return;
+        const r = baseLeafY + _leafBase + condScale(v);
+        
+        axesGroup.append('circle')
+            .attr('r', r)
+            .attr('fill', 'none')
+            .attr('stroke', '#e2e8f0')
+            .attr('stroke-dasharray', '4,4');
+            
+        axesGroup.append('text')
+            .attr('y', -r - 4) 
+            .attr('x', 0)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#94a3b8')
+            .attr('font-size', '11px')
+            .attr('font-family', 'system-ui, Segoe UI, Roboto, sans-serif')
+            .text(formatLogLabel(v));
+    });
+
+    renderCrumbs();
+    
+    if(!legendEl.hasChildNodes()) buildLegend(legendEl);
+    
+    applyLabelVisibility();
+    applyLegendFilter();
+  }
+
+  // ---------------- Legend ----------------
+  function buildLegend(container){
+    container.innerHTML='';
+    const ions = Array.from(new Set(fullHierarchy.leaves().map(d => absoluteNames(d).ion))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+
+    ions.forEach(ion=>{
+      const row = document.createElement('label'); row.className='ionRow';
+      
+      const sw = document.createElement('div');
+      sw.className = 'swatch'; 
+      sw.style.background = getIonColor(ion);
+      
+      const title = document.createElement('div');
+      const pick  = document.createElement('input'); pick.type='checkbox';
+
+      title.textContent = ion;
+      title.style.fontSize = '12px';
+      title.style.fontWeight = 'bold';
+
+      pick.checked = selIons.has(ion);
+
+      pick.onchange = ()=>{
+          if (pick.checked) selIons.add(ion); else selIons.delete(ion);
+          applyLegendFilter();
+      };
+
+      row.append(sw, title, pick);
+      container.appendChild(row);
+    });
+  }
+
+  // ---------------- Selection filter ----------------
+  function applyLegendFilter(){
+    const hasSel = (selIons.size > 0);
+
+    d3.selectAll('path.slice').each(function(){
+      const ion = this.dataset.ion || '';
+      let on = true;
+      if (hasSel){ on = selIons.has(ion); }
+      this.classList.toggle('dimmed', hasSel && !on);
+    });
+
+    d3.selectAll('.labels text.levelLabel').each(function(d){
+      const names = absoluteNames(d);
+      let on = true;
+      if (hasSel){ on = selIons.has(names.ion||''); }
+
+      const sel = d3.select(this);
+      if (hasSel && !on && HIDE_UNSEL){
+        sel.style('display','none').classed('dimmed', false);
+      } else {
+        sel.style('display', null).classed('dimmed', hasSel && !on && !HIDE_UNSEL);
+      }
+    });
+  }
+
+  // ---------------- Breadcrumbs ----------------
+  function renderCrumbs(){
+    const el=document.getElementById('crumbs');
+    if (!focusNode || focusNode.depth===0){
+      el.innerHTML='<a data-ix="root">Sunburst Root</a>';
+      el.querySelector('a').onclick=()=>{ focusNode=null; selIons.clear(); draw(); };
+      return;
+    }
+    const chain=focusNode.ancestors().reverse().slice(1);
+    el.innerHTML=['<a data-ix="root">Sunburst Root</a>',
+      ...chain.map((n,i)=>` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
+    el.querySelectorAll('a').forEach(a=>{
+      a.onclick=()=>{
+        const ix=a.getAttribute('data-ix');
+        focusNode = (ix==='root') ? null : chain[Number(ix)];
+        selIons.clear();
+        draw();
+      };
+    });
+  }
+
+  // ---------------- Labels ----------------
+  function layoutLabels(){
+    _g.selectAll('.labels').remove();
+    const layer = _g.append('g').attr('class','labels');
+
+    let data = [];
+    if (SHOW_ION)     data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='ion'));
+    if (SHOW_STRUCT)  data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='struct'));
+    if (SHOW_STRAT)   data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='strat'));
+
+    const sel = layer.selectAll('text.levelLabel')
+      .data(data, d=>`${d.data._uid}-${levelOf(d)}`)
+      .join('text')
+      .attr('class', d=> (levelOf(d)==='formula' ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'))
+      .text(d=> d.data.name)
+      .style('font-size', d=>{
+        const lv = levelOf(d);
+        return lv==='ion' ? (FS_ION+'px')
+             : lv==='struct' ? (FS_STRUCT+'px')
+             : (FS_STRAT+'px');
+      })
+      .style('font-weight', d=>{
+        const lv = levelOf(d);
+        return lv==='ion' ? 700 : lv==='struct' ? 600 : 500;
+      });
+
+    placeRadial(sel);
+    applyLegendFilter();
+  }
+
+  function placeRadial(selection){
+    selection.each(function(d){
+      const el = d3.select(this);
+      
+      const rMid = (d.y0 + d.y1) / 2; 
+
+      let amid = (d.x0 + d.x1) / 2;
+      if (d.x0 < 0 && d.x1 > 0) amid += 0.01;
+
+      const deg = amid * 180 / Math.PI;
+      const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
+
+      el.attr('dy','0.32em')
+        .attr('text-anchor', 'middle')
+        .attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`)
+        .style('opacity', 1)
+        .style('display', null);
+    });
+  }
+
+  // ---------------- Ring captions ----------------
+  function ensureCaptionLayers(){
+    if (!window._capLayers){
+      window._capLayers = {
+        ion:     _g.append('g').attr('class','cap cap-ion'),
+        struct:  _g.append('g').attr('class','cap cap-struct'),
+        strat:   _g.append('g').attr('class','cap cap-strat'),
+        formula: _g.append('g').attr('class','cap cap-formula'),
+      };
+    }
+    _capLayers.ion.selectAll('*').remove();
+    _capLayers.struct.selectAll('*').remove();
+    _capLayers.strat.selectAll('*').remove();
+    _capLayers.formula.selectAll('*').remove();
+  }
+  function midForDepth(partitionRoot, depth){
+    const n = partitionRoot.descendants().find(d => d.depth === depth);
+    return n ? (n.y0 + n.y1) / 2 : (depth + 0.5) * _ringThickness;
+  }
+  function renderRingCaptions(partitionRoot){
+    ensureCaptionLayers();
+    if (!_defs) return;
+    _defs.selectAll('path.ringArc').remove();
+
+    const a0 = (-90 - CAP_ARC_DEG/2) * Math.PI/180;
+    const a1 = (-90 + CAP_ARC_DEG/2) * Math.PI/180;
+    function arcPath(r, a0, a1){
+      const x0 = r * Math.cos(a0), y0 = r * Math.sin(a0);
+      const x1 = r * Math.cos(a1), y1 = r * Math.sin(a1);
+      const largeArc = (a1 - a0) % (2*Math.PI) > Math.PI ? 1 : 0;
+      return `M ${x0.toFixed(3)} ${y0.toFixed(3)} A ${r.toFixed(3)} ${r.toFixed(3)} 0 ${largeArc} 1 ${x1.toFixed(3)} ${y1.toFixed(3)}`;
+    }
+
+    const rIon    = midForDepth(partitionRoot, 1);
+    const rStruct = midForDepth(partitionRoot, 2);
+    const rStrat  = midForDepth(partitionRoot, 3);
+
+    const maxDepth = partitionRoot.height;
+    const lastBand = partitionRoot.descendants().find(d => d.depth === maxDepth);
+    const rFormula = (lastBand?.y1 ?? ((maxDepth+1) * _ringThickness)) + (_leafBase * 0.55);
+
+    const items = [
+      { key:'ion',     text:'Ion Type',                       r:rIon    },
+      { key:'struct',  text:'Structure Group',                r:rStruct },
+      { key:'strat',   text:'Doping / and or GB Strategy',    r:rStrat  },
+      { key:'formula', text:'Superionic Conductor Formula',   r:rFormula},
+    ];
+
+    items.forEach((it)=>{
+      if (!Number.isFinite(it.r) || it.r <= 0) return;
+      const id = `ringcap-${Math.floor(it.r)}-${it.key}`;
+      const d  = arcPath(it.r, a0, a1);
+      _defs.append('path').attr('id', id).attr('d', d);
+      const layer = _capLayers[it.key];
+      layer.append('text')
+        .append('textPath')
+        .attr('href', '#'+id)
+        .attr('startOffset','50%')
+        .attr('text-anchor','middle')
+        .text(it.text);
+    });
+
+    _capLayers.ion.raise();
+    _capLayers.struct.raise();
+    _capLayers.strat.raise();
+    _capLayers.formula.raise();
+  }
+
+  function applyLabelVisibility(){
+    const show = labelsVisible;
+    d3.selectAll('.label, .leafLabel')
+      .classed('hiddenLabel', !show)
+      .classed('visibleLabel', show);
+  }
+
+  /* ---------- NATIVE D3 EXPORT PIPELINE ---------- */
+  function getSVGString(svgNode) {
+      svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
+      let cssStyleText = "";
+      for (let i = 0; i < document.styleSheets.length; i++) {
+          try {
+              for (let j = 0; j < document.styleSheets[i].cssRules.length; j++) {
+                  cssStyleText += document.styleSheets[i].cssRules[j].cssText;
+              }
+          } catch (e) {}
+      }
+      const styleElement = document.createElement("style");
+      styleElement.setAttribute("type", "text/css");
+      styleElement.innerHTML = cssStyleText;
+      const refNode = svgNode.hasChildNodes() ? svgNode.children[0] : null;
+      svgNode.insertBefore(styleElement, refNode);
+      
+      const serializer = new XMLSerializer();
+      let svgString = serializer.serializeToString(svgNode);
+      svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink='); 
+      svgString = svgString.replace(/NS\d+:href/g, 'xlink:href');
+      
+      svgNode.removeChild(styleElement);
+      return svgString;
+  }
+
+  async function exportChart(format) {
+      const svgEl = document.querySelector("#chart svg");
+      const d3Svg = d3.select(svgEl);
+
+      const pad = 120; 
+      const legendWidth = 240; 
+      const currentViewBox = svgEl.getAttribute("viewBox").split(" ").map(Number);
+      const [origX, origY, origW, origH] = currentViewBox;
+
+      const exportMinX = origX - pad;
+      const exportMinY = origY - pad;
+      const exportW = origW + (pad * 2) + legendWidth;
+      const exportH = origH + (pad * 2);
+
+      d3Svg.attr("viewBox", `${exportMinX} ${exportMinY} ${exportW} ${exportH}`);
+
+      d3Svg.insert("rect", ":first-child")
+          .attr("id", "export-bg")
+          .attr("x", exportMinX).attr("y", exportMinY)
+          .attr("width", exportW).attr("height", exportH)
+          .attr("fill", "#ffffff");
+
+      d3Svg.selectAll(".ui-text").style("display", "none");
+
+      const exportGroup = d3Svg.append("g").attr("id", "export-elements");
+      
+      exportGroup.append("text")
+          .attr("x", exportMinX + 40) 
+          .attr("y", exportMinY + 60) 
+          .text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type")
+          .attr("font-size", "16px")
+          .attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif")
+          .attr("fill", "#64748b");
+
+      const legX = origX + origW + (pad/2) - 40; 
+      let curY = exportMinY + 60; 
+
+      exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
+          .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif");
+      curY += 28;
+
+      const ionCounts = {};
+      fullHierarchy.leaves().forEach(d => {
+          const ion = absoluteNames(d).ion || 'Other';
+          ionCounts[ion] = (ionCounts[ion] || 0) + 1;
+      });
+
+      Object.keys(ionCounts).sort().forEach(ion => {
+          exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
+              .attr("width", 14).attr("height", 14).attr("rx", 2)
+              .attr("fill", getIonColor(ion)).attr("stroke", "rgba(0,0,0,0.15)");
+              
+          exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
+              .text(`${ion} (${ionCounts[ion]})`)
+              .attr("font-size", "13px").attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif").attr("fill", "#0f172a");
+          curY += 22;
+      });
+
+      const svgString = getSVGString(svgEl);
+
+      if(format === 'svg') {
+          const blob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url; link.download = "Sunburst_Publication.svg";
+          document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      } else {
+          const scale = 4; 
+          const canvas = document.createElement("canvas");
+          canvas.width = exportW * scale;
+          canvas.height = exportH * scale;
+          const ctx = canvas.getContext("2d");
+          
+          const img = new Image();
+          const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
+          const url = URL.createObjectURL(svgBlob);
+
+          await new Promise(resolve => {
+              img.onload = () => {
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                  URL.revokeObjectURL(url);
+                  const link = document.createElement("a");
+                  link.download = "Sunburst_HighRes.png";
+                  link.href = canvas.toDataURL("image/png");
+                  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                  resolve();
+              };
+              img.src = url;
+          });
+      }
+
+      d3Svg.select("#export-elements").remove();
+      d3Svg.select("#export-bg").remove();
+      d3Svg.selectAll(".ui-text").style("display", null);
+      d3Svg.attr("viewBox", currentViewBox.join(" "));
+  }
+  </script>
+</body>
+</html>
