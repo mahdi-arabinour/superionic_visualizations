@@ -363,14 +363,106 @@ function bestText(hex){
   }catch{ return "#111"; }
 }
 
-// ---- Download Functions for High-Quality Journal Publication ----
+// ---- Download Functions with Embedded Legends ----
+function buildSVGLegend(clone, originalWidth, originalHeight) {
+  // Expand width to fit the legend (e.g., add 260px)
+  const legendWidth = 260;
+  const newWidth = originalWidth + legendWidth;
+  clone.setAttribute("viewBox", `0 0 ${newWidth} ${originalHeight}`);
+  
+  // Create a <g> for the legend, placed on the right
+  const lg = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  lg.setAttribute("transform", `translate(${originalWidth}, 36)`); // Align with top margin
+  
+  // Use JS globals: STRUCT_COLORS, activeStructures, activeSubtypes, sizeFactor
+  let yPos = 0;
+  
+  // 1. Structure Group (Color) Legend
+  const tTitle1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  tTitle1.textContent = "Structure Group (Color)";
+  tTitle1.setAttribute("x", 10);
+  tTitle1.setAttribute("y", yPos);
+  tTitle1.setAttribute("fill", "#111827");
+  tTitle1.setAttribute("font-size", "14px");
+  tTitle1.setAttribute("font-weight", "bold");
+  lg.appendChild(tTitle1);
+  yPos += 24;
+
+  if (typeof structures !== 'undefined') {
+    structures.forEach(name => {
+      if (activeStructures.has(name)) {
+        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", 16);
+        c.setAttribute("cy", yPos - 4);
+        c.setAttribute("r", 6);
+        c.setAttribute("fill", structColor(name));
+        c.setAttribute("stroke", "rgba(17,24,39,0.85)");
+        c.setAttribute("stroke-width", 0.6);
+        lg.appendChild(c);
+        
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.textContent = name;
+        t.setAttribute("x", 32);
+        t.setAttribute("y", yPos);
+        t.setAttribute("fill", "#334155");
+        t.setAttribute("font-size", "13px");
+        lg.appendChild(t);
+        
+        yPos += 20;
+      }
+    });
+  }
+  
+  yPos += 24; // gap
+  
+  // 2. Doping Type Legend
+  const tTitle2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  tTitle2.textContent = "Doping Type (Active)";
+  tTitle2.setAttribute("x", 10);
+  tTitle2.setAttribute("y", yPos);
+  tTitle2.setAttribute("fill", "#111827");
+  tTitle2.setAttribute("font-size", "14px");
+  tTitle2.setAttribute("font-weight", "bold");
+  lg.appendChild(tTitle2);
+  yPos += 24;
+
+  if (typeof subtypes !== 'undefined') {
+    subtypes.forEach(name => {
+      if (activeSubtypes.has(name)) {
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.textContent = "• " + name;
+        t.setAttribute("x", 10);
+        t.setAttribute("y", yPos);
+        t.setAttribute("fill", "#334155");
+        t.setAttribute("font-size", "13px");
+        lg.appendChild(t);
+        yPos += 18;
+      }
+    });
+  }
+
+  yPos += 24; // gap
+
+  // 3. Bubble Size Note
+  if (typeof sizeFactor !== 'undefined') {
+    const tTitle3 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    tTitle3.textContent = `Bubble Size Scaler: ${sizeFactor.toFixed(2)}x`;
+    tTitle3.setAttribute("x", 10);
+    tTitle3.setAttribute("y", yPos);
+    tTitle3.setAttribute("fill", "#111827");
+    tTitle3.setAttribute("font-size", "13px");
+    tTitle3.setAttribute("font-style", "italic");
+    lg.appendChild(tTitle3);
+  }
+
+  clone.appendChild(lg);
+  return newWidth;
+}
+
 function downloadSVG() {
   const svgNode = document.getElementById('chart');
-  
-  const serializer = new XMLSerializer();
-  svgNode.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  
   const clone = svgNode.cloneNode(true);
+  
   const styleEl = document.createElement('style');
   styleEl.textContent = `
     .axis path, .axis line { stroke:#cbd5e1; }
@@ -380,6 +472,13 @@ function downloadSVG() {
   `;
   clone.prepend(styleEl);
 
+  const baseWidth = 1200;
+  const baseHeight = 760;
+  const newWidth = buildSVGLegend(clone, baseWidth, baseHeight);
+  clone.setAttribute("width", newWidth); // explicit set
+  
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const serializer = new XMLSerializer();
   let source = serializer.serializeToString(clone);
   
   if(!source.match(/^<\?xml/)){
@@ -388,10 +487,9 @@ function downloadSVG() {
 
   const blob = new Blob([source], {type: "image/svg+xml;charset=utf-8"});
   const url = URL.createObjectURL(blob);
-  
   const a = document.createElement("a");
   a.href = url;
-  a.download = "chart_high_quality.svg";
+  a.download = "chart_with_legend_vector.svg";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -400,12 +498,8 @@ function downloadSVG() {
 
 function downloadPNG() {
   const svgNode = document.getElementById('chart');
-  const scale = 4; // 4x scale for high resolution (equivalent to ~300+ DPI)
+  const scale = 4; // 300dpi equivalent
   
-  const bbox = svgNode.getBoundingClientRect();
-  const width = bbox.width || 1200;
-  const height = bbox.height || 760;
-
   const clone = svgNode.cloneNode(true);
   const styleEl = document.createElement('style');
   styleEl.textContent = `
@@ -416,36 +510,36 @@ function downloadPNG() {
   `;
   clone.prepend(styleEl);
   
-  clone.setAttribute("width", width * scale);
-  clone.setAttribute("height", height * scale);
-  clone.setAttribute("viewBox", `0 0 1200 760`);
+  const baseWidth = 1200;
+  const baseHeight = 760;
+  const newWidth = buildSVGLegend(clone, baseWidth, baseHeight);
+  
+  clone.setAttribute("width", newWidth * scale);
+  clone.setAttribute("height", baseHeight * scale);
   
   const serializer = new XMLSerializer();
   let source = serializer.serializeToString(clone);
   
   const img = new Image();
   img.crossOrigin = "anonymous";
-  
   const svg64 = btoa(unescape(encodeURIComponent(source)));
   const b64Start = 'data:image/svg+xml;base64,';
   img.src = b64Start + svg64;
 
   img.onload = function() {
     const canvas = document.createElement("canvas");
-    canvas.width = width * scale;
-    canvas.height = height * scale;
+    canvas.width = newWidth * scale;
+    canvas.height = baseHeight * scale;
     const ctx = canvas.getContext("2d");
     
-    // Fill white background for the PNG (transparent by default in SVG)
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     
     const pngUrl = canvas.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = pngUrl;
-    a.download = "chart_high_quality_300dpi.png";
+    a.download = "chart_with_legend_300dpi.png";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
