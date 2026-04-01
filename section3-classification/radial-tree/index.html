@@ -122,9 +122,15 @@ const UNICODE_SHAPES = {
   "triangle-down": "▼", "cross": "✚", "star": "★"
 };
 
+const SUPERSCRIPTS = {
+  "-10":"⁻¹⁰", "-9":"⁻⁹", "-8":"⁻⁸", "-7":"⁻⁷", "-6":"⁻⁶", 
+  "-5":"⁻⁵", "-4":"⁻⁴", "-3":"⁻³", "-2":"⁻²", "-1":"⁻¹", "0":"⁰"
+};
+
 const getStructColor = n => STRUCT_COLORS[n] || "#64748b";
 const getIonShapeString = n => ION_SHAPES[n] || "circle";
 const getIonUnicode = n => UNICODE_SHAPES[ION_SHAPES[n]] || "●";
+const formatLogLabel = val => `10${SUPERSCRIPTS[Math.round(Math.log10(val))] || '^' + Math.round(Math.log10(val))}`;
 
 const D3_SHAPE_MAP = {
     "circle": d3.symbolCircle,
@@ -141,7 +147,7 @@ const svg = d3.select('#chart');
 const tip = d3.select('#tooltip');
 const say = t => (document.getElementById('status').textContent = t);
 let DATA=null, COLS=null, WIDTH=0, HEIGHT=0;
-let textRingR = 0; // Globally stored text ring radius for exports
+let textRingR = 0; 
 let selectedIons = null; 
 let ionLegEl = null;
 
@@ -214,15 +220,6 @@ function drawTree(rows){
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','tree');
 
-  g.append("text")
-      .attr("x", -WIDTH/2 + 30) 
-      .attr("y", -HEIGHT/2 + 40) 
-      .text("Superionic Conductors: A Radial Taxonomy")
-      .attr("font-weight", "bold")
-      .attr("font-size", "22px")
-      .attr("font-family", "Arial, sans-serif")
-      .attr("fill", "#0f172a");
-
   const useLog  = document.getElementById('useLog').checked;
   const baseEdge= +document.getElementById('baseEdge').value;
   const leafMin = +document.getElementById('leafMin').value;
@@ -233,11 +230,11 @@ function drawTree(rows){
   const spread  = +document.getElementById('leafSpread').value;
   document.getElementById('leafMaxLbl').textContent=leafMax;
 
-  // DYNAMIC RADII LOGIC (Restores the Spikes)
+  // DYNAMIC RADII LOGIC 
   const rIon     = 1.0 * baseEdge;                  
   const rStruct  = 2.0 * baseEdge;                  
   const rDoping  = 2.8 * baseEdge; 
-  const rFormula = 3.3 * baseEdge; // Point where the variable-length leaves start
+  const rFormula = 3.3 * baseEdge; 
   
   // The absolute furthest a branch can go, plus padding for the text ring
   const maxR = rFormula + leafMax;
@@ -275,11 +272,10 @@ function drawTree(rows){
   let sMax = vals.length? d3.max(vals) : def*10;
   if(sMin===sMax){ sMin*=0.9; sMax*=1.1; }
   
-  // Direct scaling mapping (no maxExtra crunching)
   const scaleLin=d3.scaleLinear().domain([sMin,sMax]).range([leafMin,leafMax]).nice();
   const scaleLog=d3.scaleLog().domain([Math.max(sMin, 1e-12), sMax]).range([leafMin,leafMax]);
   
-  // Apply true physical pixel lengths to the leaves based on conductivity
+  // IMPORTANT: Apply true physical pixel lengths to the leaves based on conductivity
   H.each(n=>{ 
       if(!n.children) {
           const val = Number.isFinite(+n.data.sigma) && +n.data.sigma > 0 ? +n.data.sigma : def;
@@ -297,15 +293,46 @@ function drawTree(rows){
     });
   }
 
+  // FIX 1: DRAW CONCENTRIC LOG RINGS (The Bar Chart Scale)
+  const axesGroup = g.append('g').attr('class', 'axes');
+  const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; // Typical relevant solid-state milestones
+  
+  tickVals.forEach(v => {
+      if (v < sMin || v > sMax) return;
+      const r = rFormula + (useLog ? scaleLog(v) : scaleLin(v));
+      
+      // Draw the faint circular grid line
+      axesGroup.append('circle')
+          .attr('r', r)
+          .attr('fill', 'none')
+          .attr('stroke', '#e2e8f0')
+          .attr('stroke-dasharray', '4,4');
+          
+      // Stamp the conductivity value on the vertical axis
+      axesGroup.append('text')
+          .attr('y', -r - 4) // Sit just above the ring
+          .attr('x', 0)
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#94a3b8')
+          .attr('font-size', '11px')
+          .attr('font-family', 'Arial, sans-serif')
+          .text(formatLogLabel(v));
+  });
+
+  // FIX 3: INNER BRANCH VISUAL HIERARCHY
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
   g.append('g').attr('fill','none').selectAll('path').data(H.links()).join('path')
     .attr('stroke-width', d => {
-      if (d.target.depth === 3) return 1.8;   
-      if (d.target.depth >= 4) return 0.8;    
+      if (d.target.depth === 1) return 2.0;   // THICK Root to Ion branch
+      if (d.target.depth === 3) return 1.8;   // Doping
+      if (d.target.depth >= 4) return 0.8;    // Formula
       return 1.2;                             
     })
     .attr('stroke-dasharray', d => d.target.depth === 3 ? '2,2' : null)
-    .attr('stroke', d => d.target.depth > 1 ? structColorFromNode(d.target) : '#cbd5e1')
+    .attr('stroke', d => {
+        // Make the Inner Root (Center->Ion) a bold solid grey. Make everything else the Structure color.
+        return d.target.depth > 1 ? structColorFromNode(d.target) : '#64748b';
+    })
     .attr('d', d => link({source:d.source, target:d.target}));
 
   const nodes = g.append('g').selectAll('g.n').data(H.descendants()).join('g')
@@ -350,10 +377,10 @@ function drawTree(rows){
       arr=kept;
     }
 
-    // DRAW THE DOTTED GUIDE LINES FROM THE SPIKY LEAVES TO THE TEXT RING
+    // FIX 2: DRAW THE DOTTED GUIDE LINES FROM THE SPIKY LEAVES TO THE TEXT RING
     if (L.depth === 4) {
         g.append('g').selectAll('line.guide').data(arr).join('line')
-          // Start the line precisely where the branch ended
+          // Start the line precisely where the conductivity branch ended
           .attr('x1', d => Math.cos(d.x - Math.PI/2) * (d.y + 4)) 
           .attr('y1', d => Math.sin(d.x - Math.PI/2) * (d.y + 4))
           // End the line precisely at the outer text ring
@@ -454,17 +481,15 @@ async function exportChart(format) {
         ionCounts[d.ion] = (ionCounts[d.ion] || 0) + 1;
     });
 
-    const titleHeight = 80;   
     const legendWidth = 240;  
-    const pad = 160; // Extra padding so long formula text fits safely
+    const pad = 160; 
     
     const origViewBox = svgEl.getAttribute("viewBox");
     
-    // Mathematically derive the flawless bounding box for the entire geometric tree
     const minX = -textRingR - pad;
-    const minY = -textRingR - pad - titleHeight;
+    const minY = -textRingR - pad; // Removed titleHeight gap
     const exportWidth = (textRingR * 2) + (pad * 2) + legendWidth;
-    const exportHeight = (textRingR * 2) + (pad * 2) + titleHeight;
+    const exportHeight = (textRingR * 2) + (pad * 2);
     
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
 
@@ -476,17 +501,8 @@ async function exportChart(format) {
 
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    exportGroup.append("text")
-        .attr("x", minX + 40) 
-        .attr("y", minY + 60) 
-        .text("Superionic Conductors: A Radial Taxonomy")
-        .attr("font-weight", "bold")
-        .attr("font-size", "28px")
-        .attr("font-family", "Arial, sans-serif")
-        .attr("fill", "#0f172a");
-
     const legX = textRingR + pad; 
-    let curY = minY + 60; 
+    let curY = minY + 60; // Top aligned spacing
 
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
