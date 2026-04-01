@@ -122,7 +122,8 @@ const ION_COLORS = {
 const ionColor = ion => ION_COLORS[ion] || "#6b7280";
 
 /* Layout */
-const margin = {top:36,right:20,bottom:64,left:200};
+// INCREASED right margin from 20 to 180 to leave room for long text labels
+const margin = {top:36,right:180,bottom:64,left:200}; 
 const W = 1200 - margin.left - margin.right;
 const H = 760  - margin.top  - margin.bottom;
 
