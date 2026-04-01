@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Ea vs σ (log Y) - Publication Ready</title>
+<title>Ea vs σ (log Y) - High-Res Publication</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -10,7 +10,6 @@
   :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#e3e3e3; --text:#111; --panel-border:#d0d0d0; --note:#555; --accent:#007aff; }
   * { box-sizing:border-box; }
   
-  /* Master Typography: Enforce Arial globally */
   body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); }
 
   header {
@@ -43,7 +42,6 @@
   .panel button { border:1px solid #ddd; background:#f7f7f7; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family: Arial, sans-serif; }
   .panel button:hover { background:#efefef; }
 
-  /* Interactive Legends */
   #ionLegend .row, #structureLegend .row {
     display:flex; align-items:center; gap:8px; padding:6px 8px; margin:5px 0;
     border:1px solid #e3e3e3; border-radius:6px; cursor:pointer; user-select:none; background:#fff; transition: 0.1s;
@@ -190,8 +188,7 @@ function draw(){
     xaxis: { 
       title: { text: "<b>Activation Energy E<sub>a</sub> (eV)</b>", font: { size: 14 } },
       range: [0.05, 0.65], tickformat: ".1f", tickmode: "linear", tick0: 0.1, dtick: 0.1, 
-      gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
-      domain: [0, 1] // Full width for the interactive view
+      gridcolor: "#e2e8f0", griddash: "dot", zeroline: false
     },
     yaxis: { 
       title: { text: "<b>Ionic Conductivity σ (S·cm⁻¹)</b>", font: { size: 14 } },
@@ -223,14 +220,14 @@ function draw(){
   });
 }
 
-/* ---------- BULLETPROOF EXPORT SEQUENCE (DOMAIN COMPRESSION) ---------- */
+/* ---------- HIGH-RES PUBLICATION EXPORT SEQUENCE ---------- */
 async function exportChart(format) {
   const gd = document.getElementById('chart');
-  say(`Generating ${format.toUpperCase()} Figure with Legends...`);
+  say(`Generating Ultra High-Res ${format.toUpperCase()} Figure...`);
 
   const origMargin = gd.layout.margin;
 
-  // 1. Calculate active counts based on filters
+  // 1. Calculate active counts
   const structCounts = {};
   const ionCounts = {};
   traceMeta.forEach(t => {
@@ -247,10 +244,10 @@ async function exportChart(format) {
   // 2. Inject Dummy Traces for Structure (Assigned to primary 'legend')
   Object.keys(structCounts).sort().forEach(fam => {
       dummyTraces.push({
-          x: [null], y: [null], // Invisible data points
+          x: [null], y: [null], 
           name: `${fam} (${structCounts[fam]})`,
           mode: 'markers',
-          marker: { size: 14, color: getStructColor(fam), symbol: 'square' },
+          marker: { size: 12, color: getStructColor(fam), symbol: 'square' },
           legend: 'legend',
           showlegend: true, hoverinfo: 'none'
       });
@@ -262,7 +259,7 @@ async function exportChart(format) {
           x: [null], y: [null], 
           name: `${ion} (${ionCounts[ion]})`,
           mode: 'markers',
-          marker: { size: 14, color: DARK_GRAY, symbol: getShape(ion) },
+          marker: { size: 12, color: DARK_GRAY, symbol: getShape(ion) },
           legend: 'legend2', 
           showlegend: true, hoverinfo: 'none'
       });
@@ -270,52 +267,51 @@ async function exportChart(format) {
 
   const originalTraceCount = gd.data.length;
 
-  // 4. Add the traces to the canvas
   await Plotly.addTraces(gd, dummyTraces);
 
-  // 5. THE FIX: Compress the X-axis domain to 78% of the canvas, place legends at 82%
+  // 4. THE FIX: Strict Right Margin. 
+  // By giving a 260px right margin, the gridlines physically stop, 
+  // and the legends are placed safely inside that blank white space.
   await Plotly.relayout(gd, {
-      'xaxis.domain': [0, 0.78], // FORCES the chart grid to stop early!
-      
       showlegend: true, 
-      'legend.title.text': '<b>Structure Group</b>',
+      'legend.title.text': '<b>Structure Group Breakdown</b>',
       'legend.font.family': 'Arial, sans-serif',
-      'legend.font.size': 13,
+      'legend.font.size': 12,
       'legend.y': 1, 'legend.yanchor': 'top', 
-      'legend.x': 0.82, // Placed safely in the empty 22% zone
-      'legend.bgcolor': '#ffffff',
+      'legend.x': 1.02, 'legend.xanchor': 'left', // Places legend inside the margin
+      'legend.bgcolor': 'rgba(255,255,255,1)',
       'legend.bordercolor': '#d0d0d0',
       'legend.borderwidth': 1,
       
-      // Secondary Native Legend
       legend2: {
-          title: {text: '<b>Ion Type</b>'},
-          font: {family: 'Arial, sans-serif', size: 13},
+          title: {text: '<b>Ion Type Breakdown</b>'},
+          font: {family: 'Arial, sans-serif', size: 12},
           y: 0.45, yanchor: 'top', 
-          x: 0.82, // Placed safely in the empty 22% zone
-          bgcolor: '#ffffff',
+          x: 1.02, xanchor: 'left',
+          bgcolor: 'rgba(255,255,255,1)',
           bordercolor: '#d0d0d0',
           borderwidth: 1
       },
-      margin: { t: 50, r: 50, b: 60, l: 70 } 
+      // Massive right margin creates the safe zone
+      margin: { t: 50, r: 260, b: 60, l: 70 } 
   });
 
-  // 6. Download the mathematically perfect native snapshot
+  // 5. THE FIX: `scale: 3`. This multiplies the base width/height by 3.
+  // 1000x650 base becomes a stunning 3000x1950 pixel output at 300 DPI.
   await Plotly.downloadImage(gd, {
       format: format,
-      // Wider canvas ensures the compressed 78% chart area still looks excellent
-      width: format === 'png' ? 1800 : 1400,
-      height: format === 'png' ? 900 : 700,
-      filename: `Conductivity_Ea_Publication_Figure`
+      width: 1000,   // Base layout width
+      height: 650,   // Base layout height
+      scale: format === 'png' ? 3 : 1, // 3x multiplier for ultra-crisp PNG
+      filename: `Conductivity_Ea_HighRes_Figure`
   });
 
-  // 7. Cleanup the dummy traces and restore the full-width domain for the live UI
+  // 6. Cleanup
   const tracesToDelete = [];
   for(let i = originalTraceCount; i < gd.data.length; i++) { tracesToDelete.push(i); }
   
   await Plotly.deleteTraces(gd, tracesToDelete);
   await Plotly.relayout(gd, { 
-      'xaxis.domain': [0, 1], // Restores the live chart to full width
       showlegend: false, 
       legend2: null, 
       margin: origMargin 
@@ -327,7 +323,7 @@ async function exportChart(format) {
 function downloadPNG() { exportChart('png'); }
 function downloadSVG() { exportChart('svg'); }
 
-/* ---------- Custom HTML Legends & Filters (For Interactive UI Only) ---------- */
+/* ---------- Custom HTML Legends & Filters ---------- */
 function renderStructureLegend(filteredRows){
   const el = document.getElementById("structureLegend");
   el.innerHTML = "";
@@ -371,10 +367,7 @@ function renderIonLegend(filteredRows){
   ions.forEach(ion=>{
     const row = document.createElement("div"); row.className = "row"; row.dataset.ion = ion;
     const shapeBox = document.createElement("div"); shapeBox.className = "shapeBox";
-    
-    // Draw the tiny SVG for the sidebar using native Plotly shape definitions translated to SVG
     shapeBox.innerHTML = makeShapeSVG(getShape(ion), DARK_GRAY);
-    
     const name = document.createElement("div"); name.className = "name"; name.textContent = ion;
     const count = document.createElement("div"); count.className = "count"; count.textContent = counts[ion];
 
