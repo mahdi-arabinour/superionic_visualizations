@@ -173,13 +173,45 @@
   const LEAF_SCALE = [1.0, 1.45, 1.6];
   const CAP_ARC_DEG = 90;
 
-  // Ensures visual consistency with the Radial Tree
+  // STRUCTURE PALETTE
   const STRUCT_COLORS = { 
     "Amorphous": "#FFB300", "Halide": "#008080", "NASICON": "#2E7D32", 
     "Argyrodite": "#8E24AA", "Anti-perovskite": "#1A237E", 
     "Spinel": "#5D4037", "Polymeric": "#E64A19", "Other": "#64748b", "Others": "#64748b"
   };
   const getStructColor = n => STRUCT_COLORS[n] || "#64748b";
+
+  // ION PALETTE & SHAPES
+  const ION_COLORS = {
+    "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1",
+    "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047",
+    "F-": "#ff8a65", "Cu+": "#5c6bc0", "Mg2+": "#26c6da", "In3+": "#c0ca33",
+    "I-": "#ec407a", "Sn4+": "#7e57c2"
+  };
+  
+  const ION_SHAPES = {
+    "Li+": "circle", "Na+": "diamond", "K+": "square", "Ag+": "triangle-up",
+    "Cu+": "triangle-down", "H+": "cross", "Mg2+": "star", "O2-": "star", "Rb+": "cross"
+  };
+
+  const UNICODE_SHAPES = {
+    "circle": "●", "diamond": "◆", "square": "■", "triangle-up": "▲",
+    "triangle-down": "▼", "cross": "✚", "star": "★"
+  };
+
+  const getIonColor = n => ION_COLORS[n] || "#94a3b8";
+  const getIonShapeString = n => ION_SHAPES[n] || "circle";
+  const getIonUnicode = n => UNICODE_SHAPES[ION_SHAPES[n]] || "●";
+
+  const D3_SHAPE_MAP = {
+      "circle": d3.symbolCircle,
+      "diamond": d3.symbolDiamond,
+      "square": d3.symbolSquare,
+      "triangle-up": d3.symbolTriangle,
+      "triangle-down": d3.symbolTriangle, 
+      "cross": d3.symbolCross,
+      "star": d3.symbolStar
+  };
 
   // ---------------- State ----------------
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
@@ -337,8 +369,8 @@ function buildHierarchy(dataObj){
   }
   
   function nodeFill(d){
-    if (d.depth === 0) return '#f8fafc'; // Center hole
-    if (d.depth === 1) return '#334155'; // Inner Ion Ring (Dark Slate, consistent with Tree shapes)
+    if (d.depth === 0) return '#f8fafc'; 
+    if (d.depth === 1) return getIonColor(d.data.name); 
     const names = absoluteNames(d);
     return getStructColor(names.struct || 'Others');
   }
@@ -465,11 +497,29 @@ function buildHierarchy(dataObj){
 
     (subtreeRoot.children||[]).forEach(node=>{
       const row = document.createElement('label'); row.className='ionRow';
-      const sw  = document.createElement('div');  sw.className='swatch';
+      
+      // Interactive shape container
+      const sw = document.createElement('div');
+      sw.style.display = 'flex'; sw.style.gap = '6px'; sw.style.alignItems = 'center';
+      
+      const colorBox = document.createElement('div'); 
+      colorBox.className = 'swatch'; 
+      colorBox.style.background = nodeFill(node);
+      
+      // If it's an Ion, append its shape indicator
+      if(depth === 0) {
+        const shapeBox = document.createElement('div'); 
+        shapeBox.className = 'shapeBox'; 
+        shapeBox.textContent = getIonUnicode(node.data.name);
+        sw.appendChild(colorBox);
+        sw.appendChild(shapeBox);
+      } else {
+        sw.appendChild(colorBox);
+      }
+      
       const title = document.createElement('div');
       const pick  = document.createElement('input'); pick.type='checkbox';
 
-      sw.style.background = nodeFill(node);
       title.textContent = node.data.name;
       title.style.fontSize = '12px';
       title.style.fontWeight = 'bold';
@@ -768,18 +818,24 @@ function buildHierarchy(dataObj){
           .attr("font-family", "Arial, sans-serif")
           .attr("fill", "#64748b");
 
-      // STATIC STRUCTURE LEGEND FOR EXPORT
+      // STATIC LEGENDS FOR EXPORT
       const legX = origX + origW + (pad/2); 
       let curY = exportMinY + 60; 
 
+      // 1. Structure Legend
       exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
           .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
       curY += 28;
 
       const structCounts = {};
+      const ionCounts = {};
+      
       fullHierarchy.leaves().forEach(d => {
-          const st = absoluteNames(d).struct || 'Others';
+          const names = absoluteNames(d);
+          const st = names.struct || 'Others';
+          const ion = names.ion || 'Other';
           structCounts[st] = (structCounts[st] || 0) + 1;
+          ionCounts[ion] = (ionCounts[ion] || 0) + 1;
       });
 
       Object.keys(STRUCT_COLORS).filter(k => k !== 'Others' && structCounts[k]).sort().forEach(st => {
@@ -789,6 +845,27 @@ function buildHierarchy(dataObj){
               
           exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
               .text(`${st} (${structCounts[st]})`)
+              .attr("font-size", "13px").attr("font-family", "Arial, sans-serif").attr("fill", "#0f172a");
+          curY += 22;
+      });
+
+      curY += 30;
+
+      // 2. Ion Legend
+      exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
+          .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
+      curY += 28;
+
+      Object.keys(ionCounts).sort((a,b)=>a.localeCompare(b)).forEach(ion => {
+          const d3Type = D3_SHAPE_MAP[getIonShapeString(ion)] || d3.symbolCircle;
+          const sym = d3.symbol().type(d3Type).size(80)();
+          
+          exportGroup.append("path").attr("d", sym)
+              .attr("transform", `translate(${legX + 7}, ${curY - 5}) ${getIonShapeString(ion)==='triangle-down'?'rotate(180)':''}`)
+              .attr("fill", getIonColor(ion)).attr("stroke", "#334155").attr("stroke-width", 0.5); // Thin dark border so bright colors don't vanish on white bg
+          
+          exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
+              .text(`${ion} (${ionCounts[ion]})`)
               .attr("font-size", "13px").attr("font-family", "Arial, sans-serif").attr("fill", "#0f172a");
           curY += 22;
       });
