@@ -2,103 +2,97 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Sunburst</title>
+<title>Sunburst - Premium Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
+  :root { --bg:#ffffff; --panel:#f8fafc; --grid:#e5e7eb; --ink:#0f172a; --muted:#64748b; }
   html, body { height:100%; margin:0; }
+  
   body {
-    font-family:system-ui, Segoe UI, Roboto, sans-serif;
-    background:#ffffff; color:#0f172a;
-    display:flex; flex-direction:column;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--ink);
+    display: flex; flex-direction: column;
+    font-size: 13px;
   }
+  
   header {
-    padding:10px 14px; background:#f8fafc;
-    display:flex; gap:16px; align-items:center; flex-wrap:wrap;
-    border-bottom:1px solid #e5e7eb;
+    padding: 12px 16px; background: var(--panel);
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+    border-bottom: 1px solid var(--grid);
+    position: sticky; top: 0; z-index: 5;
   }
-  #wrap { flex:1; display:flex; padding:10px 12px; gap:12px; min-height:0; }
-  #chartCard {
-    flex:1; display:grid; grid-template-columns:minmax(640px,1.7fr) 360px;
-    gap:12px; align-items:start; min-height:0;
-  }
-  .chartBody {
-    background:#ffffff; border:1px dashed #e2e8f0; border-radius:12px;
-    position:relative; height:min(88vh,900px); min-height:560px;
-  }
-  svg { width:100%; height:100%; display:block; }
+  
+  label { font-size: 12px; display: flex; align-items: center; gap: 6px; font-weight: 600; color: #334155; }
+  
+  .btn { border: 1px solid #d0d0d0; background: #fff; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+  .btn:hover { filter: brightness(0.95); border-color: #aaa; }
+  .btn-primary { background: #007aff; color: #fff; border: none; margin-left: auto; }
+  .btn-success { background: #10b981; color: #fff; border: none; }
 
-  /* Legend + controls (light) */
-  .legend {
-    background:#ffffff; border:1px solid #e5e7eb; border-radius:12px;
-    padding:10px; overflow:auto; max-height:calc(100vh - 150px);
-    display:flex; flex-direction:column; gap:10px;
+  #wrap { flex: 1; display: flex; padding: 16px; gap: 16px; min-height: 0; }
+  #chartCard {
+    flex: 1; display: grid; grid-template-columns: minmax(640px, 1.7fr) 300px;
+    gap: 16px; align-items: start; min-height: 0;
   }
-  .legend h4 { margin:0 0 8px 0; font-size:12px; color:#334155; letter-spacing:.4px; text-transform:uppercase; }
-  .legendGroup { display:flex; flex-direction:column; gap:6px; }
+  
+  .chartBody {
+    background: #ffffff; border: 1px solid var(--grid); border-radius: 12px;
+    position: relative; height: min(88vh, 900px); min-height: 560px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+  }
+  svg { width: 100%; height: 100%; display: block; }
+
+  /* Premium Sidebar Styling */
+  .sidebar {
+    background: #ffffff; border: 1px solid var(--grid); border-radius: 12px;
+    padding: 20px; display: flex; flex-direction: column; gap: 16px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02); max-height: calc(100vh - 120px); overflow-y: auto;
+  }
+  .sidebar h4 { margin: 0; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  
+  .legendGroup { display: flex; flex-direction: column; gap: 4px; }
 
   .ionRow {
-    display:grid; grid-template-columns:18px 1fr auto;
-    gap:8px; align-items:center; padding:6px 8px; border-radius:8px;
-    user-select:none;
+    display: grid; grid-template-columns: 16px 1fr auto;
+    gap: 10px; align-items: center; padding: 8px 10px; border-radius: 8px;
+    user-select: none; transition: 0.15s; cursor: pointer; border: 1px solid transparent;
   }
-  .ionRow:hover { background:#f1f5f9; }
-  .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(0,0,0,.25); }
+  .ionRow:hover { background: #f8fafc; border-color: #e2e8f0; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
 
-  .controls { border-top:1px solid #e5e7eb; padding-top:8px; display:flex; flex-direction:column; gap:10px; }
-  .controls h4 { margin:4px 0 0 0; font-size:12px; color:#334155; letter-spacing:.4px; text-transform:uppercase; }
-  .toggleRow { display:flex; align-items:center; gap:8px; font-size:13px; color:#0f172a; }
-  fieldset { border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
-  .levelRow { display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:center; }
-  .levelRow input[type="range"] { width:100%; }
-  .legendBtns { display:flex; gap:8px; margin-top:6px; }
-  .btn {
-    background:#f1f5f9; border:1px solid #e2e8f0; color:#0f172a;
-    padding:6px 10px; border-radius:8px; font-size:12px; cursor:pointer;
-  }
-  .btn:hover { background:#e2e8f0; }
-
-  /* PUBLICATION EXPORT BUTTON STYLES */
-  .btn-primary { background: #007aff; color: #fff; border:none; margin-left: auto; font-weight: bold; }
-  .btn-primary:hover { background: #0062cc; color: #fff; }
-  .btn-success { background: #10b981; color: #fff; border:none; font-weight: bold; }
-  .btn-success:hover { background: #059669; color: #fff; }
+  .pill { background: #f1f5f9; border: 1px solid #e2e8f0; color: #334155; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 11px; font-weight: 600; width: 100%; text-align: center; transition: 0.15s;}
+  .pill:hover { background: #e2e8f0; color: #0f172a; }
 
   .tooltip {
-    position:fixed; pointer-events:none; background:rgba(15,23,42,.95);
-    color:#fff; padding:12px 14px; border-radius:8px; font-size:12px; line-height:1.4;
-    display:none; z-index:10; box-shadow:0 8px 24px rgba(0,0,0,.3);
+    position: fixed; pointer-events: none; background: rgba(15,23,42,.95);
+    color: #fff; padding: 12px 14px; border-radius: 8px; font-size: 12px; line-height: 1.5;
+    display: none; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,.2);
+    backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1);
   }
 
-  /* Labels: dark text with white halo on light background */
-  .label {
-    fill:#0f172a; pointer-events:none;
-    paint-order:stroke; stroke:#ffffff; stroke-width:3;
+  .label, .leafLabel {
+    fill: #0f172a; pointer-events: none;
+    paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linecap: round; stroke-linejoin: round;
   }
-  .hiddenLabel { opacity:0; transition:opacity .12s ease; }
-  .visibleLabel { opacity:1; transition:opacity .12s ease; }
 
-  /* Dim for non-selected */
-  .dimmed { opacity: .18; transition: opacity .12s ease; }
+  .dimmed { opacity: 0.1; transition: opacity .2s ease; }
 
-  /* Ring captions */
-  .cap { pointer-events:none; }
   .cap text {
-    font-size: 11px; fill: #475569; letter-spacing: .3px;
-    paint-order: stroke; stroke: #ffffff; stroke-width:3px;
+    font-size: 10px; fill: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linecap: round; stroke-linejoin: round;
   }
 
-  .crumbs { font-size:12px; color:#475569; }
-  .crumbs a { color:#0ea5e9; text-decoration:none; cursor:pointer; }
-  .crumbs a:hover { text-decoration:underline; }
+  .crumbs { font-size: 13px; color: #64748b; font-weight: 600; margin-left: 10px;}
+  .crumbs a { color: #0ea5e9; text-decoration: none; cursor: pointer; transition: 0.15s; }
+  .crumbs a:hover { color: #0284c7; text-decoration: underline; }
+  
+  /* Fallback Box */
+  #csv-fallback { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+  #csv-fallback p { margin: 0 0 8px 0; font-size: 11px; color: #be123c; font-weight: 600; }
 </style>
 </head>
 <body>
   <header>
-    <strong>Sunburst</strong>
-    <label class="toggleRow">
-      <input type="checkbox" id="toggleAll" checked>
-      Show labels
-    </label>
     <span id="crumbs" class="crumbs"></span>
     
     <button onclick="exportChart('svg')" class="btn btn-primary">⬇ Journal SVG</button>
@@ -109,44 +103,23 @@
     <div id="chartCard">
       <div id="chart" class="chartBody"></div>
 
-      <div class="legend">
-        <h4>Legend</h4>
-        <div class="legendGroup"></div>
-
-        <div class="controls">
-          <h4>Label controls</h4>
-          <fieldset id="levelsFs">
-            <div class="levelRow">
-              <label class="lvlLabel" for="showIon">
-                <input type="checkbox" id="showIon" checked> Ion
-              </label>
-              <input id="fsIon" type="range" min="8" max="24" step="1" value="13">
-            </div>
-
-            <div class="levelRow">
-              <label class="lvlLabel" for="showStruct">
-                <input type="checkbox" id="showStruct" checked> Structure
-              </label>
-              <input id="fsStruct" type="range" min="8" max="24" step="1" value="12">
-            </div>
-
-            <div class="levelRow">
-              <label class="lvlLabel" for="showStrat">
-                <input type="checkbox" id="showStrat" checked> Doping strategy
-              </label>
-              <input id="fsStrat" type="range" min="8" max="22" step="1" value="11">
-            </div>
-          </fieldset>
-
-          <div class="legendBtns">
-            <button id="btnClearSel" class="btn">Clear selection</button>
-          </div>
-
-          <label class="toggleRow" style="margin-top:4px;">
-            <input type="checkbox" id="hideUnsel" checked>
-            Hide unselected labels
-          </label>
+      <div class="sidebar">
+        
+        <div id="csv-fallback" style="display:none;">
+          <p>Browser blocked local auto-load.<br>Please select your file:</p>
+          <button id="pick-csv" class="pill" style="background: #fff; border-color: #fecdd3; color:#be123c;">Choose data.csv…</button>
+          <input id="csv-input" type="file" accept=".csv" style="display:none">
         </div>
+
+        <div>
+            <h4>Filter by Ion Family</h4>
+            <div id="ionLegend" class="legendGroup" style="margin-top: 8px;"></div>
+        </div>
+
+        <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid #f1f5f9;">
+            <button id="btnClearSel" class="pill">Clear Filter Selection</button>
+        </div>
+
       </div>
     </div>
   </div>
@@ -158,69 +131,71 @@
   // ---------------- Tunables ----------------
   const DEF_COND = 1e-6;
   const SCALE_MODE = 'log';
-  const RING_SCALE = [1.0, 1.32, 1.52];  // root, ion, structure+
+  const RING_SCALE = [1.0, 1.35, 1.55];  
   const LEAF_SCALE = [1.0, 1.45, 1.6];
   const CAP_ARC_DEG = 90;
 
-  // ---------------- Format for Axes ----------------
-  const SUPERSCRIPTS = {
-    "-10":"⁻¹⁰", "-9":"⁻⁹", "-8":"⁻⁸", "-7":"⁻⁷", "-6":"⁻⁶", 
-    "-5":"⁻⁵", "-4":"⁻⁴", "-3":"⁻³", "-2":"⁻²", "-1":"⁻¹", "0":"⁰"
+  // PURE ION COLOR PALETTE
+  const ION_COLORS = {
+    "Li+": "#ef4444", "Na+": "#0ea5e9", "K+": "#10b981", "Ag+": "#f43f5e",
+    "O2-": "#8b5cf6", "Zn2+": "#d946ef", "H+": "#f59e0b", "Rb+": "#84cc16",
+    "F-": "#f97316", "Cu+": "#6366f1", "Mg2+": "#06b6d4", "In3+": "#eab308",
+    "I-": "#ec4899", "Sn4+": "#a855f7"
   };
+  const getIonColor = n => ION_COLORS[n] || "#94a3b8";
+
+  const SUPERSCRIPTS = { "-10":"⁻¹⁰", "-9":"⁻⁹", "-8":"⁻⁸", "-7":"⁻⁷", "-6":"⁻⁶", "-5":"⁻⁵", "-4":"⁻⁴", "-3":"⁻³", "-2":"⁻²", "-1":"⁻¹", "0":"⁰" };
   const formatLogLabel = val => `10${SUPERSCRIPTS[Math.round(Math.log10(val))] || '^' + Math.round(Math.log10(val))}`;
 
   // ---------------- State ----------------
   let fullHierarchy=null, idMap=new Map(), focusNode=null;
-  let maxRGlobal=0, labelsVisible=true;
+  let maxRGlobal=0;
   let _nodesCache=null, _outerR=null, _defs=null, _g=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
 
-  // Label level toggles (Formula removed for cleanliness)
-  let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=true;
-  let FS_ION=13, FS_STRUCT=12, FS_STRAT=11;
-
-  // Legend multi-select state
-  const selIons    = new Set();
-  const selStructs = new Set();
-  const selStrats  = new Set();
-
-  let HIDE_UNSEL = true;
+  const selIons = new Set();
   const ui = {};
+
+  // ---------------- MANUAL FILE LOADER ----------------
+  async function loadCSVWithFallback() {
+    try { 
+      return await d3.csv(new URL('data.csv', document.baseURI).href, d3.autoType); 
+    } catch(e) {
+      const fb = document.getElementById('csv-fallback'), btn = document.getElementById('pick-csv'), inp = document.getElementById('csv-input');
+      if (!fb || !btn || !inp) throw e;
+      fb.style.display = 'block'; 
+      return await new Promise((resolve, reject) => {
+        btn.addEventListener('click', () => inp.click(), {once:true});
+        inp.addEventListener('change', () => {
+          const f = inp.files && inp.files[0]; 
+          if (!f) return reject(new Error('No file selected'));
+          const r = new FileReader();
+          r.onload = () => { 
+            try { resolve(d3.csvParse(r.result, d3.autoType)); fb.style.display = 'none'; } catch(err) { reject(err); } 
+          };
+          r.onerror = reject; r.readAsText(f);
+        }, {once:true});
+      });
+    }
+  }
 
   // ---------------- Boot ----------------
   document.addEventListener('DOMContentLoaded', async ()=>{
-    ui.toggleAll   = document.getElementById('toggleAll');
-    ui.showIon     = document.getElementById('showIon');
-    ui.showStruct  = document.getElementById('showStruct');
-    ui.showStrat   = document.getElementById('showStrat');
-    ui.fsIon       = document.getElementById('fsIon');
-    ui.fsStruct    = document.getElementById('fsStruct');
-    ui.fsStrat     = document.getElementById('fsStrat');
     ui.btnClearSel = document.getElementById('btnClearSel');
-    ui.hideUnsel   = document.getElementById('hideUnsel');
-
-    ui.toggleAll.onchange = ()=>{ labelsVisible = ui.toggleAll.checked; applyLabelVisibility(); };
-
-    ui.showIon.onchange     = ()=>{ SHOW_ION     = ui.showIon.checked;     layoutLabels(); applyLegendFilter(); };
-    ui.showStruct.onchange  = ()=>{ SHOW_STRUCT  = ui.showStruct.checked;  layoutLabels(); applyLegendFilter(); };
-    ui.showStrat.onchange   = ()=>{ SHOW_STRAT   = ui.showStrat.checked;   layoutLabels(); applyLegendFilter(); };
-
-    ui.fsIon.oninput     = ()=>{ FS_ION   = +ui.fsIon.value;     layoutLabels(true); };
-    ui.fsStruct.oninput  = ()=>{ FS_STRUCT= +ui.fsStruct.value;  layoutLabels(true); };
-    ui.fsStrat.oninput   = ()=>{ FS_STRAT = +ui.fsStrat.value;   layoutLabels(true); };
-
+    
     ui.btnClearSel.onclick = ()=>{
-      selIons.clear(); selStructs.clear(); selStrats.clear();
+      selIons.clear();
       document.querySelectorAll('.legendGroup input[type="checkbox"]').forEach(cb=>{ cb.checked=false; });
       applyLegendFilter();
     };
 
-    ui.hideUnsel.onchange = ()=>{ HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
-
-    // Data + draw (Original File Loader)
-    const csvRows = await d3.csv('data.csv', d3.autoType);
-    const dataObj = rowsToNested(csvRows);
-    fullHierarchy = buildHierarchy(dataObj);
-    draw();
+    try {
+      const csvRows = await loadCSVWithFallback();
+      const dataObj = rowsToNested(csvRows);
+      fullHierarchy = buildHierarchy(dataObj);
+      draw();
+    } catch(e) {
+      document.getElementById('chart').innerHTML = `<div style="padding:20px;color:red;font-weight:bold;">Critical Error loading data.</div>`;
+    }
 
     window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(draw,120); });
   });
@@ -265,7 +240,6 @@
       const c = (typeof rawCond === 'number') ? rawCond : +String(rawCond).replace(/[, ]/g,'');
       if (Number.isFinite(c) && c > 0) arr.push(c);
     });
-
     return root;
   }
 
@@ -291,8 +265,7 @@
       name:focusNode.data.name, _uid:focusNode.data._uid,
       children: focusNode.children?.map(child=>cloneData(child))
     }, d=>d.children);
-    clone.sum(d=>Array.isArray(d?.values)?1:0)
-         .sort((a,b)=>(b.value||0)-(a.value||0));
+    clone.sum(d=>Array.isArray(d?.values)?1:0).sort((a,b)=>(b.value||0)-(a.value||0));
     clone.each(n=>{
       if (Array.isArray(n.data.values)) {
         const vals=n.data.values.filter(Number.isFinite);
@@ -302,38 +275,33 @@
     });
     return clone;
   }
-  function cloneData(node){
-    return { name:node.data.name, values:node.data.values, _uid:node.data._uid,
-             children: node.children?.map(c=>cloneData(c)) };
-  }
-
-  // ---------------- Color Maps (Strictly by Ion) ----------------
-  const ION_COLORS = {
-    "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
-    "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
-    "F-":   "#ff8a65","Cu+":  "#5c6bc0","Mg2+": "#26c6da","In3+": "#c0ca33",
-    "I-":   "#ec407a","Sn4+": "#7e57c2"
-  };
-  const FB_ION_PALETTE    = d3.schemeTableau10;
-  function hashIdx(name, arr){ let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))|0; return Math.abs(h)%arr.length; }
-  const norm=s=>(s??'').trim();
-  function getIonColor(name){ const k=norm(name); return ION_COLORS[k] || FB_ION_PALETTE[hashIdx(k, FB_ION_PALETTE)]; }
+  
+  function cloneData(node){ return { name:node.data.name, values:node.data.values, _uid:node.data._uid, children: node.children?.map(c=>cloneData(c)) }; }
 
   function absoluteNames(node){
     const orig = idMap.get(node.data._uid);
     let ion=null, struct=null, strat=null;
     if (!orig) return {ion,struct,strat};
     const chain = orig.ancestors().reverse();
-    if (chain[1]) ion    = chain[1].data.name;
+    if (chain[1]) ion = chain[1].data.name;
     if (chain[2]) struct = chain[2].data.name;
-    if (chain[3]) strat  = chain[3].data.name;
+    if (chain[3]) strat = chain[3].data.name;
     return {ion,struct,strat};
   }
   
+  // ---------------- NEW: PREMIUM LOTUS SHADING ----------------
   function nodeFill(d){
     if (d.depth === 0) return '#f8fafc'; 
-    const ion = absoluteNames(d).ion || '(Other)';
-    return getIonColor(ion);
+    const names = absoluteNames(d);
+    const baseColor = getIonColor(names.ion || 'Other'); 
+    
+    const color = d3.color(baseColor);
+    if(color && d.depth > 0) {
+        // Fade the opacity slightly based on depth to create a layered 3D effect
+        color.opacity = Math.max(0.4, 1 - ((d.depth - 1) * 0.15));
+        return color.formatRgb();
+    }
+    return baseColor;
   }
 
   function levelOf(d){
@@ -345,9 +313,8 @@
   // ---------------- Draw ----------------
   function draw(){
     const chartEl=document.getElementById('chart');
-    const legendEl=document.querySelector('.legendGroup');
-    const tt=document.getElementById('tooltip');
-    chartEl.innerHTML=''; legendEl.innerHTML='';
+    const legendEl=document.getElementById('ionLegend');
+    chartEl.innerHTML=''; 
 
     const rect=chartEl.getBoundingClientRect();
     const side=Math.min(Math.max(560, rect.width), Math.max(560, rect.height));
@@ -383,74 +350,77 @@
     const nodes = root.descendants().filter(d => d.depth>0);
     _nodesCache = nodes;
 
+    // Premium Crisp 1px White Strokes
     const paths=_g.selectAll('path.slice').data(nodes, d=>d.data._uid).join('path')
       .attr('class','slice')
       .attr('d', arc)
       .attr('fill', d=>{
         const base = nodeFill(d);
-        if (!d.children && !d.data.hasCond){ const c=d3.color(base); c.opacity=0.7; return c.formatRgb(); }
+        if (!d.children && !d.data.hasCond){ const c=d3.color(base); c.opacity=0.3; return c.formatRgb(); }
         return base;
       })
-      .attr('stroke','#ffffff').attr('stroke-opacity',0.9)
-      .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : Math.max(0.8, side*0.0016));
+      .attr('stroke','#ffffff').attr('stroke-opacity',1.0)
+      .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : 1) // Forced 1px crisp borders
+      .style('cursor', d => d.children ? 'pointer' : 'default')
+      .style('transition', 'fill 0.2s ease'); // Smooth hover
 
     paths.each(function(d){
       const names = absoluteNames(d);
-      this.dataset.ion    = names.ion || '';
-      this.dataset.struct = names.struct || '';
-      this.dataset.strat  = names.strat || '';
+      this.dataset.ion = names.ion || '';
     });
 
-    // ---------------- UPGRADED TOOLTIP ----------------
     const tipVal=v=>(!Number.isFinite(v)?'n/a':(v<0.01?`${(v*1000).toFixed(3)} mS·cm⁻¹`:`${Number(v).toPrecision(3)} S·cm⁻¹`));
     
-    paths.on('mousemove',(evt,d)=>{
-      const names = absoluteNames(d);
-      const isLeaf = !d.children;
-      let html=`<div style="font-family:system-ui, sans-serif;">`;
+    paths.on('mouseover', function() { d3.select(this).attr('stroke-width', 2).raise(); }) // Highlight on hover
+         .on('mousemove',(evt,d)=>{
+            const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' &rarr; ');
+            let html=`<div>`;
+            if(!d.children) {
+                html += `<div style="font-size:14px; font-weight:700; margin-bottom:4px;">${d.data.name}</div>`;
+                html += `<div style="font-size:11px; color:#cbd5e1; margin-bottom:6px;">${trail.split(' &rarr; ').slice(0,-1).join(' &rarr; ')}</div>`;
+                html += `<div style="font-size:13px; color:#38bdf8; font-family:monospace;">σ: ${tipVal(d.data.cond)}</div>`;
+            } else {
+                html += `<div style="font-size:13px; font-weight:700; margin-bottom:4px;">${trail}</div>`;
+                html += `<div style="color:#94a3b8; font-size:11px;">Sub-formulas: ${d.value}</div>`;
+            }
+            html += '</div>';
+            const tt=document.getElementById('tooltip');
+            tt.style.display='block'; tt.innerHTML=html;
+            tt.style.left=(evt.clientX+15)+'px'; tt.style.top=(evt.clientY+15)+'px';
+         })
+         .on('mouseleave', function(evt, d) { 
+             d3.select(this).attr('stroke-width', (d.x1-d.x0) < 0.002 ? 0 : 1);
+             document.getElementById('tooltip').style.display='none'; 
+         });
 
-      if (isLeaf) {
-          // If it's an outer spike, show the Formula clearly
-          html += `<div style="font-size:14px; font-weight:bold; margin-bottom:4px; border-bottom:1px solid #334155; padding-bottom:4px;">${d.data.name}</div>`;
-          html += `<div style="font-size:11px; color:#94a3b8; margin-bottom:4px;">${names.ion} &rarr; ${names.struct} &rarr; ${names.strat}</div>`;
-          html += `<div style="font-size:12px;">σ: ${tipVal(d.data.cond)}</div>`;
-      } else {
-          // If it's an inner ring, show the standard hierarchy
-          const trail = d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' &rarr; ');
-          html += `<div style="font-size:12px; font-weight:bold; margin-bottom:4px;">${trail}</div>`;
-          html += `<span style="color:#94a3b8; font-size:11px;">Formulas in group: ${d.value}</span>`;
-      }
-      
-      html += '</div>';
-      const tt=document.getElementById('tooltip');
-      tt.style.display='block'; tt.innerHTML=html;
-      tt.style.left=(evt.clientX+15)+'px'; tt.style.top=(evt.clientY+15)+'px';
-    }).on('mouseleave',()=>{ document.getElementById('tooltip').style.display='none'; });
-
-    // zoom click
     paths.on('click',(evt,d)=>{
+      if(!d.children) return; 
       const full = idMap.get(d.data._uid);
       if (focusNode && full === focusNode) { focusNode = focusNode.parent || null; }
       else { focusNode = full; }
-      selIons.clear(); selStructs.clear(); selStrats.clear();
+      selIons.clear(); 
       draw();
     });
 
-    const backR = Math.max(16, (_outerR(root) - root.y0) * 0.20);
+    const backR = Math.max(20, (midForDepth(root, 1)) * 0.45);
     _g.append('circle')
       .attr('r', backR)
       .attr('fill', '#ffffff')
+      .attr('stroke', '#e2e8f0')
+      .attr('stroke-width', 2)
       .style('cursor', focusNode ? 'pointer' : 'default')
-      .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); }});
+      .on('click', ()=>{ if (focusNode){ focusNode = focusNode.parent || null; selIons.clear(); draw(); }});
+    
     _g.append('text')
       .attr('text-anchor','middle').attr('dy','0.35em')
-      .style('font-size','12px').style('fill','#334155')
-      .text(focusNode ? focusNode.data.name : 'All ions');
+      .style('font-size','14px').style('font-weight','700').style('fill','#0f172a').style('font-family', 'inherit')
+      .text(focusNode ? focusNode.data.name : 'All Ions');
 
+    // DRAWING ORDER: Labels -> Caps -> Axes
     layoutLabels();
     renderRingCaptions(root);
 
-    // CONCENTRIC LOG RINGS (Placed on top of the spikes so they are visible)
+    // CONCENTRIC LOG RINGS ON TOP
     const axesGroup = _g.append('g').attr('class', 'axes');
     const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; 
     
@@ -464,127 +434,66 @@
         axesGroup.append('circle')
             .attr('r', r)
             .attr('fill', 'none')
-            .attr('stroke', '#e2e8f0')
+            .attr('stroke', '#cbd5e1')
             .attr('stroke-dasharray', '4,4');
             
         axesGroup.append('text')
             .attr('y', -r - 4) 
             .attr('x', 0)
             .attr('text-anchor', 'middle')
-            .attr('fill', '#94a3b8')
-            .attr('font-size', '11px')
-            .attr('font-family', 'system-ui, Segoe UI, Roboto, sans-serif')
+            .attr('fill', '#64748b')
+            .attr('font-size', '10px')
+            .attr('font-weight', '700')
             .text(formatLogLabel(v));
     });
 
     renderCrumbs();
-    buildLegend(legendEl, root);
-
-    applyLabelVisibility();
+    
+    if(!legendEl.hasChildNodes()) buildLegend(legendEl);
     applyLegendFilter();
   }
 
-  // ---------------- Legend (multiselect) ----------------
-  function chainName(n, rel){
-    if (!n) return '';
-    const anc = n.ancestors().reverse();
-    if (n.depth===1){ if (rel===1) return n.data.name; return ''; }
-    if (n.depth===2){ if (rel===1) return anc[1]?.data?.name||''; if (rel===0) return n.data.name; }
-    return '';
-  }
-  function buildLegend(container, subtreeRoot){
+  // ---------------- Legend ----------------
+  function buildLegend(container){
     container.innerHTML='';
-    const depth = (focusNode?.depth ?? 0); 
+    const ions = Array.from(new Set(fullHierarchy.leaves().map(d => absoluteNames(d).ion))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
 
-    (subtreeRoot.children||[]).forEach(node=>{
+    ions.forEach(ion=>{
       const row = document.createElement('label'); row.className='ionRow';
-      const sw  = document.createElement('div');  sw.className='swatch';
-      const title = document.createElement('div');
-      const pick  = document.createElement('input'); pick.type='checkbox';
+      const sw = document.createElement('div'); sw.className = 'swatch'; sw.style.background = getIonColor(ion);
+      const title = document.createElement('div'); const pick = document.createElement('input'); pick.type='checkbox';
 
-      sw.style.background = nodeFill(node);
-      title.textContent = node.data.name;
-
-      if (depth===0)   pick.checked = selIons.has(node.data.name);
-      else if (depth===1){
-        const ion = (focusNode?.data?.name)||'';
-        pick.checked = selStructs.has(`ION:${ion}|STRUCT:${node.data.name}`);
-      } else if (depth===2){
-        const ion = chainName(focusNode,1);
-        const struct = chainName(focusNode,0);
-        pick.checked = selStrats.has(`ION:${ion}|STRUCT:${struct}|STRAT:${node.data.name}`);
-      }
+      title.textContent = ion;
+      title.style.fontSize = '13px'; title.style.fontWeight = '600';
+      pick.checked = selIons.has(ion);
 
       pick.onchange = ()=>{
-        if (depth===0){
-          if (pick.checked) selIons.add(node.data.name); else selIons.delete(node.data.name);
-        } else if (depth===1){
-          const ion = (focusNode?.data?.name)||'';
-          const key = `ION:${ion}|STRUCT:${node.data.name}`;
-          if (pick.checked) selStructs.add(key); else selStructs.delete(key);
-        } else if (depth===2){
-          const ion    = chainName(focusNode,1);
-          const struct = chainName(focusNode,0);
-          const key = `ION:${ion}|STRUCT:${struct}|STRAT:${node.data.name}`;
-          if (pick.checked) selStrats.add(key); else selStrats.delete(key);
-        }
-        applyLegendFilter();
+          if (pick.checked) selIons.add(ion); else selIons.delete(ion);
+          applyLegendFilter();
       };
-
-      row.append(sw, title, pick);
-      container.appendChild(row);
+      row.append(sw, title, pick); container.appendChild(row);
     });
   }
 
   // ---------------- Selection filter ----------------
   function applyLegendFilter(){
-    const depth = (focusNode?.depth ?? 0);
-    const hasSel =
-      (depth===0 && selIons.size>0) ||
-      (depth===1 && selStructs.size>0) ||
-      (depth===2 && selStrats.size>0);
-
+    const hasSel = (selIons.size > 0);
     d3.selectAll('path.slice').each(function(){
-      const ion    = this.dataset.ion    || '';
-      const struct = this.dataset.struct || '';
-      const strat  = this.dataset.strat  || '';
+      const ion = this.dataset.ion || '';
       let on = true;
-
-      if (hasSel){
-        if (depth===0){
-          on = selIons.has(ion);
-        } else if (depth===1){
-          on = selStructs.has(`ION:${focusNode?.data?.name||''}|STRUCT:${struct}`);
-        } else if (depth===2){
-          const ionA    = chainName(focusNode,1);
-          const structA = chainName(focusNode,0);
-          on = selStrats.has(`ION:${ionA}|STRUCT:${structA}|STRAT:${strat}`);
-        }
-      }
+      if (hasSel){ on = selIons.has(ion); }
       this.classList.toggle('dimmed', hasSel && !on);
     });
 
     d3.selectAll('.labels text.levelLabel').each(function(d){
       const names = absoluteNames(d);
       let on = true;
-
-      if (hasSel){
-        if (depth===0){
-          on = selIons.has(names.ion||'');
-        } else if (depth===1){
-          on = selStructs.has(`ION:${focusNode?.data?.name||''}|STRUCT:${names.struct||''}`);
-        } else if (depth===2){
-          const ionA    = chainName(focusNode,1);
-          const structA = chainName(focusNode,0);
-          on = selStrats.has(`ION:${ionA}|STRUCT:${structA}|STRAT:${names.strat||''}`);
-        }
-      }
-
+      if (hasSel){ on = selIons.has(names.ion||''); }
       const sel = d3.select(this);
-      if (hasSel && !on && HIDE_UNSEL){
+      if (hasSel && !on){
         sel.style('display','none').classed('dimmed', false);
       } else {
-        sel.style('display', null).classed('dimmed', hasSel && !on && !HIDE_UNSEL);
+        sel.style('display', null).classed('dimmed', false);
       }
     });
   }
@@ -593,59 +502,60 @@
   function renderCrumbs(){
     const el=document.getElementById('crumbs');
     if (!focusNode || focusNode.depth===0){
-      el.innerHTML='<a data-ix="root">All ions</a>';
-      el.querySelector('a').onclick=()=>{ focusNode=null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); };
+      el.innerHTML='<a data-ix="root">Sunburst Root</a>';
+      el.querySelector('a').onclick=()=>{ focusNode=null; selIons.clear(); draw(); };
       return;
     }
     const chain=focusNode.ancestors().reverse().slice(1);
-    el.innerHTML=['<a data-ix="root">All ions</a>',
-      ...chain.map((n,i)=>` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
+    el.innerHTML=['<a data-ix="root">Sunburst Root</a>', ...chain.map((n,i)=>` <span style="color:#cbd5e1; margin:0 4px;">/</span> <a data-ix="${i}">${n.data.name}</a>`)].join('');
     el.querySelectorAll('a').forEach(a=>{
-      a.onclick=()=>{
-        const ix=a.getAttribute('data-ix');
-        focusNode = (ix==='root') ? null : chain[Number(ix)];
-        selIons.clear(); selStructs.clear(); selStrats.clear();
-        draw();
-      };
+      a.onclick=()=>{ const ix=a.getAttribute('data-ix'); focusNode = (ix==='root') ? null : chain[Number(ix)]; selIons.clear(); draw(); };
     });
   }
 
-  // ---------------- Labels ----------------
+  // ---------------- AUTO-RESPONSIVE LABELS ----------------
   function layoutLabels(){
     _g.selectAll('.labels').remove();
     const layer = _g.append('g').attr('class','labels');
 
     let data = [];
-    if (SHOW_ION)     data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='ion'));
-    if (SHOW_STRUCT)  data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='struct'));
-    if (SHOW_STRAT)   data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='strat'));
+    data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='ion'));
+    data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='struct'));
+    data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='strat'));
+    data = data.concat(_nodesCache.filter(n => levelOf(n)==='formula')); // Added Formula back
 
     const sel = layer.selectAll('text.levelLabel')
       .data(data, d=>`${d.data._uid}-${levelOf(d)}`)
       .join('text')
-      .attr('class', 'label visibleLabel levelLabel') // Removed leafLabel
+      .attr('class', 'label visibleLabel levelLabel')
       .text(d=> d.data.name)
       .style('font-size', d=>{
         const lv = levelOf(d);
-        return lv==='ion' ? (FS_ION+'px')
-             : lv==='struct' ? (FS_STRUCT+'px')
-             : (FS_STRAT+'px');
+        return lv==='ion' ? '14px' : lv==='struct' ? '13px' : lv==='strat' ? '11px' : '10px';
       })
       .style('font-weight', d=>{
         const lv = levelOf(d);
         return lv==='ion' ? 700 : lv==='struct' ? 600 : 500;
       });
 
-    placeRadial(sel);
-    applyLegendFilter();
-  }
-
-  function placeRadial(selection){
+    selection = sel;
     selection.each(function(d){
       const el = d3.select(this);
+      const angleDeg = (d.x1 - d.x0) * 180 / Math.PI;
       
-      // Removed formula text placement entirely. Text only centers in inner rings.
-      const rMid = (d.y0 + d.y1) / 2; 
+      // AUTO-HIDE MAGIC: If the slice is too narrow, do not draw the text. 
+      // It reappears automatically when the user zooms in!
+      if (angleDeg < 2.5) { el.style('display', 'none'); return; }
+
+      const lv = levelOf(d);
+      const isLeaf = (lv === 'formula');
+      
+      let rMid;
+      if (isLeaf) {
+        rMid = _outerR(d) + 6; 
+      } else {
+        rMid = (d.y0 + d.y1) / 2; 
+      }
 
       let amid = (d.x0 + d.x1) / 2;
       if (d.x0 < 0 && d.x1 > 0) amid += 0.01;
@@ -654,12 +564,13 @@
       const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
 
       el.attr('dy','0.32em')
-        .attr('text-anchor', 'middle')
+        .attr('text-anchor', isLeaf ? (upright ? 'start' : 'end') : 'middle')
         .attr('transform', `rotate(${deg-90}) translate(${rMid},0) rotate(${upright?0:180})`)
         .style('opacity', 1)
         .style('display', null);
     });
   }
+
 
   // ---------------- Ring captions ----------------
   function ensureCaptionLayers(){
@@ -697,7 +608,6 @@
     const rIon    = midForDepth(partitionRoot, 1);
     const rStruct = midForDepth(partitionRoot, 2);
     const rStrat  = midForDepth(partitionRoot, 3);
-
     const maxDepth = partitionRoot.height;
     const lastBand = partitionRoot.descendants().find(d => d.depth === maxDepth);
     const rFormula = (lastBand?.y1 ?? ((maxDepth+1) * _ringThickness)) + (_leafBase * 0.55);
@@ -705,7 +615,8 @@
     const items = [
       { key:'ion',     text:'Ion Type',                       r:rIon    },
       { key:'struct',  text:'Structure Group',                r:rStruct },
-      { key:'strat',   text:'Doping / and or GB Strategy',    r:rStrat  }
+      { key:'strat',   text:'Doping / Strategy',              r:rStrat  },
+      { key:'formula', text:'Superionic Formula',             r:rFormula}
     ];
 
     items.forEach((it)=>{
@@ -722,17 +633,9 @@
         .text(it.text);
     });
 
-    _capLayers.ion.raise();
-    _capLayers.struct.raise();
-    _capLayers.strat.raise();
+    _capLayers.ion.raise(); _capLayers.struct.raise(); _capLayers.strat.raise(); _capLayers.formula.raise();
   }
 
-  function applyLabelVisibility(){
-    const show = labelsVisible;
-    d3.selectAll('.label, .leafLabel')
-      .classed('hiddenLabel', !show)
-      .classed('visibleLabel', show);
-  }
 
   /* ---------- NATIVE D3 EXPORT PIPELINE ---------- */
   function getSVGString(svgNode) {
@@ -740,80 +643,43 @@
       let cssStyleText = "";
       for (let i = 0; i < document.styleSheets.length; i++) {
           try {
-              for (let j = 0; j < document.styleSheets[i].cssRules.length; j++) {
-                  cssStyleText += document.styleSheets[i].cssRules[j].cssText;
-              }
+              for (let j = 0; j < document.styleSheets[i].cssRules.length; j++) { cssStyleText += document.styleSheets[i].cssRules[j].cssText; }
           } catch (e) {}
       }
-      const styleElement = document.createElement("style");
-      styleElement.setAttribute("type", "text/css");
-      styleElement.innerHTML = cssStyleText;
-      const refNode = svgNode.hasChildNodes() ? svgNode.children[0] : null;
-      svgNode.insertBefore(styleElement, refNode);
-      
+      const styleElement = document.createElement("style"); styleElement.setAttribute("type", "text/css"); styleElement.innerHTML = cssStyleText;
+      const refNode = svgNode.hasChildNodes() ? svgNode.children[0] : null; svgNode.insertBefore(styleElement, refNode);
       const serializer = new XMLSerializer();
       let svgString = serializer.serializeToString(svgNode);
-      svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink='); 
-      svgString = svgString.replace(/NS\d+:href/g, 'xlink:href');
-      
-      svgNode.removeChild(styleElement);
-      return svgString;
+      svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink='); svgString = svgString.replace(/NS\d+:href/g, 'xlink:href');
+      svgNode.removeChild(styleElement); return svgString;
   }
 
   async function exportChart(format) {
-      const svgEl = document.querySelector("#chart svg");
-      const d3Svg = d3.select(svgEl);
-
-      const pad = 120; 
-      const legendWidth = 240; 
+      const svgEl = document.querySelector("#chart svg"); const d3Svg = d3.select(svgEl);
+      const pad = 120; const legendWidth = 240; 
       const currentViewBox = svgEl.getAttribute("viewBox").split(" ").map(Number);
       const [origX, origY, origW, origH] = currentViewBox;
 
-      const exportMinX = origX - pad;
-      const exportMinY = origY - pad;
-      const exportW = origW + (pad * 2) + legendWidth;
-      const exportH = origH + (pad * 2);
+      const exportMinX = origX - pad; const exportMinY = origY - pad;
+      const exportW = origW + (pad * 2) + legendWidth; const exportH = origH + (pad * 2);
 
       d3Svg.attr("viewBox", `${exportMinX} ${exportMinY} ${exportW} ${exportH}`);
-
-      d3Svg.insert("rect", ":first-child")
-          .attr("id", "export-bg")
-          .attr("x", exportMinX).attr("y", exportMinY)
-          .attr("width", exportW).attr("height", exportH)
-          .attr("fill", "#ffffff");
+      d3Svg.insert("rect", ":first-child").attr("id", "export-bg").attr("x", exportMinX).attr("y", exportMinY).attr("width", exportW).attr("height", exportH).attr("fill", "#ffffff");
 
       const exportGroup = d3Svg.append("g").attr("id", "export-elements");
-      
-      exportGroup.append("text")
-          .attr("x", exportMinX + 40) 
-          .attr("y", exportMinY + 60) 
-          .text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type")
-          .attr("font-size", "16px")
-          .attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif")
-          .attr("fill", "#64748b");
+      exportGroup.append("text").attr("x", exportMinX + 40).attr("y", exportMinY + 60).text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type").attr("font-size", "16px").attr("font-weight", "600").attr("font-family", "inherit").attr("fill", "#64748b");
 
-      const legX = origX + origW + (pad/2) - 40; 
-      let curY = exportMinY + 60; 
-
-      exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
-          .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif");
+      const legX = origX + origW + (pad/2) - 40; let curY = exportMinY + 60; 
+      exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type").attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "inherit");
       curY += 28;
 
       const ionCounts = {};
-      fullHierarchy.leaves().forEach(d => {
-          const ion = absoluteNames(d).ion || 'Other';
-          ionCounts[ion] = (ionCounts[ion] || 0) + 1;
-      });
+      fullHierarchy.leaves().forEach(d => { const ion = absoluteNames(d).ion || 'Other'; ionCounts[ion] = (ionCounts[ion] || 0) + 1; });
 
       Object.keys(ionCounts).sort().forEach(ion => {
-          exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
-              .attr("width", 14).attr("height", 14).attr("rx", 2)
-              .attr("fill", getIonColor(ion)).attr("stroke", "rgba(0,0,0,0.15)");
-              
-          exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
-              .text(`${ion} (${ionCounts[ion]})`)
-              .attr("font-size", "13px").attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif").attr("fill", "#0f172a");
-          curY += 22;
+          exportGroup.append("circle").attr("cx", legX + 7).attr("cy", curY - 5).attr("r", 7).attr("fill", getIonColor(ion)).attr("stroke", "rgba(0,0,0,0.15)");
+          exportGroup.append("text").attr("x", legX + 24).attr("y", curY).text(`${ion} (${ionCounts[ion]})`).attr("font-size", "13px").attr("font-family", "inherit").attr("fill", "#0f172a");
+          curY += 24;
       });
 
       const svgString = getSVGString(svgEl);
@@ -821,37 +687,22 @@
       if(format === 'svg') {
           const blob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
           const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url; link.download = "Sunburst_Publication.svg";
+          const link = document.createElement("a"); link.href = url; link.download = "Sunburst_Publication.svg";
           document.body.appendChild(link); link.click(); document.body.removeChild(link);
       } else {
-          const scale = 4; 
-          const canvas = document.createElement("canvas");
-          canvas.width = exportW * scale;
-          canvas.height = exportH * scale;
-          const ctx = canvas.getContext("2d");
-          
-          const img = new Image();
-          const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
-          const url = URL.createObjectURL(svgBlob);
+          const scale = 4; const canvas = document.createElement("canvas"); canvas.width = exportW * scale; canvas.height = exportH * scale; const ctx = canvas.getContext("2d");
+          const img = new Image(); const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"}); const url = URL.createObjectURL(svgBlob);
 
           await new Promise(resolve => {
               img.onload = () => {
-                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                  URL.revokeObjectURL(url);
-                  const link = document.createElement("a");
-                  link.download = "Sunburst_HighRes.png";
-                  link.href = canvas.toDataURL("image/png");
-                  document.body.appendChild(link); link.click(); document.body.removeChild(link);
-                  resolve();
-              };
-              img.src = url;
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url);
+                  const link = document.createElement("a"); link.download = "Sunburst_HighRes.png"; link.href = canvas.toDataURL("image/png");
+                  document.body.appendChild(link); link.click(); document.body.removeChild(link); resolve();
+              }; img.src = url;
           });
       }
 
-      d3Svg.select("#export-elements").remove();
-      d3Svg.select("#export-bg").remove();
-      d3Svg.attr("viewBox", currentViewBox.join(" "));
+      d3Svg.select("#export-elements").remove(); d3Svg.select("#export-bg").remove(); d3Svg.attr("viewBox", currentViewBox.join(" "));
   }
   </script>
 </body>
