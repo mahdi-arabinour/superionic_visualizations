@@ -11,7 +11,6 @@
   *{box-sizing:border-box}
   html,body{height:100%}
   
-  /* MASTER TYPOGRAPHY INDEX */
   body{margin:0;background:var(--bg);color:var(--ink);font-family: Arial, Helvetica, sans-serif; font-size: 13px;}
   
   header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--grid);position:sticky;top:0;z-index:5;}
@@ -19,7 +18,6 @@
   input[type="number"],input[type="range"],select{background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px; font-family: Arial, sans-serif;}
   input[type="range"]{cursor: pointer;}
   
-  /* PUBLICATION BUTTONS */
   .btn { border:1px solid #d0d0d0; background:#fff; border-radius:6px; padding:6px 14px; font-size:12px; font-weight:bold; cursor:pointer; transition:0.2s; font-family: Arial, sans-serif; }
   .btn:hover { filter: brightness(0.95); border-color: #aaa; }
   .btn-primary { background: #007aff; color: #fff; border:none; margin-left: auto; }
@@ -32,7 +30,6 @@
   aside h3{margin:16px 0 8px;color:#0f172a;font-size:14px; font-weight: bold;}
   .legend{display:flex;flex-wrap:wrap;gap:6px}
   
-  /* Interactive Rows */
   .chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--chip-border);border-radius:6px;padding:4px 10px;cursor:pointer; transition: 0.1s; user-select: none;}
   .chip:hover { background: #f8fafc; }
   .chip.inactive{opacity:0.4; background: #f1f5f9; border-color: transparent;}
@@ -46,7 +43,6 @@
   .tip{position:fixed;pointer-events:none;background:var(--tip);border:1px solid var(--tipb);border-radius:6px;padding:10px;font-size:12px;box-shadow:0 10px 28px rgba(15,23,42,.1);opacity:0;transition:opacity .12s; z-index: 100;}
   .note{color:var(--muted);font-size:11px;margin-top:8px; line-height: 1.4;}
   
-  /* Critical for SVG Export - Inline CSS rendering */
   .lbl{paint-order:stroke;stroke:#ffffff;stroke-width:3px;stroke-linecap:round;stroke-linejoin:round;fill:#0f172a; font-family: Arial, sans-serif;}
 </style>
 </head>
@@ -57,8 +53,8 @@
   <label>Leaf scale: <input type="range" id="leafMax" min="20" max="240" step="2" value="120"><span id="leafMaxLbl">120</span> px</label>
   <button id="resetView" class="pill" style="margin-left: 10px;">↺ Reset View</button>
   
-  <button onclick="downloadSVG()" class="btn btn-primary">⬇ Journal SVG</button>
-  <button onclick="downloadPNG()" class="btn btn-success">⬇ 300DPI PNG</button>
+  <button onclick="exportChart('svg')" class="btn btn-primary">⬇ Journal SVG</button>
+  <button onclick="exportChart('png')" class="btn btn-success">⬇ 300DPI PNG</button>
   
   <div id="status">Syncing Data...</div>
 </header>
@@ -130,13 +126,12 @@ const getStructColor = n => STRUCT_COLORS[n] || "#64748b";
 const getIonShapeString = n => ION_SHAPES[n] || "circle";
 const getIonUnicode = n => UNICODE_SHAPES[ION_SHAPES[n]] || "●";
 
-// Map our shapes to native D3 symbols for pure vector rendering
 const D3_SHAPE_MAP = {
     "circle": d3.symbolCircle,
     "diamond": d3.symbolDiamond,
     "square": d3.symbolSquare,
     "triangle-up": d3.symbolTriangle,
-    "triangle-down": d3.symbolTriangle, // We will rotate this one 180deg
+    "triangle-down": d3.symbolTriangle, 
     "cross": d3.symbolCross,
     "star": d3.symbolStar
 };
@@ -158,12 +153,9 @@ function applyChipVisuals(){
 }
 let focusIon = null;
 
-/* ---------- Robust CSV loader ---------- */
-const CSV_URL = new URL('data.csv', document.baseURI).href;
 async function loadCSVWithFallback(){
-  try { return await d3.csv(CSV_URL); }
+  try { return await d3.csv(new URL('data.csv', document.baseURI).href); }
   catch(e){
-    console.warn('CSV fetch failed; enabling picker', e);
     const fb=document.getElementById('csv-fallback'), btn=document.getElementById('pick-csv'), inp=document.getElementById('csv-input');
     if(!fb||!btn||!inp) throw e;
     fb.style.display='block';
@@ -202,9 +194,7 @@ function buildLeaves(rows){
   return leaves;
 }
 
-/* ---------- Master Color Logic ---------- */
 function structColorFromNode(node){
-  // Trace back up the tree to find the Structure group (depth 2)
   const structNode = node.ancestors().find(x => x.depth === 2);
   const structName = structNode?.data?.name || 'Others';
   return getStructColor(structName);
@@ -233,7 +223,6 @@ function drawTree(rows){
   const spread  = +document.getElementById('leafSpread').value;
   document.getElementById('leafMaxLbl').textContent=leafMax;
 
-  // hierarchy
   const leaves = buildLeaves(rows);
   const root = {name:'root',children:[]};
   const grouped = d3.group(leaves, d=>d.ion, d=>d.structure, d=>d.dop);
@@ -287,61 +276,45 @@ function drawTree(rows){
     });
   }
 
-  // LINKS - Colored by Structure
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
   g.append('g').attr('fill','none').selectAll('path').data(H.links()).join('path')
     .attr('stroke-width', d => {
-      if (d.target.depth === 3) return 1.8;   // Doping
-      if (d.target.depth >= 4) return 0.8;    // Formula
-      return 1.2;                             // Ion/Structure
+      if (d.target.depth === 3) return 1.8;   
+      if (d.target.depth >= 4) return 0.8;    
+      return 1.2;                             
     })
     .attr('stroke-dasharray', d => d.target.depth === 3 ? '2,2' : null)
-    .attr('stroke', d => {
-        // Inner link to Ion is grey. Everything else is Structure colored.
-        return d.target.depth > 1 ? structColorFromNode(d.target) : '#cbd5e1';
-    })
+    .attr('stroke', d => d.target.depth > 1 ? structColorFromNode(d.target) : '#cbd5e1')
     .attr('d', d => link({source:d.source, target:d.target}));
 
-  // NODES - Master Visual Index Application
   const nodes = g.append('g').selectAll('g.n').data(H.descendants()).join('g')
     .attr('class','n')
     .attr('transform',d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`)
     .on('mousemove',(e,d)=>showTip(e,d)).on('mouseleave',hideTip)
     .on('click',(e,d)=>{ if(d.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
 
-  // Render Depth 1 (Ions) using Vector Shapes
   nodes.filter(d=>d.depth===1).append('path')
     .attr('d', d => {
         const shapeStr = getIonShapeString(d.data.name);
         const d3Type = D3_SHAPE_MAP[shapeStr] || d3.symbolCircle;
-        return d3.symbol().type(d3Type).size(120)(); // Size corresponds to area
+        return d3.symbol().type(d3Type).size(120)(); 
     })
-    .attr('transform', d => {
-        // Rotate the 'triangle-down' manually 180 deg
-        if(getIonShapeString(d.data.name) === 'triangle-down') return "rotate(180)";
-        return null;
-    })
-    .attr('fill', '#334155')
-    .attr('stroke', '#ffffff')
-    .attr('stroke-width', 1.5)
-    .style('cursor', 'pointer');
+    .attr('transform', d => getIonShapeString(d.data.name) === 'triangle-down' ? "rotate(180)" : null)
+    .attr('fill', '#334155').attr('stroke', '#ffffff').attr('stroke-width', 1.5).style('cursor', 'pointer');
 
-  // Render Depth > 1 (Structure, Doping, Formula) using Structure Colors
   nodes.filter(d=>d.depth>1).append('circle')
     .attr('r', d => (d.depth===3 ? 3.0 : (d.children ? 2.2 : 1.6)))
     .attr('fill', d => structColorFromNode(d))
-    .attr('stroke','#fff')
-    .attr('stroke-width', d => d.depth===3 ? 1.1 : 0.8)
+    .attr('stroke','#fff').attr('stroke-width', d => d.depth===3 ? 1.1 : 0.8)
     .attr('stroke-dasharray', d => (!d.children && d.data?.isDefault) ? '3,2' : null);
 
-  // LABELS
   const wantIon=document.getElementById('showIonLbl').checked;
   const wantStruct=document.getElementById('showStructLbl').checked;
   const wantDoping=document.getElementById('showDopingLbl').checked;
   const wantFormula=document.getElementById('showFormulaLbl').checked;
   
   const layers=[
-    {depth:1,show:wantIon,fs:14,off:12}, // Pushed offset out slightly for shapes
+    {depth:1,show:wantIon,fs:14,off:12}, 
     {depth:2,show:wantStruct,fs:fsStruct,off:6,gap:+document.getElementById('gapStruct').value},
     {depth:3,show:wantDoping,fs:fsDoping,off:5,gap:+document.getElementById('gapDoping').value},
     {depth:4,show:wantFormula,fs:fsFormula,off:0,gap:+document.getElementById('gapFormula').value}
@@ -369,11 +342,8 @@ function drawTree(rows){
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
 
-  // CAPTION
   g.append('text').attr('x',0).attr('y',HEIGHT/2-10).attr('text-anchor','middle').attr('fill','#64748b').attr('font-size',12).attr('font-family','Arial, sans-serif')
     .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure');
-    
-  say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length}`);
 }
 
 /* ---------- Tooltip ---------- */
@@ -401,15 +371,13 @@ function zoomToIon(node){
   const a=node.x-Math.PI/2, x=Math.cos(a)*node.y, y=Math.sin(a)*node.y;
   svg.transition().duration(800).call(zoom.transform, d3.zoomIdentity.translate(WIDTH/2,HEIGHT/2).scale(2.2).translate(-x,-y));
 }
-
 document.getElementById('resetView').addEventListener('click', ()=>{
   svg.transition().duration(800).call(zoom.transform, d3.zoomIdentity.translate(WIDTH/2,HEIGHT/2).scale(1));
   focusIon=null; drawTree(DATA);
 });
 
-/* ---------- D3 NATIVE HIGH-RES EXPORT PIPELINE ---------- */
+/* ---------- NATIVE D3 EXPORT PIPELINE ---------- */
 
-// 1. Core SVG Serializer (Grabs the D3 element and embeds CSS so external software can read it)
 function getSVGString(svgNode) {
     svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
     let cssStyleText = "";
@@ -431,72 +399,130 @@ function getSVGString(svgNode) {
     svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink='); 
     svgString = svgString.replace(/NS\d+:href/g, 'xlink:href');
     
-    // Clean up our injected style node to keep live DOM clean
     svgNode.removeChild(styleElement);
     return svgString;
 }
 
-// 2. Journal Vector SVG Export
-function downloadSVG() {
-    say("Generating Journal SVG...");
-    const svgNode = document.getElementById("chart");
-    const svgString = getSVGString(svgNode);
-    const blob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "Radial_Tree_Publication.svg";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    say(`Nodes: ${svgNode.querySelectorAll('.n').length} (Export Complete)`);
-}
+async function exportChart(format) {
+    say(`Generating High-Res ${format.toUpperCase()}...`);
+    const svgEl = document.getElementById("chart");
+    const d3Svg = d3.select("#chart");
 
-// 3. Ultra-Crisp 600DPI PNG Export via Canvas Upscaling
-function downloadPNG() {
-    say("Generating Ultra-High Res PNG...");
-    const svgNode = document.getElementById("chart");
-    const svgString = getSVGString(svgNode);
-    
-    const scale = 4; // 4x Upscaling for Print Quality
-    const bb = svgNode.getBoundingClientRect();
-    
-    const canvas = document.createElement("canvas");
-    canvas.width = bb.width * scale;
-    canvas.height = bb.height * scale;
-    const ctx = canvas.getContext("2d");
-    
-    // Fill white background (SVGs are transparent by default)
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // 1. Calculate precise active data counts for the legends
+    const activeLeaves = buildLeaves(DATA);
+    const structCounts = {};
+    const ionCounts = {};
+    activeLeaves.forEach(d => {
+        structCounts[d.structure] = (structCounts[d.structure] || 0) + 1;
+        ionCounts[d.ion] = (ionCounts[d.ion] || 0) + 1;
+    });
 
-    const img = new Image();
-    const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
-    const url = URL.createObjectURL(svgBlob);
+    // 2. Expand Canvas dimensions to make room for Legends
+    const legendWidth = 240;
+    const exportWidth = WIDTH + legendWidth;
+    const exportHeight = HEIGHT;
+    const origViewBox = svgEl.getAttribute("viewBox");
+    
+    // 3. Temporarily change SVG ViewBox to include the newly created right-side space
+    d3Svg.attr("viewBox", `${-WIDTH/2} ${-HEIGHT/2} ${exportWidth} ${exportHeight}`);
 
-    img.onload = function() {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
+    // 4. Inject Native SVG Legends
+    const legG = d3Svg.append("g").attr("id", "export-legends");
+    const legX = WIDTH / 2 + 10; // Placed firmly in the new space
+    const legY = -HEIGHT / 2 + 30;
+    
+    // Background to ensure clean text
+    legG.append("rect").attr("x", legX - 10).attr("y", -HEIGHT/2)
+        .attr("width", legendWidth + 10).attr("height", HEIGHT)
+        .attr("fill", "#ffffff");
+
+    let curY = legY;
+
+    // Draw Structure Legend
+    legG.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
+        .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
+    curY += 28;
+
+    Object.keys(structCounts).sort().forEach(st => {
+        legG.append("rect").attr("x", legX).attr("y", curY - 12)
+            .attr("width", 14).attr("height", 14).attr("rx", 2)
+            .attr("fill", getStructColor(st)).attr("stroke", "rgba(0,0,0,0.15)");
+            
+        legG.append("text").attr("x", legX + 24).attr("y", curY)
+            .text(`${st} (${structCounts[st]})`)
+            .attr("font-size", "13px").attr("font-family", "Arial, sans-serif").attr("fill", "#0f172a");
+        curY += 22;
+    });
+
+    curY += 30;
+
+    // Draw Ion Legend
+    legG.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
+        .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
+    curY += 28;
+
+    Object.keys(ionCounts).sort((a,b)=>a.localeCompare(b)).forEach(ion => {
+        const d3Type = D3_SHAPE_MAP[getIonShapeString(ion)] || d3.symbolCircle;
+        const sym = d3.symbol().type(d3Type).size(80)();
         
+        legG.append("path").attr("d", sym)
+            .attr("transform", `translate(${legX + 7}, ${curY - 5}) ${getIonShapeString(ion)==='triangle-down'?'rotate(180)':''}`)
+            .attr("fill", "#334155").attr("stroke", "#fff").attr("stroke-width", 1);
+        
+        legG.append("text").attr("x", legX + 24).attr("y", curY)
+            .text(`${ion} (${ionCounts[ion]})`)
+            .attr("font-size", "13px").attr("font-family", "Arial, sans-serif").attr("fill", "#0f172a");
+        curY += 22;
+    });
+
+    // 5. Extract the modified Canvas
+    const svgString = getSVGString(svgEl);
+
+    // 6. Execute Export
+    if(format === 'svg') {
+        const blob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
+        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.download = "Radial_Tree_HighRes.png";
-        link.href = canvas.toDataURL("image/png");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        say(`Nodes: ${svgNode.querySelectorAll('.n').length} (Export Complete)`);
-    };
-    img.src = url;
+        link.href = url; link.download = "Radial_Tree_Publication.svg";
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    } else {
+        const scale = 4; // Massive 600 DPI Equivalent
+        const canvas = document.createElement("canvas");
+        canvas.width = exportWidth * scale;
+        canvas.height = exportHeight * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const img = new Image();
+        const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
+        const url = URL.createObjectURL(svgBlob);
+
+        await new Promise(resolve => {
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                const link = document.createElement("a");
+                link.download = "Radial_Tree_HighRes.png";
+                link.href = canvas.toDataURL("image/png");
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                resolve();
+            };
+            img.src = url;
+        });
+    }
+
+    // 7. Cleanup & Restore UI
+    d3Svg.select("#export-legends").remove();
+    d3Svg.attr("viewBox", origViewBox);
+    say(`Loaded ${DATA.length} entries`);
 }
 
-/* ---------- Legends & Init ---------- */
-function setFocusIon(n){ focusIon=n; drawTree(DATA); }
-
+/* ---------- Legends UI Init ---------- */
 function buildLegends(rows){
-  // 1. Structure Reference Legend
   const strLegEl = document.getElementById('structLegend');
   strLegEl.innerHTML = '';
-  const structs = Object.keys(STRUCT_COLORS).filter(k => k !== 'Others'); // Clean up known structures
+  const structs = Object.keys(STRUCT_COLORS).filter(k => k !== 'Others'); 
   structs.forEach(st => {
     const chip = document.createElement('div'); chip.className = 'chip'; chip.style.cursor = 'default';
     const sw = document.createElement('div'); sw.className = 'sw'; sw.style.background = getStructColor(st);
@@ -504,14 +530,12 @@ function buildLegends(rows){
     strLegEl.appendChild(chip);
   });
 
-  // 2. Interactive Ion Shape Legend
   const ions=[...new Set(rows.map(r=>(r[COLS.ion]||'Other').toString().trim()))].sort((a,b)=>a.localeCompare(b));
   ionLegEl=document.getElementById('ionLegend'); ionLegEl.innerHTML='';
   ions.forEach(i=>{
     const chip=document.createElement('div'); chip.className='chip'; chip.dataset.ion=i;
     const shapeBox=document.createElement('div'); shapeBox.className='shapeBox'; 
     shapeBox.textContent = getIonUnicode(i);
-    
     chip.appendChild(shapeBox); chip.appendChild(document.createTextNode(i)); ionLegEl.appendChild(chip);
   });
   
