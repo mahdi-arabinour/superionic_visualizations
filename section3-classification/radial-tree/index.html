@@ -396,6 +396,18 @@ function drawTree(rows){
       .style('cursor', L.depth===1? 'pointer' : null)
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
+
+  // FIX: Dynamic Anchoring - Moves naturally with the size of the tree
+  // Hide this completely during export so the journal caption handles it.
+  g.append('text')
+    .attr('class', 'ui-text') 
+    .attr('x',0)
+    .attr('y', textRingR + 40) // Anchored safely 40px below the formulas
+    .attr('text-anchor','middle')
+    .attr('fill','#64748b')
+    .attr('font-size',12)
+    .attr('font-family','Arial, sans-serif')
+    .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure');
 }
 
 /* ---------- Tooltip ---------- */
@@ -480,6 +492,9 @@ async function exportChart(format) {
     
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
 
+    // EXPORT AUTO-HIDE: Turn off the bottom UI text temporarily
+    d3Svg.selectAll(".ui-text").style("display", "none");
+
     d3Svg.insert("rect", ":first-child")
         .attr("id", "export-bg")
         .attr("x", minX).attr("y", minY)
@@ -561,6 +576,10 @@ async function exportChart(format) {
 
     d3Svg.select("#export-elements").remove();
     d3Svg.select("#export-bg").remove();
+    
+    // EXPORT AUTO-HIDE RESTORE: Turn the bottom text back on for the screen
+    d3Svg.selectAll(".ui-text").style("display", null);
+    
     d3Svg.attr("viewBox", origViewBox);
     say(`Loaded ${DATA.length} entries`);
 }
