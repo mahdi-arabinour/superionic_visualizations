@@ -35,6 +35,7 @@
     border:1px solid #f1f5f9; border-radius:8px; font-size:12px;
   }
   .swatch { width:12px; height:12px; border-radius:3px; border:1px solid rgba(0,0,0,0.1); }
+  .ion-symbol { font-size: 14px; width: 18px; text-align: center; color: #475569; }
   #status { font-size:11px; color:#64748b; margin-left:auto; }
 </style>
 </head>
@@ -43,7 +44,7 @@
 <header>
   <div style="display:flex; align-items:center; gap:8px;">
     <label style="font-size:12px; font-weight:600;">Marker Size:</label>
-    <input type="range" id="sizeScale" min="6" max="25" value="14">
+    <input type="range" id="sizeScale" min="6" max="25" value="12">
   </div>
   <button onclick="downloadSVG()" class="btn btn-primary" style="margin-left: auto;">⬇ Journal SVG (Vector)</button>
   <button onclick="downloadPNG()" class="btn btn-success">⬇ 300DPI PNG</button>
@@ -52,7 +53,7 @@
 
 <div style="padding: 15px 20px 0;">
   <h2 id="mainTitle" style="margin:0; font-size:22px;">Ionic Conductivity (σ) vs. Activation Energy (Eₐ)</h2>
-  <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Dashed line: Meyer-Neldel Limit. Legend sorted by performance.</p>
+  <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Standardized Mapping: Colors denote Structure | Shapes denote Ion Type.</p>
 </div>
 
 <div class="wrap">
@@ -60,69 +61,84 @@
 
   <aside>
     <div class="card">
-      <h3>Structure (Ranked by σ)</h3>
+      <h3>Structure Groups</h3>
       <div id="structLegend"></div>
     </div>
     <div class="card">
-      <h3>Ion Type</h3>
+      <h3>Ion Type Mapping</h3>
       <div id="ionLegend"></div>
     </div>
   </aside>
 </div>
 
 <script>
-/* Match the Column Names from your CSV */
+/* Column Mapping */
 const COL_SIGMA  = "Conductivity σ (S/cm)";
-const COL_EA     = "Activation Energy Ea (eV)";
+const COL_EA      = "Activation Energy Ea (eV)";
 const COL_STRUCT = "Structure Group";
 const COL_ION    = "Ion Type";
 const COL_FORM   = "Superionic Conductor Formula (Chemical)";
 
-const COLORS = { "Argyrodite":"#ab47bc", "Halide":"#26a69a", "NASICON":"#66bb6a", "Anti-perovskite":"#0d47a1", "Spinel":"#8d6e63", "Polymeric":"#ff7043", "Amorphous":"#f6bf26", "Others":"#94a3b8" };
-const SHAPES = ["circle", "square", "diamond", "cross", "x", "triangle-up", "star"];
+/* MASTER INDEX: COLORS */
+const COLORS = { 
+    "Amorphous": "#FFBF00", 
+    "Halide": "#008080", 
+    "NASICON": "#4CAF50", 
+    "Argyrodite": "#9C27B0", 
+    "Anti-perovskite": "#000080", 
+    "Spinel": "#795548", 
+    "Polymeric": "#FF5722", 
+    "Other": "#708090",
+    "Others": "#708090" 
+};
+
+/* MASTER INDEX: SHAPES */
+const ION_SHAPES = {
+    "Li+": { plotly: "circle", unicode: "●" },
+    "Na+": { plotly: "diamond", unicode: "◆" },
+    "K+": { plotly: "square", unicode: "■" },
+    "Ag+": { plotly: "triangle-up", unicode: "▲" },
+    "Cu+": { plotly: "triangle-down", unicode: "▼" },
+    "H+": { plotly: "cross", unicode: "✚" },
+    "Mg2+": { plotly: "hexagon", unicode: "⬢" },
+    "O2-": { plotly: "star", unicode: "★" },
+    "Rb+": { plotly: "x", unicode: "✖" }
+};
+const DEFAULT_SHAPE = { plotly: "octagon", unicode: "⬣" };
 
 let rawData = [];
 
-/* AUTOMATIC LOADING - Exactly like your Dot Matrix */
 d3.csv("data.csv").then(data => {
-    // Filter out bad data
     rawData = data.filter(d => +d[COL_SIGMA] > 0 && +d[COL_EA] > 0);
-    
     document.getElementById("status").textContent = `Loaded ${rawData.length} entries`;
     
-    // 1. TOP NOTCH UPGRADE: Rank Structure Groups by their best performance
-    const structs = [...new Set(rawData.map(d => d[COL_STRUCT]))].filter(Boolean);
-    structs.sort((a,b) => {
-        const maxA = d3.max(rawData.filter(d => d[COL_STRUCT] === a), d => +d[COL_SIGMA]);
-        const maxB = d3.max(rawData.filter(d => d[COL_STRUCT] === b), d => +d[COL_SIGMA]);
-        return maxB - maxA;
-    });
-
+    // Sort structures alphabetically for consistent UI
+    const structs = [...new Set(rawData.map(d => d[COL_STRUCT]))].filter(Boolean).sort();
+    
     renderLegend(structs);
     drawChart();
 }).catch(err => {
-    document.getElementById("chart").innerHTML = `
-        <div style="padding:40px; color:#b91c1c; text-align:center;">
-            <b>⚠️ data.csv not found or blocked.</b><br>
-            Ensure the file is in this folder and you are using a local web server (like VS Code Live Server).
-        </div>`;
+    document.getElementById("chart").innerHTML = `<div style="padding:40px; color:#b91c1c; text-align:center;"><b>⚠️ data.csv not found.</b></div>`;
 });
 
 function renderLegend(structs) {
     const sCont = document.getElementById('structLegend');
+    sCont.innerHTML = "";
     structs.forEach(s => {
         const div = document.createElement('div');
         div.className = 'legend-row';
-        div.innerHTML = `<div class="swatch" style="background:${COLORS[s] || '#999'}"></div><span>${s}</span>`;
+        div.innerHTML = `<div class="swatch" style="background:${COLORS[s] || COLORS['Other']}"></div><span>${s}</span>`;
         sCont.appendChild(div);
     });
 
     const ions = [...new Set(rawData.map(d => d[COL_ION]))].filter(Boolean).sort();
     const iCont = document.getElementById('ionLegend');
+    iCont.innerHTML = "";
     ions.forEach(ion => {
+        const shapeData = ION_SHAPES[ion] || DEFAULT_SHAPE;
         const div = document.createElement('div');
         div.className = 'legend-row';
-        div.innerHTML = `<span style="font-weight:bold; color:#64748b; width:16px; text-align:center;">◈</span><span>${ion}</span>`;
+        div.innerHTML = `<span class="ion-symbol">${shapeData.unicode}</span><span>${ion}</span>`;
         iCont.appendChild(div);
     });
 }
@@ -130,11 +146,7 @@ function renderLegend(structs) {
 function drawChart() {
     const size = document.getElementById('sizeScale').value;
     const traces = [];
-    
-    // Grouping for Plotly
     const groups = d3.groups(rawData, d => d[COL_STRUCT]);
-    const ionShapes = {};
-    [...new Set(rawData.map(d => d[COL_ION]))].forEach((ion, i) => { ionShapes[ion] = SHAPES[i % SHAPES.length]; });
 
     groups.forEach(([name, data]) => {
         traces.push({
@@ -145,31 +157,45 @@ function drawChart() {
             name: name,
             marker: { 
                 size: size, 
-                color: COLORS[name] || '#999', 
-                symbol: data.map(d => ionShapes[d[COL_ION]]),
-                line: {width: 0.8, color: '#fff'}, 
-                opacity: 0.8 
+                color: COLORS[name] || COLORS['Other'], 
+                symbol: data.map(d => (ION_SHAPES[d[COL_ION]] || DEFAULT_SHAPE).plotly),
+                line: {width: 0.5, color: '#fff'}, 
+                opacity: 0.65 // FIXED: Added transparency to solve the "data hairball"
             },
-            hovertemplate: "<b>%{text}</b><br>Ea: %{x} eV<br>σ: %{y} S/cm<extra></extra>"
+            hovertemplate: "<b>%{text}</b><br>Ion: %{customdata}<br>Ea: %{x} eV<br>σ: %{y} S/cm<extra></extra>",
+            customdata: data.map(d => d[COL_ION])
         });
     });
 
     const layout = {
-        xaxis: { title: "Activation Energy E<sub>a</sub> (eV)", range: [0, 1.2], gridcolor: "#f1f5f9" },
-        yaxis: { title: "Ionic Conductivity σ (S·cm⁻¹)", type: "log", gridcolor: "#f1f5f9" },
+        xaxis: { 
+            title: "Activation Energy E<sub>a</sub> (eV)", 
+            range: [0, 1.1], // Zoomed in slightly to reduce empty right-side space
+            gridcolor: "#f1f5f9",
+            zeroline: false
+        },
+        yaxis: { 
+            title: "Ionic Conductivity σ (S·cm⁻¹)", 
+            type: "log", 
+            gridcolor: "#f1f5f9",
+            tickformat: ".1e", // FIXED: Standardized to scientific notation
+            exponentformat: "power"
+        },
         margin: { t: 20, r: 20, b: 60, l: 80 },
         showlegend: false,
         plot_bgcolor: "#fff",
-        // 2. TOP NOTCH UPGRADE: The "Efficiency Frontier"
-        shapes: [{ type: 'line', x0: 0.05, y0: 5, x1: 1.1, y1: 1e-10, line: { color: '#cbd5e1', width: 2, dash: 'dash' } }]
+        // Extended Meyer-Neldel Limit line
+        shapes: [{ 
+            type: 'line', x0: 0.05, y0: 5, x1: 1.1, y1: 1e-11, 
+            line: { color: '#94a3b8', width: 1.5, dash: 'dash' } 
+        }]
     };
 
     Plotly.newPlot('chart', traces, layout, { responsive: true, displayModeBar: false });
 }
 
-/* 3. TOP NOTCH UPGRADE: High-Quality Export */
-function downloadPNG() { Plotly.downloadImage('chart', {format:'png', width:1400, height:900, filename:'Ea_vs_Sigma_300DPI'}); }
-function downloadSVG() { Plotly.downloadImage('chart', {format:'svg', width:1400, height:900, filename:'Ea_vs_Sigma_Vector'}); }
+function downloadPNG() { Plotly.downloadImage('chart', {format:'png', width:1600, height:1000, filename:'Ionic_Conductivity_Ea_Scatter'}); }
+function downloadSVG() { Plotly.downloadImage('chart', {format:'svg', width:1600, height:1000, filename:'Ionic_Conductivity_Ea_Vector'}); }
 
 document.getElementById('sizeScale').oninput = drawChart;
 </script>
