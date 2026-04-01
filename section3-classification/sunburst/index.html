@@ -232,10 +232,14 @@
     ui.hideUnsel.onchange = ()=>{ HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
 
     // Data + draw (Original Loader strictly preserved)
-    const csvRows = await d3.csv('data.csv', d3.autoType);
-    const dataObj = rowsToNested(csvRows);
-    fullHierarchy = buildHierarchy(dataObj);
-    draw();
+    try {
+        const csvRows = await d3.csv('data.csv', d3.autoType);
+        const dataObj = rowsToNested(csvRows);
+        fullHierarchy = buildHierarchy(dataObj);
+        draw();
+    } catch(e) {
+        document.getElementById('chart').innerHTML = `<div style="padding:20px;color:red;font-weight:bold;">Error loading data.csv. Please ensure you are running a local web server to bypass CORS.</div>`;
+    }
 
     window.addEventListener('resize', ()=>{ clearTimeout(window._rz); window._rz=setTimeout(draw,120); });
   });
@@ -360,7 +364,7 @@ function buildHierarchy(dataObj){
   // ---------------- Draw ----------------
   function draw(){
     const chartEl=document.getElementById('chart');
-    const legendEl=document.querySelector('.legendGroup');
+    const legendEl=document.getElementById('ionLegend');
     const tt=document.getElementById('tooltip');
     chartEl.innerHTML=''; legendEl.innerHTML='';
 
@@ -387,8 +391,10 @@ function buildHierarchy(dataObj){
     _outerR = d => d.children ? d.y1 : d.y1 + _leafBase + condScale(d.data.cond || DEF_COND);
     const maxR = d3.max(root.descendants(), d=>_outerR(d)) + 6; maxRGlobal = maxR;
 
+    const viewPad = 180; // Padding to prevent text cutoff
+
     const svg=d3.select(chartEl).append('svg').attr('width','100%').attr('height','100%')
-      .attr('viewBox', `${-maxR} ${-maxR} ${maxR*2} ${maxR*2}`);
+      .attr('viewBox', `${-(maxR + viewPad)} ${-(maxR + viewPad)} ${(maxR + viewPad)*2} ${(maxR + viewPad)*2}`);
     _g=svg.append('g'); _defs=svg.append('defs');
 
     const arc=d3.arc().startAngle(d=>d.x0).endAngle(d=>d.x1)
@@ -480,7 +486,7 @@ function buildHierarchy(dataObj){
 
     renderCrumbs();
     
-    if(legendEl && !legendEl.hasChildNodes()) buildLegend(legendEl);
+    if(legendEl && !legendEl.hasChildNodes()) buildLegend(legendEl, root);
     
     applyLabelVisibility();
     applyLegendFilter();
@@ -577,7 +583,6 @@ function buildHierarchy(dataObj){
     if (SHOW_ION)     data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='ion'));
     if (SHOW_STRUCT)  data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='struct'));
     if (SHOW_STRAT)   data = data.concat(_nodesCache.filter(n => n.children && levelOf(n)==='strat'));
-    // Formula label array responds directly to the checkbox state
     if (SHOW_FORM)    data = data.concat(_nodesCache.filter(n => levelOf(n)==='formula'));
 
     const sel = layer.selectAll('text.levelLabel')
@@ -590,7 +595,7 @@ function buildHierarchy(dataObj){
         return lv==='ion' ? (FS_ION+'px')
              : lv==='struct' ? (FS_STRUCT+'px')
              : lv==='strat' ? (FS_STRAT+'px')
-             : (FS_FORM+'px'); // Links to the formula font slider
+             : (FS_FORM+'px'); 
       })
       .style('font-weight', d=>{
         const lv = levelOf(d);
@@ -601,12 +606,17 @@ function buildHierarchy(dataObj){
     applyLegendFilter();
   }
 
-  // ---------------- Radial placement ----------------
+  // ---------------- Radial placement (FIXED OVERLAP MATH) ----------------
   function placeRadial(selection){
     selection.each(function(d){
       const el = d3.select(this);
-      
       const lv = levelOf(d);
+      
+      const fs = lv==='ion' ? FS_ION
+               : lv==='struct' ? FS_STRUCT
+               : lv==='strat' ? FS_STRAT
+               : FS_FORM;
+      
       const isLeaf = (lv === 'formula');
       
       let rMid;
@@ -616,11 +626,28 @@ function buildHierarchy(dataObj){
         rMid = (d.y0 + d.y1) / 2; 
       }
 
+      // SMART OVERLAP FIX: Calculate actual physical pixel space available at this radius
+      const angleRadians = (d.x1 - d.x0);
+      const arcLengthPixels = rMid * angleRadians;
+
+      // If the physical slice is narrower than the font size + 2px padding, hide it so it doesn't stack vertically
+      if (arcLengthPixels < fs + 2) {
+          el.style('display', 'none');
+          return;
+      }
+
       let amid = (d.x0 + d.x1) / 2;
       if (d.x0 < 0 && d.x1 > 0) amid += 0.01;
 
       const deg = amid * 180 / Math.PI;
       const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
+
+      // Truncate excessively long strings in the inner rings to prevent them from bleeding outward into the formulas
+      let textStr = d.data.name;
+      if (!isLeaf && textStr.length > 22) {
+          textStr = textStr.substring(0, 20) + '...';
+      }
+      el.text(textStr);
 
       el.attr('dy','0.32em')
         .attr('text-anchor', isLeaf ? (upright ? 'start' : 'end') : 'middle')
