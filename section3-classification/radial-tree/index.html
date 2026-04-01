@@ -83,7 +83,7 @@
   <label><input type="checkbox" id="showIonLbl" checked> Ion</label>
   <label><input type="checkbox" id="showStructLbl" checked> Structure</label>
   <label><input type="checkbox" id="showDopingLbl" checked> Doping</label>
-  <label><input type="checkbox" id="showFormulaLbl"> Formula</label>
+  <label><input type="checkbox" id="showFormulaLbl" checked> Formula</label>
 
   <h3>Declutter (min angle gap, °)</h3>
   <div style="display:flex; gap:10px;">
@@ -209,13 +209,11 @@ function drawTree(rows){
     bb = document.getElementById('chart').getBoundingClientRect();
   }
   WIDTH=bb.width; HEIGHT=bb.height; 
-  // FIX: Shrunk R significantly to make room for outer text ring and titles
-  R=Math.min(WIDTH,HEIGHT)/2 - 140; 
+  R=Math.min(WIDTH,HEIGHT)/2 - 160; // Provide massive outer padding for the labels
 
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','tree');
 
-  // NATIVE INTERACTIVE TITLE
   g.append("text")
       .attr("x", -WIDTH/2 + 30) 
       .attr("y", -HEIGHT/2 + 40) 
@@ -275,11 +273,15 @@ function drawTree(rows){
   const scaleLog=d3.scaleLog().domain([Math.max(sMin,Number.MIN_VALUE),sMax]).range([leafMin,leafMax]);
   const extra = v => (useLog? scaleLog:scaleLin)(Number.isFinite(+v)&&+v>0? +v : def);
 
-  const margin=12, maxExtra=Math.max(8,(R-margin)-rFormula);
+  const maxExtra = Math.max(8, R - rFormula);
   const rescale = d3.scaleLinear().domain([leafMin,leafMax]).range([leafMin,maxExtra]);
   
-  // Calculate conductivity branch lengths
-  H.each(n=>{ if(!n.children) n.y = rFormula + rescale(extra(n.data.sigma)); });
+  // RESTORED FIX: Apply varying lengths to leaves based on conductivity
+  H.each(n=>{ 
+      if(!n.children) {
+          n.y = rFormula + rescale(extra(n.data.sigma)); 
+      }
+  });
 
   if(spread>0){
     H.descendants().filter(d=>d.depth===3).forEach(p=>{
@@ -343,13 +345,15 @@ function drawTree(rows){
       arr=kept;
     }
 
-    // FIX: Outer Text Ring Guide Lines for Formulas
+    // DRAW THE DOTTED GUIDE LINES FROM THE SPKY LEAVES TO THE TEXT RING
     if (L.depth === 4) {
         g.append('g').selectAll('line.guide').data(arr).join('line')
-          .attr('x1', d => Math.cos(d.x - Math.PI/2) * d.y)
-          .attr('y1', d => Math.sin(d.x - Math.PI/2) * d.y)
-          .attr('x2', d => Math.cos(d.x - Math.PI/2) * R)
-          .attr('y2', d => Math.sin(d.x - Math.PI/2) * R)
+          // Start the line precisely where the branch ended (d.y)
+          .attr('x1', d => Math.cos(d.x - Math.PI/2) * (d.y + 4)) 
+          .attr('y1', d => Math.sin(d.x - Math.PI/2) * (d.y + 4))
+          // End the line precisely at the outer text ring (R + 10)
+          .attr('x2', d => Math.cos(d.x - Math.PI/2) * (R + 10))
+          .attr('y2', d => Math.sin(d.x - Math.PI/2) * (R + 10))
           .attr('stroke', '#cbd5e1')
           .attr('stroke-width', 0.8)
           .attr('stroke-dasharray', '2,2');
@@ -359,8 +363,8 @@ function drawTree(rows){
       .selectAll('text').data(arr).join('text').attr('class','lbl')
       .attr('transform',d=>{
         const a=d.x;
-        // FIX: Force Formula labels to align to the outer R boundary
-        const r=(L.depth===4 ? R + 4 : d.y + L.off);
+        // Anchor the text labels securely to the perfect outer circle
+        const r=(L.depth===4 ? R + 14 : d.y + L.off);
         const x=Math.cos(a-Math.PI/2)*r, y=Math.sin(a-Math.PI/2)*r;
         const rot=a*180/Math.PI-90, flip=a>=Math.PI?180:0;
         return `translate(${x},${y}) rotate(${rot+flip})`;
@@ -371,7 +375,6 @@ function drawTree(rows){
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
 
-  // FIX: Push footer securely below the entire tree layout
   g.append('text').attr('x',0).attr('y', HEIGHT/2 - 15).attr('text-anchor','middle').attr('fill','#64748b').attr('font-size',12).attr('font-family','Arial, sans-serif')
     .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • color = Structure');
 }
@@ -446,18 +449,15 @@ async function exportChart(format) {
         ionCounts[d.ion] = (ionCounts[d.ion] || 0) + 1;
     });
 
-    // FIX: Tighten Export Bounds dynamically to remove Dead Zone
-    const pad = 60;
-    const minX = -WIDTH/2 - pad;
-    const minY = -HEIGHT/2 - pad;
-    
-    // Legend anchors securely to max Tree Radius R
-    const legX = R + 140; 
-    const legendWidth = 240;
-    
-    const exportWidth = (legX + legendWidth + 20) - minX;
-    const exportHeight = HEIGHT + (pad * 2);
+    const titleHeight = 80;   
+    const legendWidth = 240;  
+    const pad = 120;          
     const origViewBox = svgEl.getAttribute("viewBox");
+    
+    const minX = -WIDTH/2 - pad;
+    const minY = -HEIGHT/2 - pad - titleHeight;
+    const exportWidth = WIDTH + (pad * 2) + legendWidth;
+    const exportHeight = HEIGHT + (pad * 2) + titleHeight;
     
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
 
@@ -469,8 +469,17 @@ async function exportChart(format) {
 
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    // Drawn precisely in the top corner of our dynamic box
-    let curY = -HEIGHT/2 + 40; 
+    exportGroup.append("text")
+        .attr("x", minX + 40) 
+        .attr("y", minY + 60) 
+        .text("Superionic Conductors: A Radial Taxonomy")
+        .attr("font-weight", "bold")
+        .attr("font-size", "28px")
+        .attr("font-family", "Arial, sans-serif")
+        .attr("fill", "#0f172a");
+
+    const legX = WIDTH/2 + pad + 10; 
+    let curY = minY + 60; 
 
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "Arial, sans-serif");
@@ -516,7 +525,7 @@ async function exportChart(format) {
         link.href = url; link.download = "Radial_Tree_Publication.svg";
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     } else {
-        const scale = 4; // Massive 600 DPI Equivalent
+        const scale = 4; 
         const canvas = document.createElement("canvas");
         canvas.width = exportWidth * scale;
         canvas.height = exportHeight * scale;
