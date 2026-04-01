@@ -103,6 +103,8 @@
   <header>
     <label>Default σ: <input type="number" id="sigmaDefault" step="any" value="1e-6" style="width:70px"></label>
     <label><input type="checkbox" id="useLog" checked> log₁₀(σ) length</label>
+    <label>Leaf scale: <input type="range" id="leafMax" min="20" max="240" step="2" value="120"><span id="leafMaxLbl">120</span> px</label>
+    <button id="resetView" class="pill" style="margin-left: 10px;">↺ Reset View</button>
     
     <span id="crumbs" class="crumbs"></span>
     
@@ -166,7 +168,7 @@
   const LEAF_SCALE = [1.0, 1.45, 1.6];
   const CAP_ARC_DEG = 90;
 
-  // ION PALETTE (The Unified Color Master)
+  // ION PALETTE
   const ION_COLORS = {
     "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1",
     "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047",
@@ -339,7 +341,7 @@ function buildHierarchy(dataObj){
   function nodeFill(d){
     if (d.depth === 0) return '#f8fafc'; 
     const names = absoluteNames(d);
-    return getIonColor(names.ion || 'Other'); // All descendants inherit the Ion color
+    return getIonColor(names.ion || 'Other'); 
   }
 
   function levelOf(d){
@@ -367,7 +369,6 @@ function buildHierarchy(dataObj){
     _leafBase=Math.max(12, side*0.03);
     const extraLeafMax=Math.max(90, side*0.22)*leafScale;
 
-    // Pure Sunburst Layout
     d3.partition().size([2*Math.PI, (root.height + 1) * _ringThickness])(root);
 
     const condVals=root.leaves().map(l=>l.data.cond||DEF_COND);
@@ -384,7 +385,7 @@ function buildHierarchy(dataObj){
     _g=svg.append('g'); _defs=svg.append('defs');
 
     // SUBTITLE
-    g.append("text")
+    _g.append("text")
       .attr("class", "ui-text") 
       .attr("x", -maxR + 10) 
       .attr("y", -maxR + 20) 
@@ -405,7 +406,6 @@ function buildHierarchy(dataObj){
       .attr('d', arc)
       .attr('fill', d=>{
         const base = nodeFill(d);
-        // Dim the slice slightly if there is no conductivity data
         if (!d.children && !d.data.hasCond){ const c=d3.color(base); c.opacity=0.7; return c.formatRgb(); }
         return base;
       })
@@ -483,7 +483,6 @@ function buildHierarchy(dataObj){
     renderRingCaptions(root);
     renderCrumbs();
     
-    // Only rebuild legend if it's empty to preserve checkboxes during zoom
     if(!legendEl.hasChildNodes()) buildLegend(legendEl);
     
     applyLabelVisibility();
@@ -607,9 +606,9 @@ function buildHierarchy(dataObj){
       
       let rMid;
       if (isLeaf) {
-        rMid = _outerR(d) + 6; // Place formula text just outside the slice
+        rMid = _outerR(d) + 6; 
       } else {
-        rMid = (d.y0 + d.y1) / 2; // Center text inside the slice
+        rMid = (d.y0 + d.y1) / 2; 
       }
 
       let amid = (d.x0 + d.x1) / 2;
@@ -749,10 +748,9 @@ function buildHierarchy(dataObj){
           .attr("width", exportW).attr("height", exportH)
           .attr("fill", "#ffffff");
 
-      d3Svg.selectAll(".ui-text").style("display", "none");
-
       const exportGroup = d3Svg.append("g").attr("id", "export-elements");
       
+      // SUBTITLE ONLY
       exportGroup.append("text")
           .attr("x", exportMinX + 40) 
           .attr("y", exportMinY + 60) 
@@ -761,7 +759,8 @@ function buildHierarchy(dataObj){
           .attr("font-family", "Arial, sans-serif")
           .attr("fill", "#64748b");
 
-      const legX = origX + origW + (pad/2) - 40; 
+      // STATIC ION LEGEND FOR EXPORT
+      const legX = origX + origW + (pad/2); 
       let curY = exportMinY + 60; 
 
       exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
@@ -794,7 +793,7 @@ function buildHierarchy(dataObj){
           link.href = url; link.download = "Sunburst_Publication.svg";
           document.body.appendChild(link); link.click(); document.body.removeChild(link);
       } else {
-          const scale = 4; 
+          const scale = 4; // 600 DPI 
           const canvas = document.createElement("canvas");
           canvas.width = exportW * scale;
           canvas.height = exportH * scale;
@@ -820,7 +819,6 @@ function buildHierarchy(dataObj){
 
       d3Svg.select("#export-elements").remove();
       d3Svg.select("#export-bg").remove();
-      d3Svg.selectAll(".ui-text").style("display", null);
       d3Svg.attr("viewBox", currentViewBox.join(" "));
   }
   </script>
