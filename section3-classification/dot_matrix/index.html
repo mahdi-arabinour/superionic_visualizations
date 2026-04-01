@@ -298,9 +298,7 @@ function draw(){
       exit=>exit.remove()
     );
 
-  // 4. Smart Annotations for "Top Performers"
-  const topCutoff = d3.max(rows, d=>d.sigma) || 0;
-  // Get the top 5 distinct formulas
+  // 4. Smart Annotations for "Top Performers" (Now with Anti-Overlap physics)
   const topRows = rows.filter(d=>d.formula && d.formula !== "—").sort((a,b)=>b.sigma - a.sigma);
   const seenF = new Set();
   const topN = [];
@@ -308,31 +306,59 @@ function draw(){
     if(!seenF.has(r.formula)){
       seenF.add(r.formula);
       topN.push(r);
-      if(topN.length >= 4) break;
+      if(topN.length >= 4) break; // keep top 4
     }
   }
   
-  // Find their physical positions from `all`
   const topNodes = all.filter(n => topN.some(tr => tr.formula === n.formula && tr.sigma === n.sigma));
   
-  labelG.selectAll(".top-label").data(topNodes, d=>d.formula)
+  // Create a static simulation just for the labels to push them apart
+  const labelData = topNodes.map(d => ({
+      id: d.formula,
+      tx: d.x,
+      ty: d.y,
+      x: d.x + 35, // starting guess (pushed out to the right)
+      y: d.y - 35, // starting guess (pushed up)
+      formula: d.formula
+  }));
+
+  // D3 force simulation to resolve overlaps
+  const labelSim = d3.forceSimulation(labelData)
+      // High collision radius to account for long text boxes
+      .force("collide", d3.forceCollide().radius(22).iterations(3)) 
+      // Gentle pull towards their anchor points
+      .force("y", d3.forceY(d => d.ty - 40).strength(0.3)) 
+      .force("x", d3.forceX(d => d.tx + 40).strength(0.3))
+      .stop();
+
+  // Fast-forward the simulation so it applies instantly before drawing
+  for (let i = 0; i < 200; i++) labelSim.tick();
+
+  labelG.selectAll(".top-label").data(labelData, d=>d.id)
     .join(
       enter => {
         const gLabel = enter.append("g").attr("class", "top-label");
-        gLabel.append("line").attr("x1", d=>d.x).attr("y1", d=>d.y).attr("x2", d=>d.x+15).attr("y2", d=>d.y-15)
+        gLabel.append("line")
           .attr("stroke", "#475569").attr("stroke-width", 1).attr("opacity", 0.7);
-        gLabel.append("text").attr("x", d=>d.x+17).attr("y", d=>d.y-17)
+        gLabel.append("text")
           .attr("fill", "#0f172a").attr("font-size", 11).attr("font-weight", "600")
-          .attr("font-family", "ui-monospace, monospace").text(d=>d.formula);
+          .attr("font-family", "ui-monospace, monospace");
         return gLabel;
       },
-      update => {
-        update.select("line").attr("x1", d=>d.x).attr("y1", d=>d.y).attr("x2", d=>d.x+15).attr("y2", d=>d.y-15);
-        update.select("text").attr("x", d=>d.x+17).attr("y", d=>d.y-17);
-        return update;
-      },
+      update => update,
       exit => exit.remove()
-    );
+    )
+    .each(function(d) {
+      const sel = d3.select(this);
+      // Draw connector line from the bubble (tx, ty) to the resolved label position (x, y)
+      sel.select("line")
+         .attr("x1", d.tx).attr("y1", d.ty)
+         .attr("x2", d.x).attr("y2", d.y);
+      // Place the text slightly offset from the end of the line
+      sel.select("text")
+         .attr("x", d.x + 4).attr("y", d.y + 4)
+         .text(d.formula);
+    });
 }
 
 /* Structure legend (click to filter) */
