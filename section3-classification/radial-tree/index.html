@@ -32,6 +32,9 @@
 
   .btn-success-ultra { background: #064e3b; color: #fff; border: none; }
   .btn-success-ultra:hover { background: #022c22; color: #fff; transform: translateY(-1px); }
+
+  .btn-success-max { background: #022c22; color: #fff; border: none; }
+  .btn-success-max:hover { background: #011f18; color: #fff; transform: translateY(-1px); }
   
   #status{color:var(--muted);font-size:12px; font-weight: bold;}
   #chart{width:100%;height:90vh; background: #fff;}
@@ -67,6 +70,7 @@
   <button onclick="exportChart('png', 4)" class="btn btn-success" title="Standard Print Quality (~380 DPI)">⬇ 300 DPI</button>
   <button onclick="exportChart('png', 6.25)" class="btn btn-success-dark" title="Professional journal quality (~600 DPI)">⬇ 600 DPI</button>
   <button onclick="exportChart('png', 8.33)" class="btn btn-success-ultra" title="Maximum safe resolution (~800 DPI)">⬇ 800 DPI</button>
+  <button onclick="exportChart('png', 12.5)" class="btn btn-success-max" title="Extreme resolution (~1200 DPI)">⬇ 1200 DPI</button>
   
   <div id="status">Syncing Data...</div>
 </header>
@@ -236,7 +240,7 @@ function drawTree(rows){
   g.append("text")
       .attr("class", "ui-text") 
       .attr("x", -WIDTH/2 + 30) 
-      .attr("y", -HEIGHT/2 + 40) // Shifted up since the main title is removed
+      .attr("y", -HEIGHT/2 + 40)
       .text("Ion → Structure → Doping → Formula • leaf length ∝ log₁₀(σ) • color = Structure Group")
       .attr("font-size", "13px")
       .attr("font-family", "Arial, sans-serif")
