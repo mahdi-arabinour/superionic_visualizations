@@ -39,7 +39,7 @@
 
         #wrap { flex: 1; display: flex; padding: 16px; gap: 16px; min-height: 0; }
         #chartCard {
-            flex: 1; display: grid; grid-template-columns: minmax(640px, 1.7fr) 300px;
+            flex: 1; display: grid; grid-template-columns: minmax(640px, 1.7fr) 280px;
             gap: 16px; align-items: start; min-height: 0;
         }
 
@@ -58,13 +58,15 @@
         text.struct-label {
             fill: #0f172a; pointer-events: none; text-anchor: middle;
             dominant-baseline: middle; font-weight: 700;
-            paint-order: stroke; stroke: #ffffff; stroke-width: 3px;
+            paint-order: stroke; stroke: #ffffff; stroke-width: 3.5px;
+            stroke-linejoin: round;
         }
 
         text.leaf-label {
             fill: #0f172a; pointer-events: none; text-anchor: middle;
             dominant-baseline: middle; font-weight: 600; opacity: 0.95;
-            paint-order: stroke; stroke: #ffffff; stroke-width: 2.5px;
+            paint-order: stroke; stroke: #ffffff; stroke-width: 3px;
+            stroke-linejoin: round;
         }
 
         .legend {
@@ -108,10 +110,10 @@
         <strong>Circle Packing Visualizer</strong>
         <span id="trail" class="crumbs"></span>
         
-        <button onclick="exportChart('svg')" class="btn btn-primary" title="Preferred for journals (Infinite Resolution Vector)">⬇ Journal SVG</button>
-        <button onclick="exportChart('png', 4)" class="btn btn-success" title="Standard Print Quality (~380 DPI)">⬇ ~400 DPI PNG</button>
-        <button onclick="exportChart('png', 8)" class="btn btn-success-dark" title="Professional journal quality (~760 DPI)">⬇ ~800 DPI PNG</button>
-        <button onclick="exportChart('png', 12.5)" class="btn btn-success-ultra" title="Ultra resolution (~1200 DPI)">⬇ 1200 DPI PNG</button>
+        <button onclick="exportChart('svg')" class="btn btn-primary" title="Preferred for journals (Infinite Resolution Vector)">⬇ SVG</button>
+        <button onclick="exportChart('png', 4)" class="btn btn-success" title="Standard Print Quality (~380 DPI)">⬇ 300 DPI</button>
+        <button onclick="exportChart('png', 8)" class="btn btn-success-dark" title="Professional journal quality (~760 DPI)">⬇ 600 DPI</button>
+        <button onclick="exportChart('png', 12.5)" class="btn btn-success-ultra" title="Ultra resolution (~1200 DPI)">⬇ 1200 DPI</button>
     </header>
 
     <div id="wrap">
@@ -173,14 +175,14 @@
 
         function renderLegends() {
             const structLegend = d3.select("#struct-legend");
-            structLegend.html("<h4>Structure Group</h4>");
+            structLegend.html("<h4>Structure Group (Outer Circle)</h4>");
             Object.entries(STRUCT_COLORS).forEach(([name, color]) => {
                 structLegend.append("div").attr("class", "legend-item")
                     .html(`<div class="legend-color" style="background:${color}"></div>${name}`);
             });
 
             const ionLegend = d3.select("#ion-legend");
-            ionLegend.html("<h4>Ion Type</h4>");
+            ionLegend.html("<h4>Ion Type (Inner Circle)</h4>");
             Object.entries(ION_COLORS).forEach(([name, color]) => {
                 ionLegend.append("div").attr("class", "legend-item")
                     .html(`<div class="legend-color" style="background:${color}"></div>${name}`);
@@ -238,15 +240,19 @@
 
                 leafLabels
                     .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
-                    .style("display", d => (d.r * k >= 14 ? "inline" : "none"))
+                    .style("display", d => (d.r * k >= 18 ? "inline" : "none")) // increased minimum size to prevent edge bleeding
                     .style("font-size", d => `${Math.max(9, Math.min(16, (d.r * k) / 3.5))}px`)
-                    .text(d => `${d.data.name} (${d.value})`);
+                    .text(d => {
+                        // If circle is small, drop the count and just show the Ion Name so it fits cleanly
+                        if ((d.r * k) < 30) return d.data.name;
+                        return `${d.data.name} (${d.value})`;
+                    });
             }
 
             function zoom(event, d) {
                 focus = d;
                 const t = svg.transition().duration(750).tween("zoom", () => {
-                    const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2.1]); // 2.1 gives slight padding
+                    const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2.1]);
                     return t => zoomTo(i(t));
                 });
                 updateTrail(d);
@@ -277,7 +283,7 @@
         }
 
         // ============================================================================
-        // NATIVE D3 EXPORT PIPELINE
+        // NATIVE D3 EXPORT PIPELINE - CIRCLE PACKING SPECIFIC
         // ============================================================================
         function getSVGString(svgNode) {
             svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
@@ -307,25 +313,70 @@
             const svgEl = document.querySelector("#chart svg");
             const d3Svg = d3.select(svgEl);
 
-            // Capture the current viewBox to restore it later
             const currentViewBox = svgEl.getAttribute("viewBox").split(" ").map(Number);
             const [origX, origY, origW, origH] = currentViewBox;
 
-            // Add padding for the export frame
-            const pad = 40; 
+            // Add enough padding on the right for TWO legend columns
+            const pad = 60; 
+            const legendWidth = 260; 
             const exportMinX = origX - pad;
             const exportMinY = origY - pad;
-            const exportW = origW + (pad * 2);
+            const exportW = origW + (pad * 2) + legendWidth;
             const exportH = origH + (pad * 2);
 
             d3Svg.attr("viewBox", `${exportMinX} ${exportMinY} ${exportW} ${exportH}`);
 
-            // explicitly inject a white background so PNGs don't become transparent
+            // 1. Inject White Background
             d3Svg.insert("rect", ":first-child")
                 .attr("id", "export-bg")
                 .attr("x", exportMinX).attr("y", exportMinY)
                 .attr("width", exportW).attr("height", exportH)
                 .attr("fill", "#ffffff");
+
+            const exportGroup = d3Svg.append("g").attr("id", "export-elements");
+
+            // 2. Add Export Title
+            exportGroup.append("text")
+                .attr("x", exportMinX + 20) 
+                .attr("y", exportMinY + 40) 
+                .text("Structure Group → Ion Type • Area ∝ Count")
+                .attr("font-size", "18px")
+                .attr("font-weight", "600")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#475569");
+
+            const legX = origX + origW + pad - 20; 
+            let curY = exportMinY + 40; 
+
+            // 3. Add Structure Group Legend
+            exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group (Outer)")
+                .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif");
+            curY += 24;
+
+            Object.entries(STRUCT_COLORS).forEach(([name, color]) => {
+                exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
+                    .attr("width", 14).attr("height", 14).attr("rx", 3)
+                    .attr("fill", color).attr("stroke", "rgba(0,0,0,0.15)");
+                exportGroup.append("text").attr("x", legX + 24).attr("y", curY).text(name)
+                    .attr("font-size", "14px").attr("fill", "#0f172a").attr("font-family", "system-ui, sans-serif");
+                curY += 22;
+            });
+
+            curY += 30; // Spacing between legends
+
+            // 4. Add Ion Type Legend
+            exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type (Inner)")
+                .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif");
+            curY += 24;
+
+            Object.entries(ION_COLORS).forEach(([name, color]) => {
+                exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
+                    .attr("width", 14).attr("height", 14).attr("rx", 3)
+                    .attr("fill", color).attr("stroke", "rgba(0,0,0,0.15)");
+                exportGroup.append("text").attr("x", legX + 24).attr("y", curY).text(name)
+                    .attr("font-size", "14px").attr("fill", "#0f172a").attr("font-family", "system-ui, sans-serif");
+                curY += 22;
+            });
 
             const svgString = getSVGString(svgEl);
 
@@ -360,7 +411,8 @@
                 });
             }
 
-            // Cleanup: remove the background and restore the original viewport so the UI doesn't jump
+            // Cleanup: remove the background and appended legends, restore original viewport
+            d3Svg.select("#export-elements").remove();
             d3Svg.select("#export-bg").remove();
             d3Svg.attr("viewBox", currentViewBox.join(" "));
         }
