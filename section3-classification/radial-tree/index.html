@@ -267,9 +267,6 @@ function drawTree(rows){
   const rescale = d3.scaleLinear().domain([leafMin,leafMax]).range([leafMin,maxExtra]);
   H.each(n=>{ if(!n.children) n.y = rFormula + rescale(extra(n.data.sigma)); });
 
-  // textRingR tracks the maximum boundary of the text for safe layout
-  textRingR = d3.max(H.leaves(), d => d.y);
-
   if(spread>0){
     H.descendants().filter(d=>d.depth===3).forEach(p=>{
       const kids=(p.children||[]).filter(c=>!c.children);
@@ -337,16 +334,12 @@ function drawTree(rows){
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
 
-  // FIX: Move caption dynamically BELOW the maximum extent of the tree
-  g.append('text')
-    .attr('class', 'ui-text')
-    .attr('x', 0)
-    .attr('y', textRingR + 60) 
-    .attr('text-anchor', 'middle')
-    .attr('fill', '#64748b')
-    .attr('font-size', 13)
+  // FIX: Move caption safely to the top left so it never overlaps the tree
+  g.append('text').attr('class', 'ui-text')
+    .attr('x', -WIDTH/2 + 20).attr('y', -HEIGHT/2 + 30)
+    .attr('text-anchor', 'start').attr('fill', '#64748b').attr('font-size', 13)
     .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • Fill = Structure • Border = Ion');
-    
+  
   say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length}`);
 }
 
@@ -448,14 +441,15 @@ async function exportChart(format, scale = 4) {
     const d3Svg = d3.select(svgEl);
     const origViewBox = svgEl.getAttribute("viewBox");
 
-    // 1. Calculate the TRUE physical boundary of the SVG (including the newly moved text)
+    // 1. Calculate the TRUE physical boundary of the SVG (including all text)
     const bbox = svgEl.getBBox();
     const pad = 60;
     const truePhysicalWidth = bbox.width + (pad * 2);
-    const truePhysicalHeight = bbox.height + (pad * 2);
+    // Ensure height is at least the original HEIGHT to maintain scaling
+    const truePhysicalHeight = Math.max(HEIGHT, bbox.height + (pad * 2));
 
     // 2. Expand width to make room for legends on the RIGHT
-    const legendWidth = 260; 
+    const legendWidth = 280; 
     const exportWidth = truePhysicalWidth + legendWidth;
     const exportHeight = truePhysicalHeight;
     
@@ -463,6 +457,9 @@ async function exportChart(format, scale = 4) {
     const minY = bbox.y - pad;
 
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
+
+    // Hide interactive text
+    d3Svg.selectAll(".ui-text").style("display", "none");
 
     // 3. Inject a white background
     d3Svg.insert("rect", ":first-child")
@@ -474,9 +471,21 @@ async function exportChart(format, scale = 4) {
     // 4. Dynamically draw the SVG Legends safely on the RIGHT
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    // Start drawing the legend immediately to the right of the actual tree boundary
-    const legX = bbox.x + bbox.width + pad; 
+    // Start drawing the legend safely outside the true bounds
+    const legX = (bbox.x + bbox.width) + pad; 
     let curY = minY + 60; 
+
+    // --- DRAW CHART KEY ---
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Chart Key")
+        .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+    curY += 24;
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Ion → Structure → Doping → Formula")
+        .attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#64748b");
+    curY += 20;
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("• leaf length ∝ σ (Conductivity)")
+        .attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#64748b");
+        
+    curY += 40;
 
     // --- DRAW STRUCTURE LEGEND ---
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group (Fill)")
@@ -552,6 +561,7 @@ async function exportChart(format, scale = 4) {
     // Cleanup: Remove background, legends, and restore normal viewport
     d3Svg.select("#export-elements").remove();
     d3Svg.select("#export-bg").remove();
+    d3Svg.selectAll(".ui-text").style("display", null);
     d3Svg.attr("viewBox", origViewBox);
 }
 
