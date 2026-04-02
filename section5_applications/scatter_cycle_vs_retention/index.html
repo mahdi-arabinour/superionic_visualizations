@@ -9,12 +9,28 @@
   :root { color-scheme: light; }
   body { margin: 16px; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; background:#f7f7f7; color:#0f172a; }
   h2 { margin: 8px 0 12px; font-size: 24px; }
+  
+  /* Export Button Styles */
+  .toolbar { display:flex; gap:10px; align-items:center; margin:10px 0 20px; }
+  .btn-export { border:1px solid #d0d0d0; border-radius:6px; padding:8px 14px; font-size:13px; font-weight:bold; cursor:pointer; transition:0.2s; font-family: system-ui, sans-serif; }
+  .btn-primary { background: #007aff; color: #fff; border:none; margin-left: auto;}
+  .btn-primary:hover { background: #0062cc; }
+  .btn-success { background: #10b981; color: #fff; border:none; }
+  .btn-success:hover { background: #059669; }
+  .btn-success-dark { background: #047857; color: #fff; border: none; }
+  .btn-success-dark:hover { background: #065f46; }
+  .btn-success-ultra { background: #064e3b; color: #fff; border: none; }
+  .btn-success-ultra:hover { background: #022c22; }
+  .btn-success-max { background: #022c22; color: #fff; border: none; }
+  .btn-success-max:hover { background: #011f18; }
+  /* End Export Button Styles */
+
   .wrap { display: flex; align-items: flex-start; gap: 16px; }
   #chartPane { flex: 1 1 auto; min-width: 0; }
   svg { width: 100%; height: auto; background:#fff; border:1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
   .axis path, .axis line { stroke:#9ca3af; }
   .axis text { fill:#374151; font-size:12px; }
-  .tooltip { position: fixed; pointer-events: none; background:#fff; border:1px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,.08); border-radius:8px; padding:8px 10px; font-size:12px; color:#111827; }
+  .tooltip { position: fixed; pointer-events: none; background:#fff; border:1px solid #e5e7eb; box-shadow:0 8px 16px rgba(0,0,0,.08); border-radius:8px; padding:8px 10px; font-size:12px; color:#111827; z-index: 100; }
   .legends { flex: 0 0 280px; position: sticky; top: 8px; display:flex; flex-direction: column; gap: 12px; }
   .card { background:#fff; border:1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
   .card h3 { margin: 0 0 8px; font-size: 13px; color:#111827; display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -35,6 +51,14 @@
 <body>
 
 <h2>Cycle Life vs Retention %</h2>
+
+<div class="toolbar">
+  <button onclick="exportChart('svg')" class="btn-export btn-primary" title="Preferred for journals (Infinite Resolution Vector)">⬇ SVG</button>
+  <button onclick="exportChart('png', 3.125)" class="btn-export btn-success" title="Standard Print Quality (~300 DPI)">⬇ 300 DPI</button>
+  <button onclick="exportChart('png', 6.25)" class="btn-export btn-success-dark" title="Professional journal quality (~600 DPI)">⬇ 600 DPI</button>
+  <button onclick="exportChart('png', 8.33)" class="btn-export btn-success-ultra" title="Maximum safe resolution (~800 DPI)">⬇ 800 DPI</button>
+  <button onclick="exportChart('png', 12.5)" class="btn-export btn-success-max" title="Extreme resolution (~1200 DPI)">⬇ 1200 DPI</button>
+</div>
 
 <div class="wrap">
   <div id="chartPane">
@@ -171,6 +195,13 @@ function ionSpec(ion, size=110){
   return symbolPath(ION_SHAPES[key] || "circle", size);
 }
 
+// Global states exposed for the export script
+let globalStructureTypes = [];
+let globalIonTypes = [];
+let globalActiveStructures = new Set();
+let globalActiveIons = new Set();
+let globalColorScale = null;
+
 /* ---------- Data & draw ---------- */
 d3.csv(CSV_FILE).then(raw => {
   const cols = Object.keys(raw[0] || {});
@@ -199,6 +230,9 @@ d3.csv(CSV_FILE).then(raw => {
 
   const structureTypes = [...new Set(data.map(d => d.StructureType).filter(Boolean))];
   const ionTypes = [...new Set(data.map(d => d.IonType).filter(Boolean))];
+  
+  globalStructureTypes = structureTypes;
+  globalIonTypes = ionTypes;
 
   const structureColors = {
     "Others": "#9e9e9e",
@@ -213,6 +247,8 @@ d3.csv(CSV_FILE).then(raw => {
   const color = d3.scaleOrdinal()
     .domain(structureTypes)
     .range(structureTypes.map(s => structureColors[s] || "#9e9e9e"));
+    
+  globalColorScale = color;
 
   const x = d3.scaleLinear().domain([0,2000]).range([0,innerW]);
   const y = d3.scaleLinear().domain([0,100]).range([innerH,0]);
@@ -243,11 +279,11 @@ d3.csv(CSV_FILE).then(raw => {
     .attr("opacity",0.95)
     .on("mouseover",(event,d)=>{
       tooltip.style("opacity",1).html(`
-        <div><b>${d.Formula || "(unknown)"}<\/b></div>
-        <div>Structure: ${d.StructureType || "—"}<\/div>
-        <div>Ion: ${d.IonType || "—"}<\/div>
-        <div>Cycle Life: ${fmtInt(Math.round(d.CycleLife))}<\/div>
-        <div>Retention: ${d.Retention}%<\/div>`);
+        <div><b>${d.Formula || "(unknown)"}</b></div>
+        <div>Structure: ${d.StructureType || "—"}</div>
+        <div>Ion: ${d.IonType || "—"}</div>
+        <div>Cycle Life: ${fmtInt(Math.round(d.CycleLife))}</div>
+        <div>Retention: ${d.Retention}%</div>`);
     })
     .on("mousemove",(event)=>{tooltip.style("left",(event.clientX+14)+"px").style("top",(event.clientY+14)+"px");})
     .on("mouseout",()=>tooltip.style("opacity",0));
@@ -255,6 +291,9 @@ d3.csv(CSV_FILE).then(raw => {
   // filters
   let activeStructures = new Set(structureTypes);
   let activeIons = new Set(ionTypes);
+  
+  globalActiveStructures = activeStructures;
+  globalActiveIons = activeIons;
 
   function refreshLegendStates(){
     d3.selectAll("#colorItems .legend-item").classed("inactive", function(){
@@ -285,6 +324,7 @@ d3.csv(CSV_FILE).then(raw => {
       } else {
         activeStructures = soloActive ? new Set(structureTypes) : new Set([s]);
       }
+      globalActiveStructures = activeStructures;
       refreshLegendStates();
       updateVisibility();
     });
@@ -305,6 +345,7 @@ d3.csv(CSV_FILE).then(raw => {
       } else {
         activeIons = soloActive ? new Set(ionTypes) : new Set([t]);
       }
+      globalActiveIons = activeIons;
       refreshLegendStates();
       updateVisibility();
     });
@@ -320,15 +361,170 @@ d3.csv(CSV_FILE).then(raw => {
   });
 
   document.getElementById("resetStructure").addEventListener("click",()=>{
-    activeStructures = new Set(structureTypes); refreshLegendStates(); updateVisibility();
+    activeStructures = new Set(structureTypes); globalActiveStructures = activeStructures;
+    refreshLegendStates(); updateVisibility();
   });
   document.getElementById("resetIon").addEventListener("click",()=>{
-    activeIons = new Set(ionTypes); refreshLegendStates(); updateVisibility();
+    activeIons = new Set(ionTypes); globalActiveIons = activeIons;
+    refreshLegendStates(); updateVisibility();
   });
 
   refreshLegendStates();
   updateVisibility();
 });
+
+// ============================================================================
+// NATIVE D3 EXPORT PIPELINE - LEGENDS AT BOTTOM
+// ============================================================================
+function getSVGString(svgNode) {
+    svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
+    let cssStyleText = "";
+    for (let i = 0; i < document.styleSheets.length; i++) {
+        try {
+            for (let j = 0; j < document.styleSheets[i].cssRules.length; j++) {
+                cssStyleText += document.styleSheets[i].cssRules[j].cssText;
+            }
+        } catch (e) {}
+    }
+    const styleElement = document.createElement("style");
+    styleElement.setAttribute("type", "text/css");
+    styleElement.innerHTML = cssStyleText;
+    const refNode = svgNode.hasChildNodes() ? svgNode.children[0] : null;
+    svgNode.insertBefore(styleElement, refNode);
+    
+    const serializer = new XMLSerializer();
+    let svgString = serializer.serializeToString(svgNode);
+    svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink=').replace(/NS\d+:href/g, 'xlink:href');
+    
+    svgNode.removeChild(styleElement);
+    return svgString;
+}
+
+async function exportChart(format, scale = 4) {
+    const svgEl = document.getElementById("chart");
+    const d3Svg = d3.select(svgEl);
+
+    // 1. Keep original width, expand height to make room at the bottom
+    const origWidth = 1000;
+    const origHeight = 640;
+    
+    // Add space at the bottom for both legends
+    const legendHeight = 180; 
+    const exportWidth = origWidth;
+    const exportHeight = origHeight + legendHeight;
+
+    d3Svg.attr("viewBox", `0 0 ${exportWidth} ${exportHeight}`);
+
+    // 2. Inject a white background
+    d3Svg.insert("rect", ":first-child")
+        .attr("id", "export-bg")
+        .attr("x", 0).attr("y", 0)
+        .attr("width", exportWidth).attr("height", exportHeight)
+        .attr("fill", "#ffffff");
+
+    // 3. Dynamically draw the SVG Legends at the BOTTOM
+    const exportGroup = d3Svg.append("g").attr("id", "export-elements");
+    
+    const startX = 70; // Align with the left margin of the chart
+    let curX = startX;
+    let curY = origHeight + 30; // Start below the chart
+
+    // --- DRAW STRUCTURE LEGEND ---
+    exportGroup.append("text").attr("x", curX).attr("y", curY).text("Structure Type")
+        .attr("font-weight", "bold").attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+    curY += 24;
+
+    const columnWidthStruct = 180; 
+    globalStructureTypes.forEach(struct => {
+        if(globalActiveStructures.has(struct)) {
+            if (curX > (exportWidth / 2) - columnWidthStruct) {
+                curX = startX; 
+                curY += 24;
+            }
+            
+            exportGroup.append("rect").attr("x", curX).attr("y", curY - 12)
+                .attr("width", 14).attr("height", 14).attr("rx", 3)
+                .attr("fill", globalColorScale(struct)).attr("stroke", "rgba(0,0,0,0.4)");
+                
+            exportGroup.append("text").attr("x", curX + 22).attr("y", curY)
+                .text(struct)
+                .attr("font-size", "13px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+            
+            curX += columnWidthStruct;
+        }
+    });
+
+    // --- DRAW ION LEGEND (On the Right Side of the Bottom Area) ---
+    const startXRight = (exportWidth / 2) + 40;
+    curX = startXRight;
+    curY = origHeight + 30; // Reset Y to the top of the legend area
+
+    exportGroup.append("text").attr("x", curX).attr("y", curY).text("Ion Type")
+        .attr("font-weight", "bold").attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+    curY += 24;
+
+    const columnWidthIon = 120;
+    globalIonTypes.forEach(ion => {
+        if(globalActiveIons.has(ion)) {
+            if (curX > exportWidth - columnWidthIon) {
+                curX = startXRight; 
+                curY += 24;
+            }
+            
+            const sym = ionSpec(ion, 110);
+            exportGroup.append("path")
+                .attr("d", sym.d)
+                .attr("transform", `translate(${curX + 7}, ${curY - 4}) rotate(${sym.rotate})`)
+                .attr("fill", sym.strokeOnly ? "none" : "#6b7280")
+                .attr("stroke", sym.strokeOnly ? "#6b7280" : "#111827")
+                .attr("stroke-width", sym.strokeOnly ? 1.4 : 0.7);
+                
+            exportGroup.append("text").attr("x", curX + 22).attr("y", curY)
+                .text(ion)
+                .attr("font-size", "13px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+            
+            curX += columnWidthIon;
+        }
+    });
+
+    const svgString = getSVGString(svgEl);
+
+    if (format === 'svg') {
+        const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url; link.download = "Scatter_Plot_Publication.svg";
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    } else {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d"); 
+        
+        canvas.width = exportWidth * scale; 
+        canvas.height = exportHeight * scale;
+        
+        const img = new Image();
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(svgBlob);
+
+        await new Promise(resolve => { 
+            img.onload = () => { 
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height); 
+                URL.revokeObjectURL(url); 
+                const link = document.createElement("a"); 
+                link.download = `Scatter_Plot_${Math.round(scale * 96)}DPI.png`; 
+                link.href = canvas.toDataURL("image/png"); 
+                document.body.appendChild(link); link.click(); document.body.removeChild(link); 
+                resolve(); 
+            }; 
+            img.src = url; 
+        });
+    }
+
+    // Cleanup: Remove background, legends, and restore normal viewport
+    d3Svg.select("#export-elements").remove();
+    d3Svg.select("#export-bg").remove();
+    d3Svg.attr("viewBox", `0 0 ${origWidth} ${origHeight}`);
+}
 </script>
 </body>
 </html>
