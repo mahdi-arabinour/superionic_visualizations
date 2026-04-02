@@ -24,7 +24,15 @@
   .btn { border:1px solid #d0d0d0; background:#fff; border-radius:6px; padding:6px 14px; font-size:12px; font-weight:bold; cursor:pointer; transition:0.2s; font-family: Arial, sans-serif; }
   .btn:hover { filter: brightness(0.95); border-color: #aaa; }
   .btn-primary { background: #007aff; color: #fff; border:none; margin-left: auto; }
+  
   .btn-success { background: #10b981; color: #fff; border:none; }
+  .btn-success:hover { background: #059669; color: #fff; }
+  
+  .btn-success-dark { background: #047857; color: #fff; border: none; }
+  .btn-success-dark:hover { background: #065f46; color: #fff; }
+  
+  .btn-success-ultra { background: #064e3b; color: #fff; border: none; }
+  .btn-success-ultra:hover { background: #022c22; color: #fff; }
 
   .badge { font-size:11px; color:var(--note); }
 
@@ -66,8 +74,10 @@
       <span id="scaleVal">12 px</span>
     </div>
     
-    <button onclick="downloadSVG()" class="btn btn-primary">⬇ Journal SVG</button>
-    <button onclick="downloadPNG()" class="btn btn-success">⬇ 300DPI PNG</button>
+    <button onclick="exportChart('svg', 1)" class="btn btn-primary" title="Preferred for journals (Infinite Resolution Vector)">⬇ SVG</button>
+    <button onclick="exportChart('png', 3.125)" class="btn btn-success" title="Standard Print Quality (~300 DPI)">⬇ 300 DPI</button>
+    <button onclick="exportChart('png', 6.25)" class="btn btn-success-dark" title="Professional journal quality (~600 DPI)">⬇ 600 DPI</button>
+    <button onclick="exportChart('png', 12.5)" class="btn btn-success-ultra" title="Ultra resolution (~1200 DPI)">⬇ 1200 DPI</button>
     
     <span class="badge" id="status">Syncing Data...</span>
   </header>
@@ -186,22 +196,18 @@ function draw(){
     font: { family: "Arial, Helvetica, sans-serif", size: 12, color: "#111" },
     paper_bgcolor: "#fff", plot_bgcolor: "#fff",
     
-    // FIX 1: Use <sub> instead of Unicode ₐ
     title: { text: "<b>Ionic Conductivity (\u03C3) vs. Activation Energy (E<sub>a</sub>)</b>", font: { size: 22, color: '#0f172a' }, x: 0.05, y: 0.98 },
     xaxis: { 
-      // FIX 2: Use <sub>
       title: { text: "<b>Activation Energy E<sub>a</sub> (eV)</b>", font: { size: 14 } },
       range: [0.05, 0.65], tickformat: ".1f", tickmode: "linear", tick0: 0.1, dtick: 0.1, 
       gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
       domain: [0, 1] 
     },
     yaxis: { 
-      // FIX 3: Use <sup> instead of Unicode ⁻¹
       title: { text: "<b>Ionic Conductivity \u03C3 (S\u00B7cm<sup>-1</sup>)</b>", font: { size: 14 } },
       type: "log", gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
       tickvals: [1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8],
       
-      // FIX 4: Use <sup> for all log ticks instead of Unicode exponents
       ticktext: [
           "10<sup>0</sup>", "10<sup>-1</sup>", "10<sup>-2</sup>", 
           "10<sup>-3</sup>", "10<sup>-4</sup>", "10<sup>-5</sup>", 
@@ -233,11 +239,10 @@ function draw(){
 }
 
 /* ---------- BULLETPROOF PUBLICATION EXPORT SEQUENCE ---------- */
-async function exportChart(format) {
+async function exportChart(format, scaleMulti) {
   const gd = document.getElementById('chart');
-  say(`Generating Ultra High-Res ${format.toUpperCase()} Figure...`);
-
-  const origMargin = gd.layout.margin;
+  const dpi = Math.round(scaleMulti * 96);
+  say(`Generating High-Res ${format.toUpperCase()} Figure (${dpi} DPI)...`);
 
   const structCounts = {};
   const ionCounts = {};
@@ -278,7 +283,7 @@ async function exportChart(format) {
   await Plotly.addTraces(gd, dummyTraces);
 
   await Plotly.relayout(gd, {
-      'xaxis.domain': [0, 0.75], // The magical wall that stops the gridlines
+      'xaxis.domain': [0, 0.75], 
       
       'title.font.size': 26,
       'xaxis.title.font.size': 18,
@@ -312,8 +317,8 @@ async function exportChart(format) {
       format: format,
       width: 1600,   
       height: 900,   
-      scale: format === 'png' ? 3 : 1, 
-      filename: `Conductivity_Ea_UltraRes_Figure`
+      scale: scaleMulti, 
+      filename: `Conductivity_Ea_${dpi}DPI_Figure`
   });
 
   const tracesToDelete = [];
@@ -334,9 +339,6 @@ async function exportChart(format) {
   
   say(`Loaded ${rowsGlobal.length} entries`);
 }
-
-function downloadPNG() { exportChart('png'); }
-function downloadSVG() { exportChart('svg'); }
 
 /* ---------- Custom HTML Legends & Filters ---------- */
 function renderStructureLegend(filteredRows){
