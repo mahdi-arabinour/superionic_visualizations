@@ -349,7 +349,7 @@ d3.csv(CSV_FILE).then(raw => {
 });
 
 // ============================================================================
-// NATIVE D3 EXPORT PIPELINE - LEGENDS AT BOTTOM
+// NATIVE D3 EXPORT PIPELINE - LEGENDS ON THE RIGHT
 // ============================================================================
 function getSVGString(svgNode) {
     svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
@@ -379,14 +379,13 @@ async function exportChart(format, scale = 4) {
     const svgEl = document.getElementById("chart");
     const d3Svg = d3.select(svgEl);
 
-    // 1. We keep the original width, but expand the height to make room at the bottom
+    // 1. Keep original height, expand width to fit legends on the right side
     const origWidth = 1000;
     const origHeight = 640;
     
-    // Add plenty of space at the bottom for both legends
-    const legendHeight = 180; 
-    const exportWidth = origWidth;
-    const exportHeight = origHeight + legendHeight;
+    const legendWidth = 240; 
+    const exportWidth = origWidth + legendWidth;
+    const exportHeight = origHeight;
 
     d3Svg.attr("viewBox", `0 0 ${exportWidth} ${exportHeight}`);
 
@@ -397,68 +396,53 @@ async function exportChart(format, scale = 4) {
         .attr("width", exportWidth).attr("height", exportHeight)
         .attr("fill", "#ffffff");
 
-    // 3. Dynamically draw the SVG Legends at the BOTTOM
+    // 3. Dynamically draw the SVG Legends ON THE RIGHT
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    const startX = 70; // Align with the left margin of the chart
-    let curX = startX;
-    let curY = origHeight + 30; // Start below the chart
+    const legX = origWidth + 20; 
+    let curY = 40; 
 
     // --- DRAW STRUCTURE LEGEND ---
-    exportGroup.append("text").attr("x", curX).attr("y", curY).text("Structure Type")
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Type")
         .attr("font-weight", "bold").attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
     curY += 24;
 
-    const columnWidthStruct = 180; 
     globalStructureTypes.forEach(struct => {
         if(globalActiveStructures.has(struct)) {
-            if (curX > (exportWidth / 2) - columnWidthStruct) {
-                curX = startX; 
-                curY += 24;
-            }
-            
-            exportGroup.append("rect").attr("x", curX).attr("y", curY - 12)
+            exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
                 .attr("width", 14).attr("height", 14).attr("rx", 3)
                 .attr("fill", globalColorScale(struct)).attr("stroke", "rgba(0,0,0,0.4)");
                 
-            exportGroup.append("text").attr("x", curX + 22).attr("y", curY)
+            exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
                 .text(struct)
                 .attr("font-size", "13px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
             
-            curX += columnWidthStruct;
+            curY += 22;
         }
     });
 
-    // --- DRAW ION LEGEND (On the Right Side of the Bottom Area) ---
-    const startXRight = (exportWidth / 2) + 40;
-    curX = startXRight;
-    curY = origHeight + 30; // Reset Y to the top of the legend area
+    curY += 20; // Add space between the two legend blocks
 
-    exportGroup.append("text").attr("x", curX).attr("y", curY).text("Ion Type")
+    // --- DRAW ION LEGEND ---
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
         .attr("font-weight", "bold").attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
     curY += 24;
 
-    const columnWidthIon = 120;
     globalIonTypes.forEach(ion => {
         if(globalActiveIons.has(ion)) {
-            if (curX > exportWidth - columnWidthIon) {
-                curX = startXRight; 
-                curY += 24;
-            }
-            
             const sym = ionSpec(ion, 110);
             exportGroup.append("path")
                 .attr("d", sym.d)
-                .attr("transform", `translate(${curX + 7}, ${curY - 5}) rotate(${sym.rotate})`)
+                .attr("transform", `translate(${legX + 7}, ${curY - 4}) rotate(${sym.rotate})`)
                 .attr("fill", sym.strokeOnly ? "none" : "#6b7280")
                 .attr("stroke", sym.strokeOnly ? "#6b7280" : "#111827")
                 .attr("stroke-width", sym.strokeOnly ? 1.4 : 0.7);
                 
-            exportGroup.append("text").attr("x", curX + 22).attr("y", curY)
+            exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
                 .text(ion)
                 .attr("font-size", "13px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
             
-            curX += columnWidthIon;
+            curY += 22;
         }
     });
 
