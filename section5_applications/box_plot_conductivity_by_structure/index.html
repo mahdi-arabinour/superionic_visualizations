@@ -2,491 +2,351 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Ea vs σ (log Y) - Publication Ready</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<title>Conductivity by Structure Group</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-  :root { --bg:#ffffff; --panel:#f8f9fa; --grid:#e3e3e3; --text:#111; --panel-border:#d0d0d0; --note:#555; --accent:#007aff; }
-  * { box-sizing:border-box; }
-  
-  body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); }
+  :root { --side: 260px; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#fafafa; color:#111; margin:24px; }
+  h2 { margin:0 0 10px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin:10px 0 14px; }
+  .wrap { display:grid; grid-template-columns: 1fr var(--side); gap:16px; align-items:start; }
+  svg { width: 980px; height: 640px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; }
+  .axis-label { font-size:14px; font-weight:600; fill:#222; }
+  .grid line { stroke:#eee; }
 
-  header {
-    display:flex; flex-wrap:wrap; gap:12px; align-items:center;
-    padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--panel-border);
-    position:sticky; top:0; z-index:10;
-  }
-  label { display:flex; align-items:center; gap:6px; font-size:12px; font-weight: bold; }
-  .slider-container { display:flex; align-items:center; gap:6px; font-size:12px; }
-  input[type="range"] { width:160px; cursor: pointer; }
-  
-  .btn { border:1px solid #d0d0d0; background:#fff; border-radius:6px; padding:6px 14px; font-size:12px; font-weight:bold; cursor:pointer; transition:0.2s; font-family: Arial, sans-serif; }
-  .btn:hover { filter: brightness(0.95); border-color: #aaa; }
-  .btn-primary { background: #007aff; color: #fff; border:none; margin-left: auto; }
-  
+  .violin { fill-opacity:.75; stroke:#222; stroke-width:.9px; }
+  .median { stroke:#e43; stroke-width:2px; }
+
+  .point { opacity:.8; stroke:#333; stroke-width:.4px; }
+  .side { position:sticky; top:16px; background:#fff; border:1px solid #e5e5e5; border-radius:10px; padding:12px; }
+  .legend-title { font-weight:700; font-size:14px; margin:6px 0; }
+  .legend-controls { display:flex; gap:6px; margin: 4px 0 8px; }
+  .legend-controls button { font-size:12px; padding:2px 6px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:4px; }
+  .legend-item { display:flex; align-items:center; gap:8px; margin:6px 0; cursor:pointer; user-select:none; }
+  .legend-item.disabled { opacity:.35; text-decoration:line-through; }
+  .legend-swatch { width:14px; height:14px; border-radius:3px; border:1px solid #444; }
+  .note { font-size:12px; color:#64748b; margin-top:6px; }
+
+  .label-halo { fill:#111; font-weight:700; font-size:12px; paint-order:stroke; stroke:#fff; stroke-width:4px; stroke-linejoin:round; }
+  .median-text { fill:#111; font-weight:700; font-size:12px; }
+
+  /* Export Button Styles */
+  .btn { border:1px solid #d0d0d0; border-radius:6px; padding:8px 14px; font-size:13px; font-weight:bold; cursor:pointer; transition:0.2s; font-family: system-ui, sans-serif; }
+  .btn-primary { background: #007aff; color: #fff; border:none; margin-left: auto;}
+  .btn-primary:hover { background: #0062cc; }
   .btn-success { background: #10b981; color: #fff; border:none; }
-  .btn-success:hover { background: #059669; color: #fff; transform: translateY(-1px); }
-  
+  .btn-success:hover { background: #059669; }
   .btn-success-dark { background: #047857; color: #fff; border: none; }
-  .btn-success-dark:hover { background: #065f46; color: #fff; transform: translateY(-1px); }
-
+  .btn-success-dark:hover { background: #065f46; }
   .btn-success-ultra { background: #064e3b; color: #fff; border: none; }
-  .btn-success-ultra:hover { background: #022c22; color: #fff; transform: translateY(-1px); }
-  
+  .btn-success-ultra:hover { background: #022c22; }
   .btn-success-max { background: #022c22; color: #fff; border: none; }
-  .btn-success-max:hover { background: #011f18; color: #fff; transform: translateY(-1px); }
-
-  .badge { font-size:11px; color:var(--note); }
-
-  .wrap { display:grid; grid-template-columns: 1fr 320px; gap:10px; padding:10px; }
-  #chart { width:100%; height:92vh; border:1px solid var(--grid); border-radius:10px; background:#fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-
-  aside {
-    display:flex; flex-direction:column; gap:14px;
-    background:var(--panel); border:1px solid var(--panel-border);
-    border-radius:10px; padding:10px; font-size:12px; max-height:92vh; overflow:auto;
-  }
-  .panel { background:#fff; border:1px solid #ddd; border-radius:10px; padding:10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-  .panel h3 { margin:0 0 8px; font-size:13px; color:#000; display:flex; justify-content:space-between; align-items:center; font-weight: bold; }
-  .panel .controls { display:flex; gap:6px; }
-  .panel button { border:1px solid #ddd; background:#f7f7f7; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer; font-family: Arial, sans-serif; }
-  .panel button:hover { background:#efefef; }
-
-  /* Interactive Legends */
-  #ionLegend .row, #structureLegend .row {
-    display:flex; align-items:center; gap:8px; padding:6px 8px; margin:5px 0;
-    border:1px solid #e3e3e3; border-radius:6px; cursor:pointer; user-select:none; background:#fff; transition: 0.1s;
-  }
-  #ionLegend .row:hover, #structureLegend .row:hover { background: #f8fafc; }
-  #ionLegend .row.active, #structureLegend .row.active { outline:2px solid var(--accent); border-color: transparent; }
-  
-  .swatch { width:14px; height:14px; border-radius:3px; border:1px solid rgba(0,0,0,0.15); }
-  .shapeBox { width:16px; height:16px; display:inline-block; }
-  .name { color:#111; font-size:12px; }
-  .count { margin-left:auto; color:#555; font-size:11px; font-weight: bold; }
-
-  #error { display:none; margin:8px 12px; padding:8px 12px; background:#fff3f3; color:#7f1d1d; border:1px solid #f5c2c2; border-radius:8px; white-space:pre-wrap; }
+  .btn-success-max:hover { background: #011f18; }
 </style>
 </head>
 <body>
-  <header>
-    <div class="slider-container">
-      <label for="sizeScale">Marker size:</label>
-      <input type="range" id="sizeScale" min="6" max="36" value="12" step="1">
-      <span id="scaleVal">12 px</span>
+
+<h2>Conductivity by Structure Group</h2>
+
+<div class="toolbar">
+  <button onclick="exportChart('svg')" class="btn btn-primary" title="Preferred for journals (Infinite Resolution Vector)">⬇ SVG</button>
+  <button onclick="exportChart('png', 3.125)" class="btn btn-success" title="Standard Print Quality (~300 DPI)">⬇ 300 DPI</button>
+  <button onclick="exportChart('png', 6.25)" class="btn btn-success-dark" title="Professional journal quality (~600 DPI)">⬇ 600 DPI</button>
+  <button onclick="exportChart('png', 8.33)" class="btn btn-success-ultra" title="Maximum safe resolution (~800 DPI)">⬇ 800 DPI</button>
+  <button onclick="exportChart('png', 12.5)" class="btn btn-success-max" title="Extreme resolution (~1200 DPI)">⬇ 1200 DPI</button>
+</div>
+
+<div class="wrap">
+  <svg id="chart"></svg>
+
+  <div class="side">
+    <div class="legend-title">Ion Type (filter points)</div>
+    <div class="legend-controls">
+      <button id="showAll">Show all</button>
+      <button id="hideAll">Hide all</button>
     </div>
-    
-    <button onclick="exportChart('svg', 1)" class="btn btn-primary" title="Preferred for journals (Infinite Resolution Vector)">⬇ SVG</button>
-    <button onclick="exportChart('png', 3.125)" class="btn btn-success" title="Standard Print Quality (~300 DPI)">⬇ 300 DPI</button>
-    <button onclick="exportChart('png', 6.25)" class="btn btn-success-dark" title="Professional journal quality (~600 DPI)">⬇ 600 DPI</button>
-    <button onclick="exportChart('png', 8.33)" class="btn btn-success-ultra" title="Maximum safe resolution (~800 DPI)">⬇ 800 DPI</button>
-    <button onclick="exportChart('png', 12.5)" class="btn btn-success-max" title="Extreme resolution (~1200 DPI)">⬇ 1200 DPI</button>
-    
-    <span class="badge" id="status">Syncing Data...</span>
-  </header>
-
-  <div id="error"></div>
-
-  <div class="wrap">
-    <div id="chart"></div>
-
-    <aside>
-      <div class="panel" id="structPanel">
-        <h3>
-          Structure Group
-          <span class="controls">
-            <button id="structSelectAll">All</button>
-            <button id="structClearAll">None</button>
-          </span>
-        </h3>
-        <div id="structureLegend"></div>
-      </div>
-
-      <div class="panel" id="ionPanel">
-        <h3>
-          Ion Type
-          <span class="controls">
-            <button id="ionSelectAll">All</button>
-            <button id="ionClearAll">None</button>
-          </span>
-        </h3>
-        <div id="ionLegend"></div>
-      </div>
-    </aside>
+    <div id="legend"></div>
   </div>
+</div>
 
 <script>
-/* ---------- Status & Error ---------- */
-const statusEl = document.getElementById("status");
-const errorEl  = document.getElementById("error");
-function say(msg){ statusEl.textContent = msg; }
-function err(msg){ errorEl.style.display='block'; errorEl.textContent = msg; console.error(msg); }
-
-/* ---------- MASTER VISUAL INDEX ---------- */
-const STRUCT_COLORS = { 
-  "Amorphous": "#FFB300", "Halide": "#008080", "NASICON": "#2E7D32", 
-  "Argyrodite": "#8E24AA", "Anti-perovskite": "#1A237E", 
-  "Spinel": "#5D4037", "Polymeric": "#E64A19", "Other": "#64748b", "Others": "#64748b"
+const COL = {
+  struct: "Structure Group",
+  ion:    "Ion Type",
+  sigma:  "Conductivity σ (S·cm⁻¹) / Temp (°C) normalized"
 };
 
-const ION_SHAPES = {
-  "Li+": "circle", "Na+": "diamond", "K+": "square", "Ag+": "triangle-up",
-  "Cu+": "triangle-down", "H+": "cross", "Mg2+": "hexagon", "O2-": "star", "Rb+": "x"
+const svg = d3.select("#chart");
+svg.attr("width", 980).attr("height", 640);
+const width = +svg.attr("width"), height = +svg.attr("height");
+const margin = {top: 40, right: 30, bottom: 80, left: 90};
+const innerW = width - margin.left - margin.right;
+const innerH = height - margin.top - margin.bottom;
+const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+// deterministic jitter
+function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return (h^=h>>>16)>>>0;};}
+function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967295;};}
+function stableJitter(key,half){const seed=xmur3(key)();const rand=mulberry32(seed);return (rand()*2-1)*half;}
+
+const fmtSci = d3.format(".3~e");
+const fmtFix4 = d3.format(".4f");
+
+// Structure colors
+const structureColors = {
+  "Others": "#9e9e9e",
+  "Polymeric": "#ff7043",
+  "Argyrodite": "#ab47bc",
+  "Halide": "#26a69a",
+  "Amorphous": "#f6bf26",
+  "NASICON": "#66bb6a",
+  "Anti-perovskite": "#0d47a1",
+  "Spinel": "#8d6e63"
 };
 
-const DARK_GRAY = "#334155";
-const norm = s => (s ?? "").toString().trim();
-
-/* ---------- CSV Columns ---------- */
-const COLS = {
-  ion: "Ion Type", structGrouped: "Structure Group", ea: "Activation Energy Ea (eV)",
-  sigma: "Conductivity σ (S/cm)", formula: "Superionic Conductor Formula (Chemical)"
+// Ion colors
+const ionColors = {
+  "Li+":  "#ff5252",  
+  "Na+":  "#81d4fa",  
+  "K+":   "#004d40",  
+  "Ag+":  "#f48fb1",  
+  "O2-":  "#6d4c41",  
+  "Zn2+": "#c2185b"
 };
 
-/* ---------- State ---------- */
-let rowsGlobal = [];
-let traceMeta = []; 
-let markerSizePx = 12;
-let selectedIons = null;     
-let selectedStructs = null;  
+// Expose ions globally so the export script can draw the legend
+let globalIons = [];
 
-/* ---------- Helpers ---------- */
-function toNum(v){
-  if (typeof v === "number") return v;
-  if (v == null) return NaN;
-  const s = String(v).trim();
-  if (!s || s.toLowerCase()==="na" || s.toLowerCase()==="n/a" || s==="—" || s==="–") return NaN;
-  const n = Number(s.replace(/,/g,""));
-  return Number.isFinite(n) ? n : NaN;
-}
-function getShape(ion){ return ION_SHAPES[norm(ion)] || "hexagon"; } 
-function getStructColor(fam){ return STRUCT_COLORS[norm(fam)] || "#64748b"; } 
+d3.csv("data.csv").then(raw => {
+  const rows = raw.map(d=>{
+    const s=+d[COL.sigma];
+    return (Number.isFinite(s)&&s>0)?{
+      structure:(d[COL.struct]||"Others").trim()||"Others",
+      ion:(d[COL.ion]||"Unknown").trim()||"Unknown",
+      sigma:s,
+      logSig:Math.log10(s)
+    }:null;
+  }).filter(Boolean);
 
-/* ---------- Data Trace Builder ---------- */
-function buildDataTraces(filteredRows){
-  const traces=[]; traceMeta=[];
-  filteredRows.forEach(r=>{
-    const ion = norm(r[COLS.ion] || "Other") || "Other";
-    const fam = norm(r[COLS.structGrouped] || "Others") || "Others";
-    const ea  = toNum(r[COLS.ea]);
-    const sig = toNum(r[COLS.sigma]);
+  const structures = Array.from(new Set(rows.map(d=>d.structure)));
+  const ions = Array.from(new Set(rows.map(d=>d.ion)));
+  globalIons = ions; // pass to export function
 
-    traces.push({
-      x:[ea], y:[sig], mode:"markers", showlegend:false, name: fam,
-      marker:{
-        size:[markerSizePx], color: getStructColor(fam), symbol: getShape(ion),        
-        line:{ width: 0.6, color: "#222" }, opacity: 0.85
-      },
-      text:[`${r[COLS.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}`],
-      hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV<br> σ: %{y:.3e} S/cm<extra></extra>",
-      visible:true
-    });
-    traceMeta.push({ ion, fam });
-  });
-  return traces;
-}
+  const x = d3.scaleBand().domain(structures).range([0,innerW]).padding(0.12);
+  const y = d3.scaleLinear().domain(d3.extent(rows,d=>d.logSig)).nice().range([innerH,0]);
 
-/* ---------- PLOTLY DRAW ROUTINE (Interactive View) ---------- */
-function draw(){
-  const filtered = rowsGlobal.filter(r=>{
-    const ea = toNum(r[COLS.ea]); const s = toNum(r[COLS.sigma]);
-    return Number.isFinite(ea) && ea <= 0.65 && Number.isFinite(s) && s > 0;
-  });
+  g.append("g").attr("transform",`translate(0,${innerH})`)
+    .call(d3.axisBottom(x))
+    .selectAll("text").attr("transform","rotate(-28)").style("text-anchor","end");
+  g.append("g").call(d3.axisLeft(y).ticks(8).tickFormat(v=>`10^${v}`));
+  g.append("g").attr("class","grid").call(d3.axisLeft(y).ticks(8).tickSize(-innerW).tickFormat(""));
+  g.append("text").attr("class","axis-label").attr("x",innerW/2).attr("y",innerH+62).attr("text-anchor","middle").text("Structure Group");
+  g.append("text").attr("class","axis-label").attr("x",-innerH/2).attr("y",-64).attr("transform","rotate(-90)").attr("text-anchor","middle").text("log10(σ) (S·cm)");
 
-  const dataTraces = buildDataTraces(filtered);
+  // box stats
+  function boxStats(values){
+    const v = values.slice().sort(d3.ascending);
+    const q1=d3.quantileSorted(v,0.25);
+    const q2=d3.quantileSorted(v,0.50);
+    const q3=d3.quantileSorted(v,0.75);
+    const iqr=q3-q1;
+    const low = Math.max(d3.min(v), q1-1.5*iqr);
+    const high= Math.min(d3.max(v), q3+1.5*iqr);
+    return {q1,q2,q3,low,high};
+  }
 
-  const layout = {
-    font: { family: "Arial, Helvetica, sans-serif", size: 12, color: "#111" },
-    paper_bgcolor: "#fff", plot_bgcolor: "#fff",
-    
-    title: { text: "<b>Ionic Conductivity (\u03C3) vs. Activation Energy (E<sub>a</sub>)</b>", font: { size: 22, color: '#0f172a' }, x: 0.05, y: 0.98 },
-    xaxis: { 
-      title: { text: "<b>Activation Energy E<sub>a</sub> (eV)</b>", font: { size: 14 } },
-      range: [0.05, 0.65], tickformat: ".1f", tickmode: "linear", tick0: 0.1, dtick: 0.1, 
-      gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
-      domain: [0, 1] 
-    },
-    yaxis: { 
-      title: { text: "<b>Ionic Conductivity \u03C3 (S\u00B7cm<sup>-1</sup>)</b>", font: { size: 14 } },
-      type: "log", gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
-      tickvals: [1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8],
-      
-      ticktext: [
-          "10<sup>0</sup>", "10<sup>-1</sup>", "10<sup>-2</sup>", 
-          "10<sup>-3</sup>", "10<sup>-4</sup>", "10<sup>-5</sup>", 
-          "10<sup>-6</sup>", "10<sup>-7</sup>", "10<sup>-8</sup>"
-      ]
-    },
-    margin: {t: 50, r: 30, b: 60, l: 70},
-    showlegend: false,
-    shapes: [{ type: 'line', x0: 0.05, y0: 5, x1: 0.65, y1: 1e-8, xref: 'x', yref: 'y', line: { color: '#94a3b8', width: 1.5, dash: 'dash' } }]
-  };
+  const grouped=d3.group(rows,d=>d.structure);
+  const boxes=structures.map(sg=>{
+    const vals=(grouped.get(sg)||[]).map(d=>d.logSig);
+    return vals.length?{structure:sg,...boxStats(vals)}:null;
+  }).filter(Boolean);
 
-  Plotly.newPlot("chart", dataTraces, layout, {
-    responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]
-  }).then(()=>{
-    renderStructureLegend(filtered);
-    renderIonLegend(filtered);
-    refreshLegendStates();
+  const boxWidth = x.bandwidth()*0.5;
+  const boxLayer = g.append("g");
+  const whiskerLayer = g.append("g");
+  const labelLayer = g.append("g");
 
-    const gd = document.getElementById('chart');
-    gd.on('plotly_hover', (ev)=>{
-      const op = Array(traceMeta.length).fill(0.15);
-      ev.points.forEach(p=>{ if (p.curveNumber < traceMeta.length) op[p.curveNumber] = 0.95; });
-      Plotly.restyle('chart', { 'marker.opacity': op }, Array.from({length:traceMeta.length}, (_,i)=>i));
-    });
-    gd.on('plotly_unhover', ()=>{
-      Plotly.restyle('chart', { 'marker.opacity': Array(traceMeta.length).fill(0.85) }, Array.from({length:traceMeta.length}, (_,i)=>i));
-    });
-  });
-}
+  boxLayer.selectAll("rect.violin")
+    .data(boxes)
+    .join("rect")
+      .attr("class","violin")
+      .attr("x",d=>x(d.structure)+(x.bandwidth()-boxWidth)/2)
+      .attr("width",boxWidth)
+      .attr("y",d=>y(d.q3))
+      .attr("height",d=>Math.max(1,y(d.q1)-y(d.q3)))
+      .attr("fill", d => structureColors[d.structure] || "#ccc");
 
-/* ---------- BULLETPROOF PUBLICATION EXPORT SEQUENCE ---------- */
-async function exportChart(format, scaleMulti) {
-  const gd = document.getElementById('chart');
-  const dpi = Math.round(scaleMulti * 96);
-  say(`Generating High-Res ${format.toUpperCase()} Figure (${dpi} DPI)...`);
+  whiskerLayer.selectAll("g.whisk")
+    .data(boxes)
+    .join("g")
+      .attr("class","whisk")
+      .each(function(d){
+        const cx = x(d.structure)+x.bandwidth()/2;
+        const bw = boxWidth;
 
-  const structCounts = {};
-  const ionCounts = {};
-  traceMeta.forEach(t => {
-    const isVis = (selectedIons === null || selectedIons.has(t.ion)) && 
-                  (selectedStructs === null || selectedStructs.has(t.fam));
-    if(isVis) {
-        structCounts[t.fam] = (structCounts[t.fam] || 0) + 1;
-        ionCounts[t.ion] = (ionCounts[t.ion] || 0) + 1;
-    }
-  });
+        d3.select(this).append("line").attr("x1",cx).attr("x2",cx)
+          .attr("y1",y(d.high)).attr("y2",y(d.q3)).attr("stroke","#222");
+        d3.select(this).append("line").attr("x1",cx).attr("x2",cx)
+          .attr("y1",y(d.low)).attr("y2",y(d.q1)).attr("stroke","#222");
+        d3.select(this).append("line").attr("x1",cx-bw/2).attr("x2",cx+bw/2)
+          .attr("y1",y(d.high)).attr("y2",y(d.high)).attr("stroke","#222");
+        d3.select(this).append("line").attr("x1",cx-bw/2).attr("x2",cx+bw/2)
+          .attr("y1",y(d.low)).attr("y2",y(d.low)).attr("stroke","#222");
 
-  const dummyTraces = [];
+        d3.select(this).append("line")
+          .attr("class","median")
+          .attr("x1",cx-bw/2).attr("x2",cx+bw/2)
+          .attr("y1",y(d.q2)).attr("y2",y(d.q2));
 
-  Object.keys(structCounts).sort().forEach(fam => {
-      dummyTraces.push({
-          x: [null], y: [null], 
-          name: `${fam} (${structCounts[fam]})`,
-          mode: 'markers',
-          marker: { size: 16, color: getStructColor(fam), symbol: 'square' },
-          legend: 'legend',
-          showlegend: true, hoverinfo: 'none'
+        const medLinear = Math.pow(10,d.q2);
+        const label = medLinear < 0.001 ? fmtSci(medLinear) : fmtFix4(medLinear);
+        labelLayer.append("text").attr("class","label-halo").attr("x", cx).attr("y", y(d.q2) - 6)
+          .attr("text-anchor", "middle").text(label);
+        labelLayer.append("text").attr("class","median-text").attr("x", cx).attr("y", y(d.q2) - 6)
+          .attr("text-anchor", "middle").text(label);
       });
+
+  const structCenter=Object.fromEntries(structures.map(sg=>[sg,x(sg)+x.bandwidth()/2]));
+  const dotHalf=x.bandwidth()/2*0.92;
+
+  const colorIon = d3.scaleOrdinal()
+    .domain(ions)
+    .range(ions.map(t => ionColors[t] || "#6b7280"));
+
+  let activeIons=new Set(ions);
+
+  const pts=g.append("g").selectAll(".point").data(rows).join("circle")
+    .attr("class","point")
+    .attr("r",3)
+    .attr("cx",d=>{
+      const c=structCenter[d.structure];
+      const key=`${d.structure}|${d.ion}|${d.sigma}|${d.logSig}`;
+      return c+stableJitter(key,dotHalf);
+    })
+    .attr("cy",d=>y(d.logSig))
+    .attr("fill",d=>colorIon(d.ion))
+    .attr("display",d=>activeIons.has(d.ion)?null:"none");
+
+  const legend=d3.select("#legend");
+  const items=legend.selectAll(".legend-item").data(ions).enter().append("div").attr("class","legend-item");
+  items.append("div").attr("class","legend-swatch").style("background",d=>colorIon(d));
+  items.append("span").text(d=>d);
+
+  function updatePoints(){ pts.attr("display",d=>activeIons.has(d.ion)?null:"none"); }
+  items.on("click",function(_,ion){
+    if(activeIons.has(ion)) activeIons.delete(ion); else activeIons.add(ion);
+    d3.select(this).classed("disabled",!activeIons.has(ion));
+    updatePoints();
   });
-
-  Object.keys(ionCounts).sort().forEach(ion => {
-      dummyTraces.push({
-          x: [null], y: [null], 
-          name: `${ion} (${ionCounts[ion]})`,
-          mode: 'markers',
-          marker: { size: 16, color: DARK_GRAY, symbol: getShape(ion) },
-          legend: 'legend2', 
-          showlegend: true, hoverinfo: 'none'
-      });
-  });
-
-  const originalTraceCount = gd.data.length;
-  await Plotly.addTraces(gd, dummyTraces);
-
-  await Plotly.relayout(gd, {
-      'xaxis.domain': [0, 0.68], 
-      
-      'title.font.size': 26,
-      'xaxis.title.font.size': 18,
-      'xaxis.tickfont.size': 14,
-      'yaxis.title.font.size': 18,
-      'yaxis.tickfont.size': 14,
-      
-      showlegend: true, 
-      'legend.title.text': '<b>Structure Group</b>',
-      'legend.font.family': 'Arial, sans-serif',
-      'legend.font.size': 16,
-      'legend.y': 1, 'legend.yanchor': 'top', 
-      'legend.x': 0.70, 'legend.xanchor': 'left', 
-      'legend.bgcolor': '#ffffff',
-      'legend.bordercolor': '#d0d0d0',
-      'legend.borderwidth': 1,
-      
-      legend2: {
-          title: {text: '<b>Ion Type</b>'},
-          font: {family: 'Arial, sans-serif', size: 16},
-          y: 1, yanchor: 'top', 
-          x: 0.86, xanchor: 'left', 
-          bgcolor: '#ffffff',
-          bordercolor: '#d0d0d0',
-          borderwidth: 1
-      },
-      margin: { t: 80, r: 20, b: 80, l: 90 } 
-  });
-
-  await Plotly.downloadImage(gd, {
-      format: format,
-      width: 1800,   
-      height: 900,   
-      scale: scaleMulti, 
-      filename: `Conductivity_Ea_${dpi}DPI_Figure`
-  });
-
-  const tracesToDelete = [];
-  for(let i = originalTraceCount; i < gd.data.length; i++) { tracesToDelete.push(i); }
-  
-  await Plotly.deleteTraces(gd, tracesToDelete);
-  await Plotly.relayout(gd, { 
-      'xaxis.domain': [0, 1], 
-      'title.font.size': 22,
-      'xaxis.title.font.size': 14,
-      'xaxis.tickfont.size': 12,
-      'yaxis.title.font.size': 14,
-      'yaxis.tickfont.size': 12,
-      showlegend: false, 
-      legend2: null, 
-      margin: { t: 50, r: 30, b: 60, l: 70 }
-  });
-  
-  say(`Loaded ${rowsGlobal.length} entries`);
-}
-
-/* ---------- Custom HTML Legends & Filters ---------- */
-function renderStructureLegend(filteredRows){
-  const el = document.getElementById("structureLegend");
-  el.innerHTML = "";
-  const counts = {};
-  filteredRows.forEach(r=>{
-    const fam = norm(r[COLS.structGrouped] || "Others") || "Others";
-    counts[fam] = (counts[fam] || 0) + 1;
-  });
-  const famsPresent = Object.keys(counts).sort();
-
-  famsPresent.forEach(fam=>{
-    const row = document.createElement("div"); row.className = "row"; row.dataset.fam = fam;
-    const sw = document.createElement("div"); sw.className = "swatch"; sw.style.background = getStructColor(fam);
-    const name = document.createElement("div"); name.className = "name"; name.textContent = fam;
-    const count = document.createElement("div"); count.className = "count"; count.textContent = counts[fam];
-
-    row.append(sw, name, count);
-    row.onclick = ()=>{
-      if (!selectedStructs) selectedStructs = new Set(famsPresent);
-      if (selectedStructs.has(fam)) selectedStructs.delete(fam); else selectedStructs.add(fam);
-      if (selectedStructs.size === famsPresent.length) selectedStructs = null;
-      refreshLegendStates(); applyFilters();
-    };
-    el.appendChild(row);
-  });
-
-  document.getElementById("structSelectAll").onclick = ()=>{ selectedStructs = null; refreshLegendStates(); applyFilters(); };
-  document.getElementById("structClearAll").onclick = ()=>{ selectedStructs = new Set(); refreshLegendStates(); applyFilters(); };
-}
-
-function renderIonLegend(filteredRows){
-  const el = document.getElementById("ionLegend");
-  el.innerHTML = "";
-  const counts = {};
-  filteredRows.forEach(r=>{
-    const ion = norm(r[COLS.ion] || "Other") || "Other";
-    counts[ion] = (counts[ion] || 0) + 1;
-  });
-  const ions = Object.keys(counts).sort((a,b)=>a.localeCompare(b));
-
-  ions.forEach(ion=>{
-    const row = document.createElement("div"); row.className = "row"; row.dataset.ion = ion;
-    const shapeBox = document.createElement("div"); shapeBox.className = "shapeBox";
-    
-    shapeBox.innerHTML = makeShapeSVG(getShape(ion), DARK_GRAY);
-    
-    const name = document.createElement("div"); name.className = "name"; name.textContent = ion;
-    const count = document.createElement("div"); count.className = "count"; count.textContent = counts[ion];
-
-    row.append(shapeBox, name, count);
-    row.onclick = ()=>{
-      if (!selectedIons) selectedIons = new Set(ions); 
-      if (selectedIons.has(ion)) selectedIons.delete(ion); else selectedIons.add(ion);
-      if (selectedIons.size === ions.length) selectedIons = null;
-      refreshLegendStates(); applyFilters();
-    };
-    el.appendChild(row);
-  });
-
-  document.getElementById("ionSelectAll").onclick = ()=>{ selectedIons = null; refreshLegendStates(); applyFilters(); };
-  document.getElementById("ionClearAll").onclick = ()=>{ selectedIons = new Set(); refreshLegendStates(); applyFilters(); };
-}
-
-function refreshLegendStates(){
-  document.querySelectorAll("#structureLegend .row").forEach(row=>{
-    row.classList.toggle("active", (selectedStructs === null) ? true : selectedStructs.has(row.dataset.fam));
-  });
-  document.querySelectorAll("#ionLegend .row").forEach(row=>{
-    row.classList.toggle("active", (selectedIons === null) ? true : selectedIons.has(row.dataset.ion));
-  });
-}
-
-function applyFilters(){
-  if(!traceMeta.length) return;
-  const showAllIons  = (selectedIons === null);
-  const showAllFams  = (selectedStructs === null);
-  const vis = traceMeta.map(({ion,fam})=>{
-    return ((showAllIons || selectedIons.has(ion)) && (showAllFams || selectedStructs.has(fam))) ? true : "legendonly";
-  });
-  Plotly.restyle("chart", { visible: vis }, Array.from({length:traceMeta.length}, (_,i)=>i));
-}
-
-/* ---------- Boot & Input Handlers ---------- */
-document.getElementById("sizeScale").addEventListener("input", ()=>{
-  markerSizePx = parseInt(document.getElementById("sizeScale").value, 10) || 12;
-  document.getElementById("scaleVal").textContent = markerSizePx + " px";
-  draw();
+  d3.select("#showAll").on("click",()=>{activeIons=new Set(ions);items.classed("disabled",false);updatePoints();});
+  d3.select("#hideAll").on("click",()=>{activeIons.clear();items.classed("disabled",true);updatePoints();});
 });
 
-function loadCsv(){
-  fetch("data.csv", { cache:"no-store" })
-    .then(resp => { if(!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); })
-    .then(text=>{
-      Papa.parse(text, {
-        header:true, dynamicTyping:false, skipEmptyLines:true,
-        complete:(res)=>{
-          rowsGlobal = res.data;
-          say(`Loaded ${rowsGlobal.length} entries`);
-          draw();
-        },
-        error:(e)=>{ err("Parse error: " + e.message); }
-      });
-    })
-    .catch(e=>{ err(`Could not load CSV. Ensure data.csv is in the root folder and running via local server.`); });
+// ============================================================================
+// NATIVE D3 EXPORT PIPELINE
+// ============================================================================
+function getSVGString(svgNode) {
+    svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
+    let cssStyleText = "";
+    for (let i = 0; i < document.styleSheets.length; i++) {
+        try {
+            for (let j = 0; j < document.styleSheets[i].cssRules.length; j++) {
+                cssStyleText += document.styleSheets[i].cssRules[j].cssText;
+            }
+        } catch (e) {}
+    }
+    const styleElement = document.createElement("style");
+    styleElement.setAttribute("type", "text/css");
+    styleElement.innerHTML = cssStyleText;
+    const refNode = svgNode.hasChildNodes() ? svgNode.children[0] : null;
+    svgNode.insertBefore(styleElement, refNode);
+    
+    const serializer = new XMLSerializer();
+    let svgString = serializer.serializeToString(svgNode);
+    svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink=').replace(/NS\d+:href/g, 'xlink:href');
+    
+    svgNode.removeChild(styleElement);
+    return svgString;
 }
 
-function makeShapeSVG(shape, fill){
-  const size = 16, half = size/2, stroke = "#111"; 
-  const poly = pts => pts.map(p=>p.join(",")).join(" ");
-  let body = "";
-  switch(shape){
-    case "circle": body = `<circle cx="${half}" cy="${half}" r="${half-1}" fill="${fill}" stroke="${stroke}" />`; break;
-    case "square": body = `<rect x="2" y="2" width="${size-4}" height="${size-4}" rx="1" fill="${fill}" stroke="${stroke}" />`; break;
-    case "diamond": body = `<polygon points="${poly([[half,1],[size-1,half],[half,size-1],[1,half]])}" fill="${fill}" stroke="${stroke}" />`; break;
-    case "triangle-up": body = `<polygon points="${poly([[half,2],[size-2,size-2],[2,size-2]])}" fill="${fill}" stroke="${stroke}" />`; break;
-    case "triangle-down": body = `<polygon points="${poly([[2,2],[size-2,2],[half,size-2]])}" fill="${fill}" stroke="${stroke}" />`; break;
-    case "cross": body = `<path d="M ${half-1.5} 1.5 L ${half+1.5} 1.5 L ${half+1.5} ${half-1.5} L ${size-1.5} ${half-1.5} L ${size-1.5} ${half+1.5} L ${half+1.5} ${half+1.5} L ${half+1.5} ${size-1.5} L ${half-1.5} ${size-1.5} L ${half-1.5} ${half+1.5} L 1.5 ${half+1.5} L 1.5 ${half-1.5} L ${half-1.5} ${half-1.5} Z" fill="${fill}" stroke="${stroke}" />`; break;
-    case "x": body = `<rect x="2" y="${half-1}" width="${size-4}" height="2" transform="rotate(45 ${half} ${half})" fill="${fill}" stroke="${stroke}" /><rect x="2" y="${half-1}" width="${size-4}" height="2" transform="rotate(-45 ${half} ${half})" fill="${fill}" stroke="${stroke}" />`; break;
-    case "hexagon": {
-      const pts = [];
-      for(let i=0;i<6;i++){
-        const a = (Math.PI/3)*i + Math.PI/6;
-        pts.push([half + (half-1.5)*Math.cos(a), half + (half-1.5)*Math.sin(a)]);
-      }
-      body = `<polygon points="${poly(pts)}" fill="${fill}" stroke="${stroke}" />`; break;
-    }
-    case "star": {
-      const pts = [];
-      const rO = half-1.5, rI = rO*0.45;
-      for(let i=0;i<10;i++){
-        const r = (i%2===0)? rO : rI;
-        const a = -Math.PI/2 + (Math.PI/5)*i;
-        pts.push([half + r*Math.cos(a), half + r*Math.sin(a)]);
-      }
-      body = `<polygon points="${poly(pts)}" fill="${fill}" stroke="${stroke}" />`; break;
-    }
-    default: body = `<circle cx="${half}" cy="${half}" r="${half-1}" fill="${fill}" stroke="${stroke}" />`; break;
-  }
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
-}
+async function exportChart(format, scale = 4) {
+    const svgEl = document.getElementById("chart");
+    const d3Svg = d3.select(svgEl);
 
-loadCsv();
+    // 1. Expand the viewBox to make room for the legend on the right
+    const origWidth = 980;
+    const origHeight = 640;
+    const legendWidth = 200;
+    const exportWidth = origWidth + legendWidth;
+
+    d3Svg.attr("viewBox", `0 0 ${exportWidth} ${origHeight}`);
+
+    // 2. Inject a white background
+    d3Svg.insert("rect", ":first-child")
+        .attr("id", "export-bg")
+        .attr("x", 0).attr("y", 0)
+        .attr("width", exportWidth).attr("height", origHeight)
+        .attr("fill", "#ffffff");
+
+    // 3. Dynamically draw the SVG Legend so it appears in the downloaded image
+    const exportGroup = d3Svg.append("g").attr("id", "export-elements");
+    
+    const legX = origWidth + 10; 
+    let curY = 60; 
+
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
+        .attr("font-weight", "bold").attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+    curY += 24;
+
+    globalIons.forEach(ion => {
+        exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
+            .attr("width", 14).attr("height", 14).attr("rx", 3)
+            .attr("fill", ionColors[ion] || "#6b7280").attr("stroke", "rgba(0,0,0,0.4)");
+            
+        exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
+            .text(ion)
+            .attr("font-size", "13px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+        curY += 24;
+    });
+
+    const svgString = getSVGString(svgEl);
+
+    if (format === 'svg') {
+        const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url; link.download = "Violin_Chart_Publication.svg";
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    } else {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d"); 
+        
+        canvas.width = exportWidth * scale; 
+        canvas.height = origHeight * scale;
+        
+        const img = new Image();
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(svgBlob);
+
+        await new Promise(resolve => { 
+            img.onload = () => { 
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height); 
+                URL.revokeObjectURL(url); 
+                const link = document.createElement("a"); 
+                link.download = `Violin_Chart_${Math.round(scale * 96)}DPI.png`; 
+                link.href = canvas.toDataURL("image/png"); 
+                document.body.appendChild(link); link.click(); document.body.removeChild(link); 
+                resolve(); 
+            }; 
+            img.src = url; 
+        });
+    }
+
+    // Cleanup: Remove background, legends, and restore normal viewport
+    d3Svg.select("#export-elements").remove();
+    d3Svg.select("#export-bg").remove();
+    d3Svg.attr("viewBox", null);
+}
 </script>
 </body>
 </html>
