@@ -27,11 +27,11 @@
 
         header {
             padding: 12px 20px; background: var(--bg-card);
-            display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+            display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
             border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow-sm); z-index: 10;
         }
         
-        header strong { font-size: 1.1rem; letter-spacing: -0.02em; }
+        header strong { font-size: 1.1rem; letter-spacing: -0.02em; padding-right: 10px; }
         .crumbs { font-size: 13px; color: var(--text-muted); }
         .crumbs a { color: #0ea5e9; text-decoration: none; cursor: pointer; }
         .crumbs a:hover { text-decoration: underline; color: #0284c7; }
@@ -80,13 +80,21 @@
 
         .btn {
             background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-main);
-            padding: 8px 14px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; cursor: pointer;
+            padding: 8px 12px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; cursor: pointer;
         }
         .btn:hover { background: #e2e8f0; }
+        
         .btn-primary { background: #007aff; color: #fff; border: none; margin-left: auto;}
         .btn-primary:hover { background: #0062cc; color: #fff; transform: translateY(-1px); }
+        
         .btn-success { background: #10b981; color: #fff; border: none; }
         .btn-success:hover { background: #059669; color: #fff; transform: translateY(-1px); }
+        
+        .btn-success-dark { background: #047857; color: #fff; border: none; }
+        .btn-success-dark:hover { background: #065f46; color: #fff; transform: translateY(-1px); }
+
+        .btn-success-ultra { background: #064e3b; color: #fff; border: none; }
+        .btn-success-ultra:hover { background: #022c22; color: #fff; transform: translateY(-1px); }
 
         .tooltip {
             position: fixed; pointer-events: none; background: rgba(15, 23, 42, 0.95);
@@ -111,13 +119,15 @@
 <body>
     <header>
         <strong>Sunburst Visualizer</strong>
-        <label class="toggleRow">
+        <label class="toggleRow" style="margin-right: 10px;">
             <input type="checkbox" id="toggleAll" checked>
             Show labels
         </label>
         <span id="crumbs" class="crumbs"></span>
-        <button onclick="exportChart('svg')" class="btn btn-primary">⬇ Journal SVG</button>
-        <button onclick="exportChart('png')" class="btn btn-success">⬇ 300DPI PNG</button>
+        <button onclick="exportChart('svg')" class="btn btn-primary">⬇ SVG</button>
+        <button onclick="exportChart('png', 4)" class="btn btn-success" title="Standard high-quality print">⬇ 300 DPI</button>
+        <button onclick="exportChart('png', 8)" class="btn btn-success-dark" title="Professional journal quality">⬇ 600 DPI</button>
+        <button onclick="exportChart('png', 12.5)" class="btn btn-success-ultra" title="Ultra resolution (may take a few seconds)">⬇ 1200 DPI</button>
     </header>
 
     <div id="wrap">
@@ -508,10 +518,10 @@
                 const rMid = rMidBase + (isRadial ? Math.max(12, _leafBase * 0.95) : 4);
                 const arcLengthPx = rMid * (d.x1 - d.x0);
 
-                // Overlap strictness bypassed if we explicitly toggled or selected it
+                // Overlap strictness bypassed if explicitly toggled or selected
                 const forceShow = isToggled || isSel;
                 if (!forceShow && arcLengthPx < (fs + 1)) { el.style('display', 'none'); return; }
-                if (forceShow && arcLengthPx < 2) { el.style('display', 'none'); return; } // absolute hard limit to prevent smudging
+                if (forceShow && arcLengthPx < 2) { el.style('display', 'none'); return; }
 
                 let textStr = d.data.name || '';
                 
@@ -576,7 +586,7 @@
             svgNode.removeChild(styleElement); return svgString;
         }
 
-        async function exportChart(format) {
+        async function exportChart(format, scale = 4) {
             const svgEl = document.querySelector("#chart svg"), d3Svg = d3.select(svgEl);
             const pad = 120, legendWidth = 240, [origX, origY, origW, origH] = svgEl.getAttribute("viewBox").split(" ").map(Number);
             const exportMinX = origX - pad, exportMinY = origY - pad, exportW = origW + (pad * 2) + legendWidth, exportH = origH + (pad * 2);
@@ -600,9 +610,22 @@
             if (format === 'svg') {
                 const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([svgString], { type: "image/svg+xml;charset=utf-8" })); link.download = "Sunburst_Publication.svg"; document.body.appendChild(link); link.click(); document.body.removeChild(link);
             } else {
-                const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d"); canvas.width = exportW * 4; canvas.height = exportH * 4;
+                const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d"); 
+                canvas.width = exportW * scale; 
+                canvas.height = exportH * scale;
                 const img = new Image(), url = URL.createObjectURL(new Blob([svgString], { type: "image/svg+xml;charset=utf-8" }));
-                await new Promise(resolve => { img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url); const link = document.createElement("a"); link.download = "Sunburst_HighRes.png"; link.href = canvas.toDataURL("image/png"); document.body.appendChild(link); link.click(); document.body.removeChild(link); resolve(); }; img.src = url; });
+                await new Promise(resolve => { 
+                    img.onload = () => { 
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height); 
+                        URL.revokeObjectURL(url); 
+                        const link = document.createElement("a"); 
+                        link.download = "Sunburst_HighRes.png"; 
+                        link.href = canvas.toDataURL("image/png"); 
+                        document.body.appendChild(link); link.click(); document.body.removeChild(link); 
+                        resolve(); 
+                    }; 
+                    img.src = url; 
+                });
             }
             d3Svg.select("#export-elements").remove(); d3Svg.select("#export-bg").remove(); d3Svg.attr("viewBox", [origX, origY, origW, origH].join(" "));
         }
