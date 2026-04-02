@@ -125,9 +125,9 @@ const svg = d3.select('#chart');
 const tip = d3.select('#tooltip');
 const say = t => (document.getElementById('status').textContent = t);
 let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
-let selectedIons = null;          // null=ALL, Set>0 whitelist, Set size 0 = none
+let selectedIons = null;          
 let ionLegEl = null;
-let globalIonsList = []; // For export legend
+let globalIonsList = []; 
 
 function applyChipVisuals(){
   if(!ionLegEl) return;
@@ -195,7 +195,6 @@ function ionColorFromNode(node){
 
 /* ---------- Draw ---------- */
 function drawTree(rows){
-  // robust sizing
   let bb = document.getElementById('chart').getBoundingClientRect();
   if(!bb.width||!bb.height){
     const p = document.body.getBoundingClientRect();
@@ -207,7 +206,6 @@ function drawTree(rows){
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','tree');
 
-  // controls
   const useLog  = document.getElementById('useLog').checked;
   const baseEdge= +document.getElementById('baseEdge').value;
   const leafMin = +document.getElementById('leafMin').value;
@@ -224,7 +222,6 @@ function drawTree(rows){
   document.getElementById('fsFormulaLbl').textContent=fsFormula;
   document.getElementById('leafSpreadLbl').textContent=spread;
 
-  // hierarchy
   const leaves = buildLeaves(rows);
   const root = {name:'root',children:[]};
   const grouped = d3.group(leaves, d=>d.ion, d=>d.structure, d=>d.dop);
@@ -244,11 +241,10 @@ function drawTree(rows){
   const H = d3.hierarchy(root);
   d3.cluster().size([2*Math.PI,1])(H);
 
-  /* ===== Explicit band radii so 4 layers are visually clear ===== */
-  const rIon     = 1 * baseEdge;                  // Ion ring
-  const rStruct  = 2 * baseEdge;                  // Structure ring
-  const rDoping  = 3 * baseEdge + 0.85 * baseEdge; // Doping ring (extra gap after structure)
-  const rFormula = rDoping   + 0.90 * baseEdge;   // Start radius for Formula leaves
+  const rIon     = 1 * baseEdge;                  
+  const rStruct  = 2 * baseEdge;                  
+  const rDoping  = 3 * baseEdge + 0.85 * baseEdge; 
+  const rFormula = rDoping   + 0.90 * baseEdge;   
 
   H.each(n=>{
     if(!n.children) return;
@@ -257,7 +253,6 @@ function drawTree(rows){
     else if(n.depth===3) n.y = Math.min(R, rDoping);
   });
 
-  // σ → extra length from rFormula outward
   const def = parseFloat(document.getElementById('sigmaDefault').value) || 1e-6;
   const vals = H.leaves().map(l=>+l.data.sigma).filter(v=>Number.isFinite(v)&&v>0);
   let sMin = vals.length? d3.min(vals) : def;
@@ -271,7 +266,6 @@ function drawTree(rows){
   const rescale = d3.scaleLinear().domain([leafMin,leafMax]).range([leafMin,maxExtra]);
   H.each(n=>{ if(!n.children) n.y = rFormula + rescale(extra(n.data.sigma)); });
 
-  // spread along arc for formulas
   if(spread>0){
     H.descendants().filter(d=>d.depth===3).forEach(p=>{
       const kids=(p.children||[]).filter(c=>!c.children);
@@ -281,20 +275,18 @@ function drawTree(rows){
     });
   }
 
-  // links — Colored by Structure Group to anchor the branches visually
   const link = d3.linkRadial().angle(d=>d.x).radius(d=>d.y);
   g.append('g').attr('fill','none').selectAll('path').data(H.links()).join('path')
     .attr('stroke-width', d => {
       const dep = d.target.depth;
-      if (dep === 3) return 1.8;   // Doping
-      if (dep >= 4) return 0.8;    // Formula
-      return 1.0;                  // Ion/Structure
+      if (dep === 3) return 1.8;   
+      if (dep >= 4) return 0.8;    
+      return 1.0;                  
     })
     .attr('stroke-dasharray', d => d.target.depth === 3 ? '2,2' : null)
     .attr('stroke', d => structColorFromNode(d.target))
     .attr('d', d => link({source:d.source, target:d.target}));
 
-  // nodes — Fill = Structure Color, Stroke = Ion Color
   const nodes = g.append('g').selectAll('g.n').data(H.descendants()).join('g')
     .attr('class','n')
     .attr('transform',d=>`rotate(${d.x*180/Math.PI-90}) translate(${d.y},0)`);
@@ -309,7 +301,6 @@ function drawTree(rows){
     .on('mousemove',(e,d)=>showTip(e,d)).on('mouseleave',hideTip)
     .on('click',(e,d)=>{ if(d.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
 
-  // labels toggles
   const wantIon=document.getElementById('showIonLbl').checked;
   const wantStruct=document.getElementById('showStructLbl').checked;
   const wantDoping=document.getElementById('showDopingLbl').checked;
@@ -342,7 +333,6 @@ function drawTree(rows){
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
 
-  // caption & status
   g.append('text').attr('x',0).attr('y',HEIGHT/2-10).attr('text-anchor','middle').attr('fill','#64748b').attr('font-size',12)
     .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • Fill = Structure • Border = Ion');
   say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length}`);
@@ -380,7 +370,6 @@ document.getElementById('resetView').addEventListener('click', ()=>{
 /* ---------- Focus & legend ---------- */
 function setFocusIon(n){ focusIon=n; drawTree(DATA); }
 function buildLegends(rows){
-  // Structure Legend
   const strLegEl = document.getElementById('structLegend');
   strLegEl.innerHTML = '';
   const structs = Object.keys(STRUCT_COLORS).filter(k => k !== 'Others'); 
@@ -393,9 +382,8 @@ function buildLegends(rows){
     strLegEl.appendChild(chip);
   });
 
-  // Ion Legend
   const ions=[...new Set(rows.map(r=>(r[COLS.ion]||'Other').toString().trim()))].sort((a,b)=>a.localeCompare(b));
-  globalIonsList = ions; // Expose to export
+  globalIonsList = ions; 
   ionLegEl=document.getElementById('ionLegend'); ionLegEl.innerHTML='';
   ions.forEach(i=>{
     const chip=document.createElement('div'); chip.className='chip'; chip.dataset.ion=i;
@@ -418,7 +406,7 @@ function buildLegends(rows){
   applyChipVisuals();
 }
 
-/* ---------- NATIVE D3 EXPORT PIPELINE - DYNAMIC BBOX OVERLAP FIX ---------- */
+/* ---------- NATIVE D3 EXPORT PIPELINE - LEGEND AT BOTTOM ---------- */
 function getSVGString(svgNode) {
     svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
     let cssStyleText = "";
@@ -448,68 +436,97 @@ async function exportChart(format, scale = 4) {
     const d3Svg = d3.select(svgEl);
     const origViewBox = svgEl.getAttribute("viewBox");
 
-    // Calculate the TRUE physical boundary of the SVG (including overflowing text)
+    // 1. Calculate the TRUE physical boundary of the SVG (including overflowing text on all sides)
     const bbox = svgEl.getBBox();
-    const truePhysicalWidth = Math.max(WIDTH, bbox.x + bbox.width + 40);
-    const truePhysicalHeight = Math.max(HEIGHT, bbox.height + 40);
-
-    // Expand the viewBox starting from the true boundary to guarantee no overlap
-    const legendWidth = 260; 
-    const exportWidth = truePhysicalWidth + legendWidth;
     
-    // We base minX and minY on the bounding box to ensure absolutely nothing is cut off
-    const minX = bbox.x - 20;
-    const minY = bbox.y - 20;
+    // Add extra padding to ensure nothing is clipped
+    const pad = 60;
+    const truePhysicalWidth = bbox.width + (pad * 2);
+    const truePhysicalHeight = bbox.height + (pad * 2);
 
-    d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${truePhysicalHeight}`);
+    // 2. Expand the viewBox HEIGHT to make room for the legends AT THE BOTTOM
+    const legendHeight = 240; 
+    const exportWidth = Math.max(truePhysicalWidth, 1200); // Ensure it's wide enough for the legend columns
+    const exportHeight = truePhysicalHeight + legendHeight;
+    
+    const minX = bbox.x - pad;
+    const minY = bbox.y - pad;
 
-    // Inject a white background
+    d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
+
+    // 3. Inject a white background
     d3Svg.insert("rect", ":first-child")
         .attr("id", "export-bg")
         .attr("x", minX).attr("y", minY)
-        .attr("width", exportWidth).attr("height", truePhysicalHeight)
+        .attr("width", exportWidth).attr("height", exportHeight)
         .attr("fill", "#ffffff");
 
-    // Dynamically draw the SVG Legends safely out of bounds
+    // 4. Dynamically draw the SVG Legends safely at the BOTTOM
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
-    const legX = (bbox.x + bbox.width) + 40; 
-    let curY = minY + 60; 
+    
+    // Calculate the starting position for the legends below the chart
+    const legendStartY = minY + truePhysicalHeight + 20;
+    
+    // --- DRAW STRUCTURE LEGEND (Bottom Left) ---
+    let curX = minX + 60; 
+    let curY = legendStartY; 
 
-    // --- DRAW STRUCTURE LEGEND ---
-    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group (Fill)")
+    exportGroup.append("text").attr("x", curX).attr("y", curY).text("Structure Group (Fill)")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
     curY += 28;
 
+    // Arrange in columns
+    const structCols = 4;
+    const structColWidth = 180;
+    let startY = curY;
+    let col = 0;
+    let row = 0;
+
     Object.keys(STRUCT_COLORS).filter(k=>k!=='Others').forEach(st => {
-        exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
+        let x = curX + (col * structColWidth);
+        let y = startY + (row * 24);
+
+        exportGroup.append("rect").attr("x", x).attr("y", y - 12)
             .attr("width", 14).attr("height", 14).attr("rx", 3)
-            .attr("fill", STRUCT_COLORS[st]);
+            .attr("fill", STRUCT_COLORS[st]).attr("stroke", "rgba(0,0,0,0.15)");
             
-        exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
+        exportGroup.append("text").attr("x", x + 24).attr("y", y)
             .text(st)
             .attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
         
-        curY += 24;
+        row++;
+        if (row > 3) { row = 0; col++; }
     });
 
-    curY += 20;
+    // --- DRAW ION LEGEND (Bottom Right) ---
+    // Start the Ion legend to the right of the Structure legend columns
+    curX = minX + 60 + (structCols * structColWidth) + 80;
+    curY = legendStartY;
 
-    // --- DRAW ION LEGEND ---
-    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type (Border)")
+    exportGroup.append("text").attr("x", curX).attr("y", curY).text("Ion Type (Border)")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
     curY += 28;
 
+    startY = curY;
+    col = 0;
+    row = 0;
+    const ionColWidth = 120;
+
     globalIonsList.forEach(ion => {
         if(selectedIons === null || selectedIons.has(ion)) {
+            let x = curX + (col * ionColWidth);
+            let y = startY + (row * 24);
+
             exportGroup.append("circle")
-                .attr("cx", legX + 7).attr("cy", curY - 5).attr("r", 6)
+                .attr("cx", x + 7).attr("cy", y - 5).attr("r", 6)
                 .attr("fill", "#ffffff").attr("stroke", getIonColor(ion)).attr("stroke-width", 2.5);
                 
-            exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
+            exportGroup.append("text").attr("x", x + 24).attr("y", y)
                 .text(ion)
                 .attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
             
-            curY += 24;
+            row++;
+            if (row > 3) { row = 0; col++; }
         }
     });
 
@@ -526,7 +543,7 @@ async function exportChart(format, scale = 4) {
         const ctx = canvas.getContext("2d"); 
         
         canvas.width = exportWidth * scale; 
-        canvas.height = truePhysicalHeight * scale;
+        canvas.height = exportHeight * scale;
         
         const img = new Image();
         const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
