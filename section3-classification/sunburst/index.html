@@ -201,15 +201,15 @@
             ui.hideUnsel = document.getElementById('hideUnsel');
 
             ui.toggleAll.onchange = () => { labelsVisible = ui.toggleAll.checked; applyLabelVisibility(); };
-            ui.showIon.onchange = () => { SHOW_ION = ui.showIon.checked; layoutLabels(); applyLegendFilter(); };
-            ui.showStruct.onchange = () => { SHOW_STRUCT = ui.showStruct.checked; layoutLabels(); applyLegendFilter(); };
-            ui.showStrat.onchange = () => { SHOW_STRAT = ui.showStrat.checked; layoutLabels(); applyLegendFilter(); };
-            ui.showFormula.onchange = () => { SHOW_FORM = ui.showFormula.checked; layoutLabels(); applyLegendFilter(); };
+            ui.showIon.onchange = () => { SHOW_ION = ui.showIon.checked; applyLegendFilter(); };
+            ui.showStruct.onchange = () => { SHOW_STRUCT = ui.showStruct.checked; applyLegendFilter(); };
+            ui.showStrat.onchange = () => { SHOW_STRAT = ui.showStrat.checked; applyLegendFilter(); };
+            ui.showFormula.onchange = () => { SHOW_FORM = ui.showFormula.checked; applyLegendFilter(); };
 
-            ui.fsIon.oninput = () => { FS_ION = +ui.fsIon.value; layoutLabels(true); };
-            ui.fsStruct.oninput = () => { FS_STRUCT = +ui.fsStruct.value; layoutLabels(true); };
-            ui.fsStrat.oninput = () => { FS_STRAT = +ui.fsStrat.value; layoutLabels(true); };
-            ui.fsFormula.oninput = () => { FS_FORM = +ui.fsFormula.value; layoutLabels(true); };
+            ui.fsIon.oninput = () => { FS_ION = +ui.fsIon.value; layoutLabels(); };
+            ui.fsStruct.oninput = () => { FS_STRUCT = +ui.fsStruct.value; layoutLabels(); };
+            ui.fsStrat.oninput = () => { FS_STRAT = +ui.fsStrat.value; layoutLabels(); };
+            ui.fsFormula.oninput = () => { FS_FORM = +ui.fsFormula.value; layoutLabels(); };
 
             ui.btnClearSel.onclick = () => {
                 selIons.clear(); selStructs.clear(); selStrats.clear();
@@ -219,7 +219,6 @@
 
             ui.hideUnsel.onchange = () => { HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
 
-            // FAIL-SAFE CSV LOADER
             try {
                 const csvRows = await d3.csv('data.csv', d3.autoType);
                 if (!csvRows || csvRows.length === 0) throw new Error("CSV data is empty.");
@@ -232,8 +231,7 @@
                         <h2>⚠️ Error Loading Data</h2>
                         <p>${err.message}</p>
                         <p style="background: #fee2e2; padding: 15px; border-radius: 8px; text-align: left; display: inline-block;">
-                            <strong>If the screen was previously white:</strong> Your browser is blocking the local file read.<br/><br/>
-                            Make sure you open this file using a <strong>Local Web Server</strong> (like VS Code's 'Live Server' extension) instead of double-clicking the HTML file.
+                            Ensure you are opening this file using a <strong>Local Web Server</strong> (like VS Code 'Live Server'). Double-clicking the HTML file will block it from reading data.csv.
                         </p>
                     </div>`;
                 return;
@@ -265,14 +263,8 @@
         function rowsToNested(rows) {
             const root = {};
             const get = (obj, key) => (obj[key] ??= {});
-
             rows.forEach(r => {
-                const ion = String(r['Ion Type'] ?? '').trim();
-                const struct = String(r['Structure Group'] ?? '').trim();
-                const strat = String(r['Doping / and or GB Strategy'] ?? '').trim();
-                const formula = String(r['Superionic Conductor Formula (Chemical)'] ?? '').trim();
-                const rawCond = r['Conductivity σ (S/cm)'];
-
+                const ion = String(r['Ion Type'] ?? '').trim(), struct = String(r['Structure Group'] ?? '').trim(), strat = String(r['Doping / and or GB Strategy'] ?? '').trim(), formula = String(r['Superionic Conductor Formula (Chemical)'] ?? '').trim(), rawCond = r['Conductivity σ (S/cm)'];
                 if (!ion || !struct || !strat || !formula) return;
                 const arr = (get(get(get(root, ion), struct), strat)[formula] ??= []);
                 const c = (typeof rawCond === 'number') ? rawCond : +String(rawCond).replace(/[, ]/g, '');
@@ -283,48 +275,32 @@
 
         function buildHierarchy(dataObj) {
             const data = { name: 'root', children: obj2children(dataObj) };
-            const root = d3.hierarchy(data, d => d.children)
-                .sum(d => Array.isArray(d?.values) ? 1 : 0)
-                .sort((a, b) => (b.value || 0) - (a.value || 0));
-                
+            const root = d3.hierarchy(data, d => d.children).sum(d => Array.isArray(d?.values) ? 1 : 0).sort((a, b) => (b.value || 0) - (a.value || 0));
             root.each(n => {
                 if (Array.isArray(n.data.values)) {
                     const vals = n.data.values.filter(Number.isFinite);
-                    n.data.cond = vals.length ? vals[0] : DEF_COND;
-                    n.data.hasCond = vals.length > 0;
+                    n.data.cond = vals.length ? vals[0] : DEF_COND; n.data.hasCond = vals.length > 0;
                 }
             });
-            assignUids(root);
-            return root;
+            assignUids(root); return root;
         }
 
         function makeFocusRoot() {
             if (!focusNode || focusNode.depth === 0) return fullHierarchy.copy();
-            const clone = d3.hierarchy({
-                name: focusNode.data.name, _uid: focusNode.data._uid,
-                children: focusNode.children?.map(child => cloneData(child))
-            }, d => d.children);
+            const clone = d3.hierarchy({ name: focusNode.data.name, _uid: focusNode.data._uid, children: focusNode.children?.map(child => cloneData(child)) }, d => d.children);
             clone.sum(d => Array.isArray(d?.values) ? 1 : 0).sort((a, b) => (b.value || 0) - (a.value || 0));
             clone.each(n => {
                 if (Array.isArray(n.data.values)) {
                     const vals = n.data.values.filter(Number.isFinite);
-                    n.data.cond = vals.length ? vals[0] : DEF_COND;
-                    n.data.hasCond = vals.length > 0;
+                    n.data.cond = vals.length ? vals[0] : DEF_COND; n.data.hasCond = vals.length > 0;
                 }
             });
             return clone;
         }
 
-        function cloneData(node) {
-            return { name: node.data.name, values: node.data.values, _uid: node.data._uid, children: node.children?.map(c => cloneData(c)) };
-        }
+        function cloneData(node) { return { name: node.data.name, values: node.data.values, _uid: node.data._uid, children: node.children?.map(c => cloneData(c)) }; }
 
-        const ION_COLORS = {
-            "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1",
-            "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047",
-            "F-": "#ff8a65", "Cu+": "#5c6bc0", "Mg2+": "#26c6da", "In3+": "#c0ca33",
-            "I-": "#ec407a", "Sn4+": "#7e57c2"
-        };
+        const ION_COLORS = { "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1", "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047", "F-": "#ff8a65", "Cu+": "#5c6bc0", "Mg2+": "#26c6da", "In3+": "#c0ca33", "I-": "#ec407a", "Sn4+": "#7e57c2" };
         const FB_ION_PALETTE = d3.schemeTableau10;
         function hashIdx(name, arr) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0; return Math.abs(h) % arr.length; }
         const norm = s => (s ?? '').trim();
@@ -341,15 +317,8 @@
             return { ion, struct, strat };
         }
         
-        function nodeFill(d) {
-            if (d.depth === 0) return '#ffffff'; 
-            return getIonColor(absoluteNames(d).ion || '(Other)');
-        }
-
-        function levelOf(d) {
-            const od = idMap.get(d.data._uid)?.depth ?? 0; 
-            return od === 1 ? 'ion' : od === 2 ? 'struct' : od === 3 ? 'strat' : 'formula';
-        }
+        function nodeFill(d) { return d.depth === 0 ? '#ffffff' : getIonColor(absoluteNames(d).ion || '(Other)'); }
+        function levelOf(d) { const od = idMap.get(d.data._uid)?.depth ?? 0; return od === 1 ? 'ion' : od === 2 ? 'struct' : od === 3 ? 'strat' : 'formula'; }
 
         function draw() {
             const chartEl = document.getElementById('chart'), legendEl = document.querySelector('.legendGroup'), tt = document.getElementById('tooltip');
@@ -414,7 +383,7 @@
             });
             _g.append('text').attr('text-anchor', 'middle').attr('dy', '0.35em').style('font-size', '12px').style('fill', '#334155').text(focusNode ? focusNode.data.name.substring(0, 15) : 'All ions');
 
-            layoutLabels(); renderRingCaptions(root);
+            renderRingCaptions(root);
 
             const axesGroup = _g.append('g').attr('class', 'axes');
             let d3Node = root.descendants().find(d => d.depth === 3);
@@ -427,7 +396,7 @@
                 axesGroup.append('text').attr('y', -r - 4).attr('x', 0).attr('text-anchor', 'middle').attr('fill', '#94a3b8').attr('font-size', '11px').text(formatLogLabel(v));
             });
 
-            renderCrumbs(); buildLegend(legendEl, root); applyLabelVisibility(); applyLegendFilter();
+            renderCrumbs(); buildLegend(legendEl, root); applyLegendFilter();
         }
 
         function chainName(n, rel) {
@@ -476,37 +445,45 @@
                 }
                 this.classList.toggle('dimmed', hasSel && !on);
             });
-            layoutLabels(); // Force label redraw to respect forced-show logic
-        }
-
-        function renderCrumbs() {
-            const el = document.getElementById('crumbs');
-            if (!focusNode || focusNode.depth === 0) {
-                el.innerHTML = '<a data-ix="root">All ions</a>';
-                el.querySelector('a').onclick = () => { focusNode = null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); };
-                return;
-            }
-            const chain = focusNode.ancestors().reverse().slice(1);
-            el.innerHTML = ['<a data-ix="root">All ions</a>', ...chain.map((n, i) => ` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
-            el.querySelectorAll('a').forEach(a => {
-                a.onclick = () => {
-                    focusNode = (a.getAttribute('data-ix') === 'root') ? null : chain[Number(a.getAttribute('data-ix'))];
-                    selIons.clear(); selStructs.clear(); selStrats.clear(); draw();
-                };
-            });
+            layoutLabels(); 
         }
 
         function layoutLabels() {
             _g.selectAll('.labels').remove();
             const layer = _g.append('g').attr('class', 'labels');
+
+            const depthState = (focusNode?.depth ?? 0);
+            const hasSel = (depthState === 0 && selIons.size > 0) || (depthState === 1 && selStructs.size > 0) || (depthState === 2 && selStrats.size > 0);
+
             let data = [];
-            if (SHOW_ION) data = data.concat(_nodesCache.filter(n => n.children && levelOf(n) === 'ion'));
-            if (SHOW_STRUCT) data = data.concat(_nodesCache.filter(n => n.children && levelOf(n) === 'struct'));
-            if (SHOW_STRAT) data = data.concat(_nodesCache.filter(n => n.children && levelOf(n) === 'strat'));
-            if (SHOW_FORM) data = data.concat(_nodesCache.filter(n => levelOf(n) === 'formula'));
+            _nodesCache.forEach(n => {
+                const lv = levelOf(n);
+                const isRadial = (lv === 'formula');
+                if (!isRadial && !n.children) return; 
+
+                const names = absoluteNames(n);
+                let isSel = false;
+                if (hasSel) {
+                    if (depthState === 0) isSel = selIons.has(names.ion);
+                    else if (depthState === 1) isSel = selStructs.has(`ION:${focusNode?.data?.name || ''}|STRUCT:${names.struct}`);
+                    else if (depthState === 2) isSel = selStrats.has(`ION:${chainName(focusNode, 1)}|STRUCT:${chainName(focusNode, 0)}|STRAT:${names.strat}`);
+                }
+
+                let inFocus = false;
+                if (focusNode && focusNode.depth > 0) {
+                    let curr = n;
+                    while(curr) { if (curr.data._uid === focusNode.data._uid) { inFocus = true; break; } curr = curr.parent; }
+                }
+
+                const isToggled = (SHOW_ION && lv === 'ion') || (SHOW_STRUCT && lv === 'struct') || (SHOW_STRAT && lv === 'strat') || (SHOW_FORM && lv === 'formula');
+                
+                // If it is globally toggled, explicitly selected, or we are zoomed into it, put it in the queue to be drawn
+                if (isToggled || isSel || inFocus) data.push(n);
+            });
 
             const sel = layer.selectAll('text.levelLabel').data(data, d => `${d.data._uid}-${levelOf(d)}`).join('text')
                 .attr('class', d => (levelOf(d) === 'formula' ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'));
+
             placeRadial(sel);
         }
 
@@ -516,22 +493,31 @@
 
             selection.each(function(d) {
                 const el = d3.select(this);
+                // Do not attempt to draw text on slices with absolute zero width
+                if (d.x1 - d.x0 < 0.00001) { el.style('display', 'none'); return; }
+
                 const lv = levelOf(d);
                 const isRadial = (lv === 'formula');
                 const names = absoluteNames(d);
+                
                 let isSel = false;
-
                 if (hasSel) {
                     if (depthState === 0) isSel = selIons.has(names.ion);
                     else if (depthState === 1) isSel = selStructs.has(`ION:${focusNode?.data?.name || ''}|STRUCT:${names.struct}`);
                     else if (depthState === 2) isSel = selStrats.has(`ION:${chainName(focusNode, 1)}|STRUCT:${chainName(focusNode, 0)}|STRAT:${names.strat}`);
                 }
 
-                // FORCE SHOW LOGIC: If parent is selected, force show strategies and formulas
-                const forceShow = isSel && (lv === 'strat' || lv === 'formula');
+                let inFocus = false;
+                if (focusNode && focusNode.depth > 0) {
+                    let curr = d;
+                    while(curr) { if (curr.data._uid === focusNode.data._uid) { inFocus = true; break; } curr = curr.parent; }
+                }
 
-                if (hasSel && !isSel && HIDE_UNSEL) { el.style('display', 'none'); return; } 
-                else if (hasSel && !isSel && !HIDE_UNSEL) { el.classed('dimmed', true); } 
+                // Force show ignores overlap and truncation rules
+                const forceShow = isSel || inFocus;
+
+                if (hasSel && !isSel && HIDE_UNSEL) { el.style('display', 'none'); return; }
+                else if (hasSel && !isSel && !HIDE_UNSEL) { el.classed('dimmed', true); }
                 else { el.classed('dimmed', false); }
 
                 const fs = lv === 'ion' ? FS_ION : lv === 'struct' ? FS_STRUCT : lv === 'strat' ? FS_STRAT : FS_FORM;
@@ -541,14 +527,19 @@
                 const rMid = rMidBase + (isRadial ? Math.max(12, _leafBase * 0.95) : 4);
                 const arcLengthPx = rMid * (d.x1 - d.x0);
 
-                // Anti-overlap hiding, BYPASSED if forceShow is true
+                // Ignore minimum arc length if we are forcing it to show
                 if (!forceShow && arcLengthPx < (fs + 1)) { el.style('display', 'none'); return; }
 
                 let textStr = d.data.name || '';
                 if (!isRadial) {
                     const maxChars = Math.floor(((d.y1 - d.y0) - 10) / (fs * 0.6));
-                    if (textStr.length > maxChars && maxChars > 2) { textStr = forceShow ? textStr : textStr.substring(0, maxChars - 2) + '..'; } 
-                    else if (maxChars <= 2 && !forceShow) { el.style('display', 'none'); return; }
+                    if (textStr.length > maxChars && maxChars > 2) { 
+                        // Truncate only if NOT forcing show
+                        textStr = forceShow ? textStr : textStr.substring(0, maxChars - 2) + '..'; 
+                    } 
+                    else if (maxChars <= 2 && !forceShow) { 
+                        el.style('display', 'none'); return; 
+                    }
                 }
 
                 let amid = (d.x0 + d.x1) / 2;
@@ -561,42 +552,40 @@
             });
         }
 
+        function renderCrumbs() {
+            const el = document.getElementById('crumbs');
+            if (!focusNode || focusNode.depth === 0) { el.innerHTML = '<a data-ix="root">All ions</a>'; el.querySelector('a').onclick = () => { focusNode = null; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); }; return; }
+            const chain = focusNode.ancestors().reverse().slice(1);
+            el.innerHTML = ['<a data-ix="root">All ions</a>', ...chain.map((n, i) => ` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
+            el.querySelectorAll('a').forEach(a => { a.onclick = () => { focusNode = (a.getAttribute('data-ix') === 'root') ? null : chain[Number(a.getAttribute('data-ix'))]; selIons.clear(); selStructs.clear(); selStrats.clear(); draw(); }; });
+        }
+
         function ensureCaptionLayers() {
             if (!window._capLayers) window._capLayers = { ion: _g.append('g').attr('class', 'cap cap-ion'), struct: _g.append('g').attr('class', 'cap cap-struct'), strat: _g.append('g').attr('class', 'cap cap-strat'), formula: _g.append('g').attr('class', 'cap cap-formula') };
             Object.values(window._capLayers).forEach(l => l.selectAll('*').remove());
         }
 
         function renderRingCaptions(partitionRoot) {
-            ensureCaptionLayers();
-            if (!_defs) return;
-            _defs.selectAll('path.ringArc').remove();
-
+            ensureCaptionLayers(); if (!_defs) return; _defs.selectAll('path.ringArc').remove();
             const a0 = (-90 - CAP_ARC_DEG / 2) * Math.PI / 180, a1 = (-90 + CAP_ARC_DEG / 2) * Math.PI / 180;
             const arcPath = (r) => `M ${r * Math.cos(a0)} ${r * Math.sin(a0)} A ${r} ${r} 0 0 1 ${r * Math.cos(a1)} ${r * Math.sin(a1)}`;
-
             const items = [
                 { key: 'ion', text: 'Ion Type', r: partitionRoot.descendants().find(d => d.depth === 1) ? (partitionRoot.descendants().find(d => d.depth === 1).y0 + partitionRoot.descendants().find(d => d.depth === 1).y1) / 2 : 1.5 * _ringThickness },
                 { key: 'struct', text: 'Structure Group', r: partitionRoot.descendants().find(d => d.depth === 2) ? (partitionRoot.descendants().find(d => d.depth === 2).y0 + partitionRoot.descendants().find(d => d.depth === 2).y1) / 2 : 2.5 * _ringThickness },
                 { key: 'strat', text: 'Doping / and or GB Strategy', r: partitionRoot.descendants().find(d => d.depth === 3) ? (partitionRoot.descendants().find(d => d.depth === 3).y0 + partitionRoot.descendants().find(d => d.depth === 3).y1) / 2 : 3.5 * _ringThickness },
                 { key: 'formula', text: 'Superionic Conductor Formula (Chemical)', r: (partitionRoot.descendants().find(d => d.depth === partitionRoot.height)?.y1 ?? ((partitionRoot.height + 1) * _ringThickness)) + (_leafBase * 0.55) },
             ];
-
             items.forEach((it) => {
-                if (!Number.isFinite(it.r) || it.r <= 0) return;
-                const id = `ringcap-${Math.floor(it.r)}-${it.key}`;
-                _defs.append('path').attr('id', id).attr('d', arcPath(it.r));
+                if (!Number.isFinite(it.r) || it.r <= 0) return; const id = `ringcap-${Math.floor(it.r)}-${it.key}`; _defs.append('path').attr('id', id).attr('d', arcPath(it.r));
                 _capLayers[it.key].append('text').append('textPath').attr('href', '#' + id).attr('startOffset', '50%').attr('text-anchor', 'middle').text(it.text);
             });
             Object.values(window._capLayers).forEach(l => l.raise());
         }
 
-        function applyLabelVisibility() {
-            d3.selectAll('.label, .leafLabel').classed('hiddenLabel', !labelsVisible).classed('visibleLabel', labelsVisible);
-        }
+        function applyLabelVisibility() { d3.selectAll('.label, .leafLabel').classed('hiddenLabel', !labelsVisible).classed('visibleLabel', labelsVisible); }
 
         function getSVGString(svgNode) {
-            svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
-            let cssStyleText = "";
+            svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink'); let cssStyleText = "";
             for (let i = 0; i < document.styleSheets.length; i++) try { for (let j = 0; j < document.styleSheets[i].cssRules.length; j++) cssStyleText += document.styleSheets[i].cssRules[j].cssText; } catch (e) {}
             const styleElement = document.createElement("style"); styleElement.setAttribute("type", "text/css"); styleElement.innerHTML = cssStyleText;
             svgNode.insertBefore(styleElement, svgNode.hasChildNodes() ? svgNode.children[0] : null);
@@ -611,7 +600,6 @@
 
             d3Svg.attr("viewBox", `${exportMinX} ${exportMinY} ${exportW} ${exportH}`);
             d3Svg.insert("rect", ":first-child").attr("id", "export-bg").attr("x", exportMinX).attr("y", exportMinY).attr("width", exportW).attr("height", exportH).attr("fill", "#ffffff");
-
             const exportGroup = d3Svg.append("g").attr("id", "export-elements");
             exportGroup.append("text").attr("x", exportMinX + 40).attr("y", exportMinY + 60).text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type").attr("font-size", "16px").attr("fill", "#64748b");
 
@@ -622,21 +610,16 @@
             const ionCounts = {}; fullHierarchy.leaves().forEach(d => { const ion = absoluteNames(d).ion || 'Other'; ionCounts[ion] = (ionCounts[ion] || 0) + 1; });
             Object.keys(ionCounts).sort().forEach(ion => {
                 exportGroup.append("rect").attr("x", legX).attr("y", curY - 12).attr("width", 14).attr("height", 14).attr("rx", 2).attr("fill", getIonColor(ion)).attr("stroke", "rgba(0,0,0,0.15)");
-                exportGroup.append("text").attr("x", legX + 24).attr("y", curY).text(`${ion} (${ionCounts[ion]})`).attr("font-size", "13px").attr("fill", "#0f172a");
-                curY += 22;
+                exportGroup.append("text").attr("x", legX + 24).attr("y", curY).text(`${ion} (${ionCounts[ion]})`).attr("font-size", "13px").attr("fill", "#0f172a"); curY += 22;
             });
 
             const svgString = getSVGString(svgEl);
             if (format === 'svg') {
-                const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([svgString], { type: "image/svg+xml;charset=utf-8" })); link.download = "Sunburst_Publication.svg";
-                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([svgString], { type: "image/svg+xml;charset=utf-8" })); link.download = "Sunburst_Publication.svg"; document.body.appendChild(link); link.click(); document.body.removeChild(link);
             } else {
                 const canvas = document.createElement("canvas"), ctx = canvas.getContext("2d"); canvas.width = exportW * 4; canvas.height = exportH * 4;
                 const img = new Image(), url = URL.createObjectURL(new Blob([svgString], { type: "image/svg+xml;charset=utf-8" }));
-                await new Promise(resolve => {
-                    img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url); const link = document.createElement("a"); link.download = "Sunburst_HighRes.png"; link.href = canvas.toDataURL("image/png"); document.body.appendChild(link); link.click(); document.body.removeChild(link); resolve(); };
-                    img.src = url;
-                });
+                await new Promise(resolve => { img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url); const link = document.createElement("a"); link.download = "Sunburst_HighRes.png"; link.href = canvas.toDataURL("image/png"); document.body.appendChild(link); link.click(); document.body.removeChild(link); resolve(); }; img.src = url; });
             }
             d3Svg.select("#export-elements").remove(); d3Svg.select("#export-bg").remove(); d3Svg.attr("viewBox", [origX, origY, origW, origH].join(" "));
         }
