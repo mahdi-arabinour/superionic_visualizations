@@ -42,9 +42,6 @@
   .legend-symbol { width:18px; height:18px; flex:0 0 18px; }
   .reset { border:1px solid #e5e7eb; background:#fff; border-radius:999px; padding:4px 8px; cursor:pointer; font-size:12px; color:#374151; }
   .reset:hover { background:#f3f4f6; }
-  
-  .target-label { fill: #059669; font-size: 14px; font-weight: bold; opacity: 0.8;}
-
   @media (max-width: 980px) {
     .wrap { flex-direction: column; }
     .legends { position: static; width: 100%; flex-basis: auto; }
@@ -91,8 +88,7 @@ const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.t
 const xAxisG = g.append("g").attr("class", "axis").attr("transform", `translate(0,${innerH})`);
 const yAxisG = g.append("g").attr("class", "axis");
 
-// FIX 1: Updated X-Axis Label to indicate Log Scale
-g.append("text").attr("x", innerW/2).attr("y", innerH + 46).attr("text-anchor","middle").attr("fill", "#111827").attr("font-size", 13).text("Cycle Life (Log Scale)");
+g.append("text").attr("x", innerW/2).attr("y", innerH + 46).attr("text-anchor","middle").attr("fill", "#111827").attr("font-size", 13).text("Cycle Life");
 g.append("text").attr("transform","rotate(-90)").attr("x", -innerH/2).attr("y", -50).attr("text-anchor","middle").attr("fill", "#111827").attr("font-size", 13).text("Retention (%)");
 
 const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
@@ -122,38 +118,81 @@ function parseCycleLife(s) {
 }
 function pick(cols, cands){ for(const c of cands) if(cols.includes(c)) return c; return null; }
 
-/* FIX 2: Simplified Ion → Shape palette to reduce cognitive load */
-const MAJOR_IONS = ["Li+", "Na+", "K+", "Ag+", "Zn2+"];
+/* ---------- Your Ion → Shape palette ---------- */
 const ION_SHAPES = {
   "Li+":  "circle",
   "Na+":  "square",
   "K+":   "diamond",
   "Ag+":  "cross",
-  "Zn2+": "triangle-up",
-  "Other": "star" // Fallback for all other rare ions
+  "O2-":  "triangle-up",
+  "Zn2+": "triangle-down",
+  "H+":   "x",
+  "Rb+":  "star",
+  "F-":   "hexagon",
+  "Cu+":  "triangle-left",
+  "Mg2+": "triangle-right",
+  "In3+": "bowtie",
+  "I-":   "hourglass",
+  "Sn4+": "pentagon"
 };
 
-/* ---- Shape path generator ---- */
+/* ---- Shape path generator (supports custom names) ----
+   Returns { d: 'M...', rotate: angleDeg, strokeOnly: boolean }
+   size is in px^2 like d3.symbol().size()
+------------------------------------------------------- */
 function symbolPath(type, size = 110){
   const builtin = n => d3.symbol().type(n).size(size)();
   const rotSpec = (base, angle) => ({ d: builtin(base), rotate: angle, strokeOnly: false });
+  const area = size, tau = Math.PI * 2;
+
+  function regularPolygon(n){
+    // approximate radius such that area ~ size
+    const r = Math.sqrt((2*area)/(n*Math.sin(2*Math.PI/n)));
+    const pts = [];
+    for(let i=0;i<n;i++){
+      const ang = (tau/n)*i - Math.PI/2; // start at top
+      pts.push([ r*Math.cos(ang), r*Math.sin(ang) ]);
+    }
+    return "M" + pts.map(p=>p.join(",")).join("L") + "Z";
+  }
 
   switch(type){
     case "circle":   return { d: builtin(d3.symbolCircle),  rotate:0, strokeOnly:false };
     case "square":   return { d: builtin(d3.symbolSquare),  rotate:0, strokeOnly:false };
     case "diamond":  return { d: builtin(d3.symbolDiamond), rotate:0, strokeOnly:false };
+    case "triangle": // alias
     case "triangle-up":    return { d: builtin(d3.symbolTriangle), rotate:0,   strokeOnly:false };
+    case "triangle-down":  return rotSpec(d3.symbolTriangle, 180);
+    case "triangle-left":  return rotSpec(d3.symbolTriangle, -90);
+    case "triangle-right": return rotSpec(d3.symbolTriangle, 90);
     case "cross":    return { d: builtin(d3.symbolCross),   rotate:0, strokeOnly:false };
     case "star":     return { d: builtin(d3.symbolStar),    rotate:0, strokeOnly:false };
+    case "wye":      return { d: builtin(d3.symbolWye),     rotate:0, strokeOnly:false };
+    case "hexagon":  return { d: regularPolygon(6), rotate:0, strokeOnly:false };
+    case "pentagon": return { d: regularPolygon(5), rotate:0, strokeOnly:false };
+    case "bowtie": {
+      const r = Math.sqrt(size/Math.PI);
+      const p1 = `M0,0 L${r},${-r} L${r},${r} Z`;
+      const p2 = `M0,0 L${-r},${-r} L${-r},${r} Z`;
+      return { d: p1 + " " + p2, rotate:0, strokeOnly:false };
+    }
+    case "hourglass": {
+      const r = Math.sqrt(size/Math.PI);
+      const p1 = `M${-r},${-r} L${r},${-r} L0,0 Z`;
+      const p2 = `M${-r},${r} L${r},${r} L0,0 Z`;
+      return { d: p1 + " " + p2, rotate:0, strokeOnly:false };
+    }
+    case "x": {
+      const r = Math.sqrt(size/Math.PI), t = Math.max(1.2, r*0.20);
+      const p = `M${-r},${-t} L${r},${t} M${-r},${t} L${r},${-t}`;
+      return { d: p, rotate:0, strokeOnly:true };
+    }
     default:         return { d: builtin(d3.symbolCircle),  rotate:0, strokeOnly:false };
   }
 }
-
 function ionSpec(ion, size=110){
   const key = (ion||"").trim();
-  // Map rare ions to "Other"
-  const mappedKey = MAJOR_IONS.includes(key) ? key : "Other";
-  return symbolPath(ION_SHAPES[mappedKey] || "circle", size);
+  return symbolPath(ION_SHAPES[key] || "circle", size);
 }
 
 // Global states exposed for the export script
@@ -175,19 +214,14 @@ d3.csv(CSV_FILE).then(raw => {
   const data = raw.map(d => {
     const cycle = parseCycleLife(d[C_CYCLE]);
     const ret   = Number(String(d[C_RET]).replace(/%/g,""));
-    
-    // Group rare ions
-    let rawIon = (d[C_ION] || "").trim();
-    let groupedIon = MAJOR_IONS.includes(rawIon) ? rawIon : "Other";
-
     return {
       Formula: (d[C_FORMULA] || "").trim(),
       StructureType: (d[C_STRUCT] || "").trim(),
-      IonType: groupedIon,
-      CycleLife: Math.max(1, cycle), // Prevent log(0) issues by setting minimum to 1
+      IonType: (d[C_ION] || "").trim(),
+      CycleLife: cycle,
       Retention: Math.max(0, Math.min(100, isFinite(ret) ? ret : NaN))
     };
-  }).filter(d => Number.isFinite(d.CycleLife) && d.CycleLife > 0 && Number.isFinite(d.Retention));
+  }).filter(d => Number.isFinite(d.CycleLife) && d.CycleLife >= 0 && Number.isFinite(d.Retention));
 
   if (!data.length) {
     g.append("text").attr("x", innerW/2).attr("y", innerH/2).attr("text-anchor","middle").attr("fill","#6b7280").text("No data to plot after filtering.");
@@ -216,53 +250,19 @@ d3.csv(CSV_FILE).then(raw => {
     
   globalColorScale = color;
 
-  // FIX 1: Change to Logarithmic Scale for Cycle Life
-  const x = d3.scaleLog().domain([10, Math.max(2000, d3.max(data, d => d.CycleLife))]).nice().range([0,innerW]);
+  const x = d3.scaleLinear().domain([0,2000]).range([0,innerW]);
   const y = d3.scaleLinear().domain([0,100]).range([innerH,0]);
-  
-  // Add gridlines to help guide the eye on the log scale
-  xAxisG.call(d3.axisBottom(x).ticks(10, "~s"));
+  const xTicks = [0,100,200,500,1000,2000];
+  xAxisG.call(d3.axisBottom(x).tickValues(xTicks).tickFormat(d => d>=1000 ? (d/1000)+"k" : d));
   yAxisG.call(d3.axisLeft(y).ticks(10).tickFormat(d => d+"%"));
-  
-  // Add subtle vertical gridlines for the log ticks
-  g.append("g").attr("class", "grid")
-   .selectAll("line")
-   .data(x.ticks(10))
-   .join("line")
-   .attr("x1", d => x(d))
-   .attr("x2", d => x(d))
-   .attr("y1", 0)
-   .attr("y2", innerH)
-   .attr("stroke", "#e2e8f0")
-   .attr("stroke-dasharray", "4,4")
-   .attr("z-index", -1);
-
-  // FIX 3: Add the Target Performance Benchmark Zone
-  // Assuming a good target is >1000 cycles and >80% retention
-  const targetX = Math.max(10, x(1000));
-  const targetY = y(80);
-  
-  g.insert("rect", ":first-child")
-      .attr("x", targetX)
-      .attr("y", 0)
-      .attr("width", innerW - targetX)
-      .attr("height", targetY)
-      .attr("fill", "#10b981")
-      .attr("opacity", 0.1);
-      
-  g.append("text")
-      .attr("class", "target-label")
-      .attr("x", targetX + 10)
-      .attr("y", targetY - 10)
-      .text("Target Performance Zone");
 
   // render points with custom shapes
-  const sizePx2 = 130; // slightly larger for visibility
+  const sizePx2 = 110; // symbol "area"
   const points = g.selectAll(".pt").data(data).join("path")
     .attr("class","pt")
     .attr("transform", d => {
       const spec = ionSpec(d.IonType, sizePx2);
-      const tx = x(d.CycleLife);
+      const tx = x(Math.max(0, Math.min(2000, d.CycleLife)));
       const ty = y(d.Retention);
       return `translate(${tx},${ty}) rotate(${spec.rotate})`;
     })
@@ -276,7 +276,7 @@ d3.csv(CSV_FILE).then(raw => {
       return spec.strokeOnly ? color(d.StructureType) : "#111827";
     })
     .attr("stroke-width", d => ionSpec(d.IonType, sizePx2).strokeOnly ? 1.4 : 0.7)
-    .attr("opacity",0.85)
+    .attr("opacity",0.95)
     .on("mouseover",(event,d)=>{
       tooltip.style("opacity",1).html(`
         <div><b>${d.Formula || "(unknown)"}</b></div>
@@ -307,7 +307,7 @@ d3.csv(CSV_FILE).then(raw => {
   }
   function updateVisibility(){
     points.transition().duration(250)
-      .style("opacity", d => (activeStructures.has(d.StructureType) && activeIons.has(d.IonType)) ? 0.85 : 0.08)
+      .style("opacity", d => (activeStructures.has(d.StructureType) && activeIons.has(d.IonType)) ? 0.95 : 0.08)
       .style("display", d => (activeStructures.has(d.StructureType) && activeIons.has(d.IonType)) ? null : "none");
   }
 
@@ -374,7 +374,7 @@ d3.csv(CSV_FILE).then(raw => {
 });
 
 // ============================================================================
-// NATIVE D3 EXPORT PIPELINE - LEGENDS ON THE RIGHT
+// NATIVE D3 EXPORT PIPELINE - LEGENDS ON THE RIGHT SIDE
 // ============================================================================
 function getSVGString(svgNode) {
     svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
