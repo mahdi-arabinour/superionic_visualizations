@@ -238,29 +238,21 @@
                     .style("font-size", d => `${Math.max(12, (d.r * k) / 6)}px`)
                     .text(d => d.data.name);
 
+                // FORCE ALL LABELS TO SHOW
                 leafLabels
                     .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
-                    .style("display", d => {
-                        // FORCE SHOW: If we are zoomed into this specific Structure Group, show ALL child labels.
-                        if (focus === d.parent || focus === d) return "inline";
-                        // If we are zoomed out, only show labels that fit comfortably
-                        return (d.r * k >= 12) ? "inline" : "none";
-                    })
+                    .style("display", "inline") 
                     .style("font-size", d => {
-                        // Dynamically scale font size so it shrinks to fit tiny circles
-                        return `${Math.max(8, Math.min(16, (d.r * k) / 3.2))}px`;
+                        // Mathematically constrain the font size so it never exceeds the radius boundary
+                        return `${(d.r * k) / 3.2}px`;
                     })
-                    .text(d => {
-                        // If it's a tiny circle AND we aren't explicitly focused on it, drop the count to save space
-                        if ((d.r * k) < 18 && focus !== d.parent && focus !== d) return d.data.name;
-                        return `${d.data.name} (${d.value})`;
-                    });
+                    .text(d => `${d.data.name} (${d.value})`);
             }
 
             function zoom(event, d) {
                 focus = d;
                 const t = svg.transition().duration(750).tween("zoom", () => {
-                    const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2.1]); 
+                    const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2.1]);
                     return t => zoomTo(i(t));
                 });
                 updateTrail(d);
