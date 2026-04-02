@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Sunburst Chart - Publication Ready</title>
+<title>Sunburst Tree</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <style>
@@ -14,6 +14,7 @@
   header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;background:var(--panel);border-bottom:1px solid var(--grid);position:sticky;top:0;z-index:5}
   label{font-size:13px;display:flex;align-items:center;gap:6px}
   input[type="number"],input[type="range"],select{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px}
+  input[type="range"]{accent-color:#60a5fa}
   
   /* Export Button Styles */
   .btn-export { border:1px solid #d0d0d0; border-radius:6px; padding:6px 12px; font-size:12px; font-weight:bold; cursor:pointer; transition:0.2s; font-family: system-ui, sans-serif; }
@@ -43,7 +44,7 @@
 </head>
 <body>
 <header>
-  <button id="resetView" class="pill">↺ Reset View</button>
+  <button id="resetView" class="pill">↺ Reset Zoom</button>
   
   <button onclick="exportChart('svg')" class="btn-export btn-primary" title="Preferred for journals">⬇ SVG</button>
   <button onclick="exportChart('png', 3.125)" class="btn-export btn-success" title="Standard Print Quality (~300 DPI)">⬇ 300 DPI</button>
@@ -78,14 +79,14 @@
   <label><input type="checkbox" id="showStructLbl" checked> Structure</label>
   <label><input type="checkbox" id="showDopingLbl"> Doping</label>
   <label><input type="checkbox" id="showFormulaLbl"> Formula</label>
-
-  <div class="note" style="margin-top:20px;">Hover over segments for details. Click Ion chip to filter. Click segment to zoom.</div>
+  
+  <div class="note">Inner to outer: Ion → Structure → Doping → Formula. Segment size = number of entries.</div>
 </aside>
 
 <div id="tooltip" class="tip"></div>
 
 <script>
-/* ---------- Palettes (Identical to Radial Tree) ---------- */
+/* ---------- Palettes ---------- */
 const ION_COLORS = {
   "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
   "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
@@ -120,6 +121,7 @@ const CSV_URL = new URL('data.csv', document.baseURI).href;
 async function loadCSVWithFallback(){
   try { return await d3.csv(CSV_URL); }
   catch(e){
+    console.warn('CSV fetch failed; enabling picker', e);
     const fb=document.getElementById('csv-fallback'), btn=document.getElementById('pick-csv'), inp=document.getElementById('csv-input');
     if(!fb||!btn||!inp) throw e;
     fb.style.display='block';
@@ -147,15 +149,13 @@ function buildLeaves(rows){
     const dopV=(r[doping]||'(none)').toString().trim();
     const formV=(r[formula]||'(formula)').toString().trim();
     
-    // Attempt to parse sigma just for the tooltip, Sunburst slices are usually sized equally by count
-    const sStr = String(r[sigma]??'').trim().replace(/[,\s]/g,'').replace(/[−–—-]/g,'-').replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i,'$1e$2');
-    const s = Number(sStr);
-    
-    leaves.push({ion:ionV,structure:structV,dop:dopV,form:formV,sigma:Number.isFinite(s) ? s : NaN, value: 1});
+    // Just passing raw sigma through if needed for tooltip later
+    leaves.push({ion:ionV,structure:structV,dop:dopV,form:formV, value: 1, raw: r});
   }
   return leaves;
 }
 
+// Visual Hierarchy Helpers
 function structColorFromNode(node){
   const structNode = node.ancestors().find(x => x.depth === 2);
   return STRUCT_COLORS[structNode?.data?.name] || STRUCT_COLORS["Others"];
@@ -173,7 +173,7 @@ function drawSunburst(rows){
     d3.select('#chart').attr('width', p.width).attr('height', Math.max(600, p.height*0.9));
     bb = document.getElementById('chart').getBoundingClientRect();
   }
-  WIDTH=bb.width; HEIGHT=bb.height; R=Math.min(WIDTH,HEIGHT)/2 - 20;
+  WIDTH=bb.width; HEIGHT=bb.height; R=Math.min(WIDTH,HEIGHT)/2 - 10;
 
   svg.attr('viewBox', `${-WIDTH/2} ${-HEIGHT/2} ${WIDTH} ${HEIGHT}`).selectAll('*').remove();
   const g = svg.append('g').attr('class','sunburst');
@@ -188,7 +188,7 @@ function drawSunburst(rows){
       const nSt={name:st,children:[]};
       for(const [dop,g3] of g2){
         const nD={name:dop,children:[]};
-        for(const d of g3) nD.children.push({name:d.form,sigma:d.sigma, value: 1});
+        for(const d of g3) nD.children.push({name:d.form, value: 1});
         nSt.children.push(nD);
       }
       nIon.children.push(nSt);
@@ -212,6 +212,7 @@ function drawSunburst(rows){
     .selectAll("path")
     .data(rootPartition.descendants().filter(d => d.depth > 0))
     .join("path")
+      // FIX: Apply the requested Color Logic here
       .attr("fill", d => d.depth === 1 ? '#ffffff' : structColorFromNode(d))
       .attr("stroke", d => ionColorFromNode(d))
       .attr("stroke-width", d => d.depth === 1 ? 2.5 : 1)
@@ -249,12 +250,6 @@ function drawSunburst(rows){
           return "";
       });
 
-  // Safe Caption
-  g.append('text').attr('class', 'chart-caption')
-    .attr('x', -WIDTH/2 + 20).attr('y', -HEIGHT/2 + 30)
-    .attr('text-anchor', 'start').attr('fill', '#64748b').attr('font-size', 13)
-    .text('Sunburst: Ion → Structure → Doping → Formula • Fill = Structure • Border = Ion');
-  
   say(`Segments: ${rootPartition.descendants().length - 1} • Entries: ${rootPartition.leaves().length}`);
 }
 
@@ -266,22 +261,29 @@ function showTip(e,d){
   const dop=a[3]?.data?.name||'(doping)';
   
   let html = `<div style="font-family:system-ui,sans-serif;">`;
-  if (d.depth >= 1) html += `<span style="color:${getIonColor(ion)}"><b>${ion}</b></span>`;
-  if (d.depth >= 2) html += ` → <span style="color:${getStructColor(st)}"><b>${st}</b></span>`;
+  if (d.depth >= 1) html += `<b>${ion}</b>`;
+  if (d.depth >= 2) html += ` → <b>${st}</b>`;
   if (d.depth >= 3) html += ` → ${dop}`;
   
   if(!d.children && d.depth === 4){
-    const v=Number(d.data?.sigma);
     html+=`<br><br><b>${d.data?.name}</b>`;
-    if (Number.isFinite(v)) html+=`<br>σ: ${v.toExponential(3)} S·cm⁻¹`;
   } else {
-      html += `<br><br>Total Entries: <b>${d.value}</b>`;
+      html += `<br><br>Entries in path: <b>${d.value}</b>`;
   }
   html += `</div>`;
   
   tip.html(html).style('left',(e.clientX+12)+'px').style('top',(e.clientY+12)+'px').style('opacity',1);
 }
 function hideTip(){ tip.style('opacity',0); }
+
+/* ---------- Zoom/Reset ---------- */
+const zoom = d3.zoom().scaleExtent([0.5,6]).on('zoom', ev => svg.select('g.sunburst').attr('transform', ev.transform));
+svg.call(zoom);
+
+document.getElementById('resetView').addEventListener('click', ()=>{
+  svg.transition().duration(800).call(zoom.transform, d3.zoomIdentity.translate(WIDTH/2,HEIGHT/2).scale(1));
+  drawSunburst(DATA);
+});
 
 /* ---------- Legends & Init ---------- */
 function buildLegends(rows){
@@ -364,7 +366,6 @@ async function exportChart(format, scale = 4) {
     const minY = bbox.y - pad;
 
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
-    d3Svg.selectAll(".chart-caption").style("display", "none");
 
     d3Svg.insert("rect", ":first-child")
         .attr("id", "export-bg")
@@ -381,7 +382,10 @@ async function exportChart(format, scale = 4) {
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Chart Key")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
     curY += 24;
-    exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Ion → Structure → Doping → Formula")
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Inner to outer: Ion → Structure → Doping → Formula")
+        .attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#64748b");
+    curY += 20;
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Segment size = number of entries")
         .attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#64748b");
     curY += 40;
 
@@ -458,7 +462,6 @@ async function exportChart(format, scale = 4) {
 
     d3Svg.select("#export-elements").remove();
     d3Svg.select("#export-bg").remove();
-    d3Svg.selectAll(".chart-caption").style("display", null);
     d3Svg.attr("viewBox", origViewBox);
 }
 
@@ -466,7 +469,6 @@ async function exportChart(format, scale = 4) {
 ["showIonLbl","showStructLbl","showDopingLbl","showFormulaLbl"].forEach(id => { 
     const el=document.getElementById(id); if(el) el.addEventListener('input', ()=>DATA&&drawSunburst(DATA)); 
 });
-document.getElementById('resetView').addEventListener('click', ()=>DATA&&drawSunburst(DATA));
 window.addEventListener('resize', ()=>DATA&&drawSunburst(DATA));
 
 /* ---------- Init ---------- */
