@@ -114,6 +114,10 @@
 
         .cap { pointer-events: none; }
         .cap text { font-size: 11px; fill: var(--text-muted); letter-spacing: 0.5px; paint-order: stroke; stroke: #ffffff; stroke-width: 3px; }
+
+        /* Small static legend styling */
+        .static-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; background:var(--bg-body); border:1px solid var(--border-color); border-radius:999px; padding:4px 8px; }
+        .static-sw { width:12px; height:12px; border-radius:3px; border:1px solid rgba(0,0,0,0.15); }
     </style>
 </head>
 <body>
@@ -135,7 +139,10 @@
             <div id="chart" class="chartBody card-panel"></div>
 
             <div class="legend card-panel">
-                <h4>Legend</h4>
+                <h4>Structure Group (Fill)</h4>
+                <div id="structLegend" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom: 12px;"></div>
+
+                <h4>Selection Filter</h4>
                 <div class="legendGroup"></div>
 
                 <div class="controls">
@@ -197,6 +204,30 @@
         let HIDE_UNSEL = true;
         const ui = {};
 
+        const ION_COLORS = { "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1", "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047", "F-": "#ff8a65", "Cu+": "#5c6bc0", "Mg2+": "#26c6da", "In3+": "#c0ca33", "I-": "#ec407a", "Sn4+": "#7e57c2" };
+        const STRUCT_COLORS = { "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a","Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63" };
+        const FB_ION_PALETTE = d3.schemeTableau10;
+        
+        function hashIdx(name, arr) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0; return Math.abs(h) % arr.length; }
+        const norm = s => (s ?? '').trim();
+        function getIonColor(name) { return ION_COLORS[norm(name)] || FB_ION_PALETTE[hashIdx(norm(name), FB_ION_PALETTE)]; }
+
+        // Initialize Static Structure Legend
+        function buildStaticStructLegend() {
+            const container = document.getElementById('structLegend');
+            container.innerHTML = '';
+            Object.keys(STRUCT_COLORS).filter(k => k !== 'Others').forEach(st => {
+                const chip = document.createElement('div');
+                chip.className = 'static-chip';
+                const sw = document.createElement('div');
+                sw.className = 'static-sw';
+                sw.style.background = STRUCT_COLORS[st];
+                chip.appendChild(sw);
+                chip.appendChild(document.createTextNode(st));
+                container.appendChild(chip);
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             ui.toggleAll = document.getElementById('toggleAll');
             ui.showIon = document.getElementById('showIon');
@@ -229,6 +260,8 @@
 
             ui.hideUnsel.onchange = () => { HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
 
+            buildStaticStructLegend();
+
             try {
                 const csvRows = await d3.csv('data.csv', d3.autoType);
                 if (!csvRows || csvRows.length === 0) throw new Error("CSV data is empty.");
@@ -240,6 +273,9 @@
                     <div style="padding: 30px; color: #dc2626; text-align: center;">
                         <h2>⚠️ Error Loading Data</h2>
                         <p>${err.message}</p>
+                        <p style="background: #fee2e2; padding: 15px; border-radius: 8px; text-align: left; display: inline-block;">
+                            Ensure you are opening this file using a <strong>Local Web Server</strong> (like VS Code 'Live Server'). Double-clicking the HTML file will block it from reading data.csv.
+                        </p>
                     </div>`;
                 return;
             }
@@ -307,16 +343,6 @@
 
         function cloneData(node) { return { name: node.data.name, values: node.data.values, _uid: node.data._uid, children: node.children?.map(c => cloneData(c)) }; }
 
-        /* ---------- COLOR LOGIC UPGRADES ---------- */
-        const ION_COLORS = { "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1", "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047", "F-": "#ff8a65", "Cu+": "#5c6bc0", "Mg2+": "#26c6da", "In3+": "#c0ca33", "I-": "#ec407a", "Sn4+": "#7e57c2" };
-        const STRUCT_COLORS = { "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a","Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63" };
-        const FB_ION_PALETTE = d3.schemeTableau10;
-        
-        function hashIdx(name, arr) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0; return Math.abs(h) % arr.length; }
-        const norm = s => (s ?? '').trim();
-        
-        function getIonColor(name) { return ION_COLORS[norm(name)] || FB_ION_PALETTE[hashIdx(norm(name), FB_ION_PALETTE)]; }
-
         function absoluteNames(node) {
             const orig = idMap.get(node.data._uid);
             let ion = null, struct = null, strat = null;
@@ -328,27 +354,6 @@
             return { ion, struct, strat };
         }
         
-        // UPGRADE: Fill is based on Structure
-        function getSliceFill(d) {
-            if (d.depth <= 1) return '#ffffff'; // Root and Ion rings are white inside
-            const names = absoluteNames(d);
-            return STRUCT_COLORS[names.struct] || STRUCT_COLORS["Others"];
-        }
-
-        // UPGRADE: Stroke is based on Ion
-        function getSliceStroke(d) {
-            if (d.depth === 0) return '#ffffff';
-            const names = absoluteNames(d);
-            return getIonColor(names.ion || '(Other)');
-        }
-
-        // UPGRADE: Dynamic Stroke Width to match Radial Tree look
-        function getSliceStrokeWidth(d, side) {
-            if (d.depth === 0) return 0;
-            if (d.depth === 1) return 2.5; // Thicker border for inner Ion ring
-            return Math.max(0.8, side * 0.0016);
-        }
-
         function levelOf(d) { const od = idMap.get(d.data._uid)?.depth ?? 0; return od === 1 ? 'ion' : od === 2 ? 'struct' : od === 3 ? 'strat' : 'formula'; }
 
         function draw() {
@@ -382,15 +387,23 @@
             const nodes = root.descendants().filter(d => d.depth > 0);
             _nodesCache = nodes;
 
-            // UPGRADE: Applied new Stroke & Fill functions here
-            const paths = _g.selectAll('path.slice').data(nodes, d => d.data._uid).join('path').attr('class', 'slice').attr('d', arc).attr('fill', d => {
-                const base = getSliceFill(d);
-                if (!d.children && !d.data.hasCond) { const c = d3.color(base); c.opacity = 0.7; return c.formatRgb(); }
-                return base;
-            })
-            .attr('stroke', d => getSliceStroke(d))
-            .attr('stroke-opacity', 0.9)
-            .attr('stroke-width', d => (d.x1 - d.x0) < 0.002 ? 0 : getSliceStrokeWidth(d, side));
+            // UPGRADED PIE SLICE COLORS
+            const paths = _g.selectAll('path.slice').data(nodes, d => d.data._uid).join('path')
+                .attr('class', 'slice')
+                .attr('d', arc)
+                .attr('fill', d => {
+                    if (d.depth === 1) return '#ffffff'; // Unfilled for ions
+                    const names = absoluteNames(d);
+                    const base = STRUCT_COLORS[names.struct] || STRUCT_COLORS['Others'];
+                    if (!d.children && !d.data.hasCond) { const c = d3.color(base); c.opacity = 0.7; return c.formatRgb(); }
+                    return base;
+                })
+                .attr('stroke', d => getIonColor(absoluteNames(d).ion))
+                .attr('stroke-width', d => {
+                    if ((d.x1 - d.x0) < 0.002) return 0;
+                    return d.depth === 1 ? 2.5 : Math.max(0.8, side * 0.0016);
+                })
+                .attr('stroke-opacity', 0.9);
 
             paths.each(function(d) {
                 const names = absoluteNames(d);
@@ -449,19 +462,16 @@
                 const row = document.createElement('label'); row.className = 'ionRow';
                 const sw = document.createElement('div'); sw.className = 'swatch'; 
                 
-                // UPGRADE: Legend swatches reflect the new Fill/Border visual logic
+                // UPGRADED SWATCH LOGIC
                 if (depth === 0) {
-                    // Show rings for Ions
                     sw.style.background = '#ffffff';
-                    sw.style.border = `3px solid ${getIonColor(node.data.name)}`;
+                    sw.style.border = `2px solid ${getIonColor(node.data.name)}`;
                     sw.style.borderRadius = '50%';
                 } else if (depth === 1) {
-                    // Show solid blocks for Structure
                     sw.style.background = STRUCT_COLORS[node.data.name] || STRUCT_COLORS['Others'];
                     sw.style.border = '1px solid rgba(0,0,0,0.15)';
                 } else {
-                    // Default generic swatch for doping/formula deeper levels
-                    sw.style.background = '#e2e8f0'; 
+                    sw.style.background = '#e2e8f0';
                 }
 
                 const title = document.createElement('div'); title.textContent = node.data.name;
@@ -635,7 +645,7 @@
             const ionCounts = {}; fullHierarchy.leaves().forEach(d => { const ion = absoluteNames(d).ion || 'Other'; ionCounts[ion] = (ionCounts[ion] || 0) + 1; });
             const numIons = Object.keys(ionCounts).length;
             
-            // Calculate enough height so the legend columns never get clipped at the bottom
+            // Dynamic height so legends never get cut off
             const estimatedLegendH = 60 + 84 + 28 + (numStructures * 24) + 30 + 28 + (numIons * 24) + 60;
             
             const exportMinX = origX - pad, exportMinY = origY - pad;
@@ -646,9 +656,6 @@
             d3Svg.insert("rect", ":first-child").attr("id", "export-bg").attr("x", exportMinX).attr("y", exportMinY).attr("width", exportW).attr("height", exportH).attr("fill", "#ffffff");
             
             const exportGroup = d3Svg.append("g").attr("id", "export-elements");
-            
-            // Hide the UI text rings during export
-            Object.values(window._capLayers).forEach(l => l.style('display', 'none'));
 
             const legX = origX + origW + (pad / 2) - 20; 
             let curY = exportMinY + 60;
@@ -656,11 +663,11 @@
             // DRAW CHART KEY
             exportGroup.append("text").attr("x", legX).attr("y", curY).text("Chart Key").attr("font-weight", "bold").attr("font-size", "16px").attr("fill", "#111");
             curY += 24;
-            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Inner to Outer: Ion → Struct → Doping → Form").attr("font-size", "13px").attr("fill", "#64748b");
+            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Inner to Outer: Ion → Struct → Strat → Form").attr("font-size", "13px").attr("fill", "#64748b");
             curY += 20;
-            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Slice Size ∝ # of Entries").attr("font-size", "13px").attr("fill", "#64748b");
+            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Fill Color = Structure Group").attr("font-size", "13px").attr("fill", "#64748b");
             curY += 20;
-            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Leaf Length ∝ log₁₀(σ)").attr("font-size", "13px").attr("fill", "#64748b");
+            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Border Color = Ion Type").attr("font-size", "13px").attr("fill", "#64748b");
             curY += 40;
 
             // DRAW STRUCTURE LEGEND
@@ -705,10 +712,7 @@
                 });
             }
             
-            // Clean up export artifacts
-            d3Svg.select("#export-elements").remove(); 
-            d3Svg.select("#export-bg").remove(); 
-            Object.values(window._capLayers).forEach(l => l.style('display', null));
+            d3Svg.select("#export-elements").remove(); d3Svg.select("#export-bg").remove();
             d3Svg.attr("viewBox", [origX, origY, origW, origH].join(" "));
         }
     </script>
