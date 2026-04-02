@@ -40,12 +40,12 @@
   .badge { font-size:11px; color:var(--note); }
 
   .wrap { display:grid; grid-template-columns: 1fr 320px; gap:10px; padding:10px; }
-  #chart { width:100%; height:92vh; border:1px solid var(--grid); border-radius:10px; background:#fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  #chart { width:100%; height:90vh; border:1px solid var(--grid); border-radius:10px; background:#fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 
   aside {
     display:flex; flex-direction:column; gap:14px;
     background:var(--panel); border:1px solid var(--panel-border);
-    border-radius:10px; padding:10px; font-size:12px; max-height:92vh; overflow:auto;
+    border-radius:10px; padding:10px; font-size:12px; max-height:90vh; overflow:auto;
   }
   .panel { background:#fff; border:1px solid #ddd; border-radius:10px; padding:10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
   .panel h3 { margin:0 0 8px; font-size:13px; color:#000; display:flex; justify-content:space-between; align-items:center; font-weight: bold; }
@@ -66,7 +66,7 @@
   .name { color:#111; font-size:12px; }
   .count { margin-left:auto; color:#555; font-size:11px; font-weight: bold; }
 
-  #error { display:none; margin:8px 12px; padding:8px 12px; background:#fff3f3; color:#7f1d1d; border:1px solid #f5c2c2; border-radius:8px; white-space:pre-wrap; }
+  #error { display:none; margin:8px 12px; padding:12px 16px; background:#fff3f3; color:#7f1d1d; border:1px solid #f5c2c2; border-radius:8px; white-space:pre-wrap; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -87,6 +87,11 @@
   </header>
 
   <div id="error"></div>
+  
+  <div id="csv-fallback" style="display:none; margin:10px 12px;">
+    <button id="pick-csv" class="btn btn-primary" style="margin:0;">Choose data.csv manually…</button>
+    <input id="csv-input" type="file" accept=".csv" style="display:none">
+  </div>
 
   <div class="wrap">
     <div id="chart"></div>
@@ -138,12 +143,6 @@ const ION_SHAPES = {
 const DARK_GRAY = "#334155";
 const norm = s => (s ?? "").toString().trim();
 
-/* ---------- CSV Columns (Auto-Detected Later) ---------- */
-let COLS = {
-  ion: "Ion Type", structGrouped: "Structure Group", ea: "Activation Energy Ea (eV)",
-  sigma: "Conductivity σ (S/cm)", formula: "Superionic Conductor Formula (Chemical)"
-};
-
 /* ---------- State ---------- */
 let rowsGlobal = [];
 let traceMeta = []; 
@@ -151,55 +150,69 @@ let markerSizePx = 12;
 let selectedIons = null;     
 let selectedStructs = null;  
 
-/* ---------- Helpers ---------- */
-// FIX: Robust scientific notation parser (handles "10^-4", "x 10^3", etc.)
-function toNum(v){
-  if (typeof v === "number") return v;
-  if (v == null) return NaN;
-  let s = String(v).trim();
-  if (!s || s.toLowerCase()==="na" || s.toLowerCase()==="n/a" || s==="—" || s==="–") return NaN;
-  s = s.replace(/[,\s]/g,'').replace(/[−–—-]/g,'-').replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i,'$1e$2');
-  const n = Number(s);
-  return Number.isFinite(n) ? n : NaN;
+/* ---------- Aggressive Data Extraction ---------- */
+
+// Hunts for a column name even if it has weird symbols, spaces, or BOMs
+function getFuzzy(row, keywords) {
+    const keys = Object.keys(row);
+    for (let k of keys) {
+        const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (let kw of keywords) {
+            if (cleanK.includes(kw)) return row[k];
+        }
+    }
+    return undefined;
 }
 
-function getShape(ion){ return ION_SHAPES[norm(ion)] || "hexagon"; } 
-function getStructColor(fam){ return STRUCT_COLORS[norm(fam)] || "#64748b"; } 
+// Ruthlessly extracts numbers and handles scientific formats like 10^-4 or 1.5x10^3
+function toNum(v){
+  if (typeof v === "number") return v;
+  if (v == null || v === "") return NaN;
+  let s = String(v).trim().toLowerCase();
+  if (s==="na" || s==="n/a" || s==="-" || s==="—" || s==="–") return NaN;
+  
+  s = s.replace(/[,\s]/g, '');
+  s = s.replace(/[−–—]/g, '-');
+  s = s.replace(/([0-9.]+)[x*×·]10\^?([+-]?\d+)/g, '$1e$2'); // 1.5x10^-3 -> 1.5e-3
+  s = s.replace(/^10\^?([+-]?\d+)/g, '1e$1'); // 10^-3 -> 1e-3
+  
+  const match = s.match(/[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/);
+  if (match) {
+      const n = Number(match[0]);
+      return Number.isFinite(n) ? n : NaN;
+  }
+  return NaN;
+}
 
 /* ---------- Data Trace Builder ---------- */
 function buildDataTraces(filteredRows){
   const traces=[]; traceMeta=[];
   filteredRows.forEach(r=>{
-    const ion = norm(r[COLS.ion] || "Other") || "Other";
-    const fam = norm(r[COLS.structGrouped] || "Others") || "Others";
-    const ea  = toNum(r[COLS.ea]);
-    const sig = toNum(r[COLS.sigma]);
-
     traces.push({
-      x:[ea], y:[sig], mode:"markers", showlegend:false, name: fam,
-      marker:{
-        size:[markerSizePx], color: getStructColor(fam), symbol: getShape(ion),        
-        line:{ width: 0.6, color: "#222" }, opacity: 0.85
+      x: [r._ea], 
+      y: [r._sig], 
+      mode: "markers", 
+      showlegend: false, 
+      name: r._fam,
+      marker: {
+        size: [markerSizePx], 
+        color: getStructColor(r._fam), 
+        symbol: getShape(r._ion),        
+        line: { width: 0.6, color: "#222" }, 
+        opacity: 0.85
       },
-      text:[`${r[COLS.formula]||"(formula)"}<br>Ion: ${ion}<br>Structure: ${fam}`],
-      hovertemplate:"<b>%{text}</b><br> Ea: %{x:.3f} eV<br> σ: %{y:.3e} S/cm<extra></extra>",
-      visible:true
+      text: [`${r._form}<br>Ion: ${r._ion}<br>Structure: ${r._fam}`],
+      hovertemplate: "<b>%{text}</b><br> Ea: %{x:.3f} eV<br> σ: %{y:.3e} S/cm<extra></extra>",
+      visible: true
     });
-    traceMeta.push({ ion, fam });
+    traceMeta.push({ ion: r._ion, fam: r._fam });
   });
   return traces;
 }
 
 /* ---------- PLOTLY DRAW ROUTINE (Interactive View) ---------- */
 function draw(){
-  const filtered = rowsGlobal.filter(r=>{
-    const ea = toNum(r[COLS.ea]); 
-    const s = toNum(r[COLS.sigma]);
-    // FIX: Removed arbitrary `ea <= 0.65` limit so it plots ALL valid numbers
-    return Number.isFinite(ea) && Number.isFinite(s) && s > 0;
-  });
-
-  const dataTraces = buildDataTraces(filtered);
+  const dataTraces = buildDataTraces(rowsGlobal);
 
   const layout = {
     font: { family: "Arial, Helvetica, sans-serif", size: 12, color: "#111" },
@@ -208,7 +221,6 @@ function draw(){
     title: { text: "<b>Ionic Conductivity (\u03C3) vs. Activation Energy (E<sub>a</sub>)</b>", font: { size: 22, color: '#0f172a' }, x: 0.05, y: 0.98 },
     xaxis: { 
       title: { text: "<b>Activation Energy E<sub>a</sub> (eV)</b>", font: { size: 14 } },
-      // FIX: Removed hardcoded range so Plotly auto-scales to fit data perfectly
       tickformat: ".2f", gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
       domain: [0, 1] 
     },
@@ -229,8 +241,8 @@ function draw(){
   Plotly.newPlot("chart", dataTraces, layout, {
     responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]
   }).then(()=>{
-    renderStructureLegend(filtered);
-    renderIonLegend(filtered);
+    renderStructureLegend(rowsGlobal);
+    renderIonLegend(rowsGlobal);
     refreshLegendStates();
 
     const gd = document.getElementById('chart');
@@ -357,10 +369,7 @@ function renderStructureLegend(filteredRows){
   const el = document.getElementById("structureLegend");
   el.innerHTML = "";
   const counts = {};
-  filteredRows.forEach(r=>{
-    const fam = norm(r[COLS.structGrouped] || "Others") || "Others";
-    counts[fam] = (counts[fam] || 0) + 1;
-  });
+  filteredRows.forEach(r=>{ counts[r._fam] = (counts[r._fam] || 0) + 1; });
   const famsPresent = Object.keys(counts).sort();
 
   famsPresent.forEach(fam=>{
@@ -387,16 +396,12 @@ function renderIonLegend(filteredRows){
   const el = document.getElementById("ionLegend");
   el.innerHTML = "";
   const counts = {};
-  filteredRows.forEach(r=>{
-    const ion = norm(r[COLS.ion] || "Other") || "Other";
-    counts[ion] = (counts[ion] || 0) + 1;
-  });
+  filteredRows.forEach(r=>{ counts[r._ion] = (counts[r._ion] || 0) + 1; });
   const ions = Object.keys(counts).sort((a,b)=>a.localeCompare(b));
 
   ions.forEach(ion=>{
     const row = document.createElement("div"); row.className = "row"; row.dataset.ion = ion;
     const shapeBox = document.createElement("div"); shapeBox.className = "shapeBox";
-    
     shapeBox.innerHTML = makeShapeSVG(getShape(ion), DARK_GRAY);
     
     const name = document.createElement("div"); name.className = "name"; name.textContent = ion;
@@ -442,35 +447,73 @@ document.getElementById("sizeScale").addEventListener("input", ()=>{
   draw();
 });
 
+function processCSVData(data) {
+  rowsGlobal = [];
+  let validCount = 0;
+  
+  data.forEach(r => {
+      // Fuzzy match the headers
+      const rawEa = getFuzzy(r, ["activation", "ea", "energy"]);
+      const rawSig = getFuzzy(r, ["conductivity", "sigma", "scm", "s/cm"]);
+      
+      const ea = toNum(rawEa);
+      const s = toNum(rawSig);
+      
+      if(Number.isFinite(ea) && Number.isFinite(s) && s > 0) {
+          r._ea = ea;
+          r._sig = s;
+          r._ion = norm(getFuzzy(r, ["ion"])) || "Other";
+          r._fam = norm(getFuzzy(r, ["structure", "group", "family"])) || "Others";
+          r._form = norm(getFuzzy(r, ["formula", "chemical"])) || "(formula)";
+          rowsGlobal.push(r);
+          validCount++;
+      }
+  });
+
+  if (validCount === 0) {
+      err("⚠️ Error: 0 valid points found. Ensure your CSV has numeric 'Activation Energy' and 'Conductivity' columns.");
+      document.getElementById("csv-fallback").style.display = "block";
+  } else {
+      errorEl.style.display = "none";
+      say(`Loaded ${validCount} valid entries`);
+      draw();
+  }
+}
+
 function loadCsv(){
   fetch("data.csv", { cache:"no-store" })
-    .then(resp => { if(!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); })
+    .then(resp => { 
+        if(!resp.ok) throw new Error(`HTTP ${resp.status}`); 
+        return resp.text(); 
+    })
     .then(text=>{
       Papa.parse(text, {
         header:true, dynamicTyping:false, skipEmptyLines:true,
         complete:(res)=>{
-          rowsGlobal = res.data;
-          
-          // FIX: Auto-detect columns in case headers change slightly
-          if(rowsGlobal.length > 0) {
-              const keys = Object.keys(rowsGlobal[0]);
-              const findKey = (str) => keys.find(k => k.toLowerCase().includes(str));
-              
-              if(findKey("activation") || findKey("ea")) COLS.ea = findKey("activation") || findKey("ea");
-              if(findKey("conductivity") || findKey("sigma")) COLS.sigma = findKey("conductivity") || findKey("sigma");
-              if(findKey("structure")) COLS.structGrouped = findKey("structure");
-              if(findKey("ion")) COLS.ion = findKey("ion");
-              if(findKey("formula")) COLS.formula = findKey("formula");
-          }
-
-          say(`Loaded ${rowsGlobal.length} entries`);
-          draw();
+          processCSVData(res.data);
         },
         error:(e)=>{ err("Parse error: " + e.message); }
       });
     })
-    .catch(e=>{ err(`Could not load CSV. Ensure data.csv is in the root folder and running via local server.`); });
+    .catch(e=>{ 
+        err(`Could not automatically load data.csv. Please select your file manually.`); 
+        document.getElementById("csv-fallback").style.display = "block";
+    });
 }
+
+// Manual File Picker Fallback
+document.getElementById('pick-csv').addEventListener('click', () => {
+    document.getElementById('csv-input').click();
+});
+document.getElementById('csv-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    Papa.parse(file, {
+        header: true, dynamicTyping: false, skipEmptyLines: true,
+        complete: (res) => processCSVData(res.data),
+        error: (errObj) => err("File parse error: " + errObj.message)
+    });
+});
 
 function makeShapeSVG(shape, fill){
   const size = 16, half = size/2, stroke = "#111"; 
