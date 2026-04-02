@@ -138,8 +138,8 @@ const ION_SHAPES = {
 const DARK_GRAY = "#334155";
 const norm = s => (s ?? "").toString().trim();
 
-/* ---------- CSV Columns ---------- */
-const COLS = {
+/* ---------- CSV Columns (Auto-Detected Later) ---------- */
+let COLS = {
   ion: "Ion Type", structGrouped: "Structure Group", ea: "Activation Energy Ea (eV)",
   sigma: "Conductivity σ (S/cm)", formula: "Superionic Conductor Formula (Chemical)"
 };
@@ -152,14 +152,17 @@ let selectedIons = null;
 let selectedStructs = null;  
 
 /* ---------- Helpers ---------- */
+// FIX: Robust scientific notation parser (handles "10^-4", "x 10^3", etc.)
 function toNum(v){
   if (typeof v === "number") return v;
   if (v == null) return NaN;
-  const s = String(v).trim();
+  let s = String(v).trim();
   if (!s || s.toLowerCase()==="na" || s.toLowerCase()==="n/a" || s==="—" || s==="–") return NaN;
-  const n = Number(s.replace(/,/g,""));
+  s = s.replace(/[,\s]/g,'').replace(/[−–—-]/g,'-').replace(/([0-9.]+)\s*(?:×|x|\*)\s*10\^?([+\-]?\d+)/i,'$1e$2');
+  const n = Number(s);
   return Number.isFinite(n) ? n : NaN;
 }
+
 function getShape(ion){ return ION_SHAPES[norm(ion)] || "hexagon"; } 
 function getStructColor(fam){ return STRUCT_COLORS[norm(fam)] || "#64748b"; } 
 
@@ -190,8 +193,10 @@ function buildDataTraces(filteredRows){
 /* ---------- PLOTLY DRAW ROUTINE (Interactive View) ---------- */
 function draw(){
   const filtered = rowsGlobal.filter(r=>{
-    const ea = toNum(r[COLS.ea]); const s = toNum(r[COLS.sigma]);
-    return Number.isFinite(ea) && ea <= 0.65 && Number.isFinite(s) && s > 0;
+    const ea = toNum(r[COLS.ea]); 
+    const s = toNum(r[COLS.sigma]);
+    // FIX: Removed arbitrary `ea <= 0.65` limit so it plots ALL valid numbers
+    return Number.isFinite(ea) && Number.isFinite(s) && s > 0;
   });
 
   const dataTraces = buildDataTraces(filtered);
@@ -203,15 +208,14 @@ function draw(){
     title: { text: "<b>Ionic Conductivity (\u03C3) vs. Activation Energy (E<sub>a</sub>)</b>", font: { size: 22, color: '#0f172a' }, x: 0.05, y: 0.98 },
     xaxis: { 
       title: { text: "<b>Activation Energy E<sub>a</sub> (eV)</b>", font: { size: 14 } },
-      range: [0.05, 0.65], tickformat: ".1f", tickmode: "linear", tick0: 0.1, dtick: 0.1, 
-      gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
+      // FIX: Removed hardcoded range so Plotly auto-scales to fit data perfectly
+      tickformat: ".2f", gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
       domain: [0, 1] 
     },
     yaxis: { 
       title: { text: "<b>Ionic Conductivity \u03C3 (S\u00B7cm<sup>-1</sup>)</b>", font: { size: 14 } },
       type: "log", gridcolor: "#e2e8f0", griddash: "dot", zeroline: false,
       tickvals: [1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8],
-      
       ticktext: [
           "10<sup>0</sup>", "10<sup>-1</sup>", "10<sup>-2</sup>", 
           "10<sup>-3</sup>", "10<sup>-4</sup>", "10<sup>-5</sup>", 
@@ -219,8 +223,7 @@ function draw(){
       ]
     },
     margin: {t: 50, r: 30, b: 60, l: 70},
-    showlegend: false,
-    shapes: [{ type: 'line', x0: 0.05, y0: 5, x1: 0.65, y1: 1e-8, xref: 'x', yref: 'y', line: { color: '#94a3b8', width: 1.5, dash: 'dash' } }]
+    showlegend: false
   };
 
   Plotly.newPlot("chart", dataTraces, layout, {
@@ -287,7 +290,7 @@ async function exportChart(format, scaleMulti) {
   await Plotly.addTraces(gd, dummyTraces);
 
   await Plotly.relayout(gd, {
-      // FIX: Shrink the graph so it only takes up 68% of the width
+      // Shrink the graph so it only takes up 68% of the width
       'xaxis.domain': [0, 0.68], 
       
       'title.font.size': 26,
@@ -300,7 +303,7 @@ async function exportChart(format, scaleMulti) {
       'legend.title.text': '<b>Structure Group</b>',
       'legend.font.family': 'Arial, sans-serif',
       'legend.font.size': 16,
-      // FIX: Place Structure legend safely in the blank space
+      // Place Structure legend safely in the blank space
       'legend.y': 1, 'legend.yanchor': 'top', 
       'legend.x': 0.70, 'legend.xanchor': 'left', 
       'legend.bgcolor': '#ffffff',
@@ -310,7 +313,7 @@ async function exportChart(format, scaleMulti) {
       legend2: {
           title: {text: '<b>Ion Type</b>'},
           font: {family: 'Arial, sans-serif', size: 16},
-          // FIX: Place Ion legend side-by-side with Structure legend to guarantee ZERO vertical overlap
+          // Place Ion legend side-by-side with Structure legend to guarantee ZERO vertical overlap
           y: 1, yanchor: 'top', 
           x: 0.86, xanchor: 'left', 
           bgcolor: '#ffffff',
@@ -447,6 +450,19 @@ function loadCsv(){
         header:true, dynamicTyping:false, skipEmptyLines:true,
         complete:(res)=>{
           rowsGlobal = res.data;
+          
+          // FIX: Auto-detect columns in case headers change slightly
+          if(rowsGlobal.length > 0) {
+              const keys = Object.keys(rowsGlobal[0]);
+              const findKey = (str) => keys.find(k => k.toLowerCase().includes(str));
+              
+              if(findKey("activation") || findKey("ea")) COLS.ea = findKey("activation") || findKey("ea");
+              if(findKey("conductivity") || findKey("sigma")) COLS.sigma = findKey("conductivity") || findKey("sigma");
+              if(findKey("structure")) COLS.structGrouped = findKey("structure");
+              if(findKey("ion")) COLS.ion = findKey("ion");
+              if(findKey("formula")) COLS.formula = findKey("formula");
+          }
+
           say(`Loaded ${rowsGlobal.length} entries`);
           draw();
         },
