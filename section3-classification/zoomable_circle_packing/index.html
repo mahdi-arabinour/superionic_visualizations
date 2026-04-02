@@ -64,7 +64,7 @@
 
         text.leaf-label {
             fill: #0f172a; pointer-events: none; text-anchor: middle;
-            dominant-baseline: middle; font-weight: 600; opacity: 0.95;
+            dominant-baseline: middle; font-weight: 700; opacity: 0.95;
             paint-order: stroke; stroke: #ffffff; stroke-width: 3px;
             stroke-linejoin: round;
         }
@@ -240,11 +240,19 @@
 
                 leafLabels
                     .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
-                    .style("display", d => (d.r * k >= 18 ? "inline" : "none")) // increased minimum size to prevent edge bleeding
-                    .style("font-size", d => `${Math.max(9, Math.min(16, (d.r * k) / 3.5))}px`)
+                    .style("display", d => {
+                        // FORCE SHOW: If we are zoomed into this specific Structure Group, show ALL child labels.
+                        if (focus === d.parent || focus === d) return "inline";
+                        // If we are zoomed out, only show labels that fit comfortably
+                        return (d.r * k >= 12) ? "inline" : "none";
+                    })
+                    .style("font-size", d => {
+                        // Dynamically scale font size so it shrinks to fit tiny circles
+                        return `${Math.max(8, Math.min(16, (d.r * k) / 3.2))}px`;
+                    })
                     .text(d => {
-                        // If circle is small, drop the count and just show the Ion Name so it fits cleanly
-                        if ((d.r * k) < 30) return d.data.name;
+                        // If it's a tiny circle AND we aren't explicitly focused on it, drop the count to save space
+                        if ((d.r * k) < 18 && focus !== d.parent && focus !== d) return d.data.name;
                         return `${d.data.name} (${d.value})`;
                     });
             }
@@ -252,7 +260,7 @@
             function zoom(event, d) {
                 focus = d;
                 const t = svg.transition().duration(750).tween("zoom", () => {
-                    const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2.1]);
+                    const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2.1]); 
                     return t => zoomTo(i(t));
                 });
                 updateTrail(d);
@@ -316,7 +324,6 @@
             const currentViewBox = svgEl.getAttribute("viewBox").split(" ").map(Number);
             const [origX, origY, origW, origH] = currentViewBox;
 
-            // Add enough padding on the right for TWO legend columns
             const pad = 60; 
             const legendWidth = 260; 
             const exportMinX = origX - pad;
@@ -326,7 +333,6 @@
 
             d3Svg.attr("viewBox", `${exportMinX} ${exportMinY} ${exportW} ${exportH}`);
 
-            // 1. Inject White Background
             d3Svg.insert("rect", ":first-child")
                 .attr("id", "export-bg")
                 .attr("x", exportMinX).attr("y", exportMinY)
@@ -335,7 +341,6 @@
 
             const exportGroup = d3Svg.append("g").attr("id", "export-elements");
 
-            // 2. Add Export Title
             exportGroup.append("text")
                 .attr("x", exportMinX + 20) 
                 .attr("y", exportMinY + 40) 
@@ -348,7 +353,6 @@
             const legX = origX + origW + pad - 20; 
             let curY = exportMinY + 40; 
 
-            // 3. Add Structure Group Legend
             exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group (Outer)")
                 .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif");
             curY += 24;
@@ -362,9 +366,8 @@
                 curY += 22;
             });
 
-            curY += 30; // Spacing between legends
+            curY += 30; 
 
-            // 4. Add Ion Type Legend
             exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type (Inner)")
                 .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif");
             curY += 24;
@@ -411,7 +414,6 @@
                 });
             }
 
-            // Cleanup: remove the background and appended legends, restore original viewport
             d3Svg.select("#export-elements").remove();
             d3Svg.select("#export-bg").remove();
             d3Svg.attr("viewBox", currentViewBox.join(" "));
