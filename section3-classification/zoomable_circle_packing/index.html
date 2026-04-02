@@ -1,277 +1,369 @@
-
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Circle Packing — Ion Type + Count</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: #ffffff; /* pure white background */
-      display: flex;       /* center the chart */
-      justify-content: center;
-      align-items: center;
-      color: #222;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", Arial;
-    }
+    <meta charset="utf-8"/>
+    <title>Circle Packing — Ion Type + Count</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <style>
+        :root {
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius-lg: 12px;
+            --radius-md: 8px;
+            --transition-speed: 0.2s;
+        }
 
-    #chart {
-      height: 90vh;
-      width: 90vw;
-    }
+        html, body { 
+            height: 100%; margin: 0; 
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-body); color: var(--text-main);
+            display: flex; flex-direction: column;
+        }
 
-    text.struct-label {
-      fill: #111;
-      pointer-events: none;
-      text-anchor: middle;
-      dominant-baseline: middle;
-      font-weight: 700;
-    }
+        header {
+            padding: 12px 20px; background: var(--bg-card);
+            display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+            border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow-sm); z-index: 10;
+        }
+        
+        header strong { font-size: 1.1rem; letter-spacing: -0.02em; padding-right: 10px; }
+        .crumbs { font-size: 14px; color: var(--text-muted); display: flex; align-items: center; }
+        .crumbs a { color: #0ea5e9; text-decoration: none; cursor: pointer; font-weight: 500; }
+        .crumbs a:hover { text-decoration: underline; color: #0284c7; }
+        .crumbs .sep { opacity: 0.5; margin: 0 8px; font-size: 12px; }
 
-    text.leaf-label {
-      fill: #111;
-      pointer-events: none;
-      text-anchor: middle;
-      dominant-baseline: middle;
-      font-weight: 500;
-      opacity: .9;
-    }
+        #wrap { flex: 1; display: flex; padding: 16px; gap: 16px; min-height: 0; }
+        #chartCard {
+            flex: 1; display: grid; grid-template-columns: minmax(640px, 1.7fr) 300px;
+            gap: 16px; align-items: start; min-height: 0;
+        }
 
-    .breadcrumb {
-      position: fixed;
-      top: 10px;
-      left: 12px;
-      background: rgba(0,0,0,0.05);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(0,0,0,0.1);
-      padding: 8px 10px;
-      border-radius: 10px;
-      font-size: 13px;
-      z-index: 10;
-      user-select: none;
-    }
+        .card-panel {
+            background: var(--bg-card); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md); border: 1px solid var(--border-color);
+        }
 
-    .breadcrumb a { color:#3366cc; text-decoration:none; cursor:pointer; }
-    .breadcrumb .sep { opacity:.6; margin:0 6px; }
+        .chartBody {
+            position: relative; height: min(88vh, 900px); min-height: 560px; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+        }
 
-    /* Legends styling */
-    #legends {
-      position: absolute;
-      bottom: 100px;     /* closer to the main circle */
-      right: 100px;
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-      z-index: 20;
-      font-size: 13px;
-      background: rgba(255,255,255,0.95);
-      border: 1px solid rgba(0,0,0,0.15);
-      padding: 8px 12px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      transition: all 0.3s ease;
-    }
+        svg { width: 100%; height: 100%; display: block; outline: none; }
 
-    .legend-box h4 {
-      margin: 0 0 6px 0;
-      font-size: 13px;
-      font-weight: 700;
-    }
+        text.struct-label {
+            fill: #0f172a; pointer-events: none; text-anchor: middle;
+            dominant-baseline: middle; font-weight: 700;
+            paint-order: stroke; stroke: #ffffff; stroke-width: 3px;
+        }
 
-    .legend-item {
-      display: flex;
-      align-items: center;
-      margin-bottom: 4px;
-    }
+        text.leaf-label {
+            fill: #0f172a; pointer-events: none; text-anchor: middle;
+            dominant-baseline: middle; font-weight: 600; opacity: 0.95;
+            paint-order: stroke; stroke: #ffffff; stroke-width: 2.5px;
+        }
 
-    .legend-color {
-      width: 12px;
-      height: 12px;
-      border-radius: 3px;
-      margin-right: 6px;
-      border: 1px solid #ccc;
-    }
-  </style>
+        .legend {
+            padding: 20px; overflow: auto; max-height: calc(100vh - 100px);
+            display: flex; flex-direction: column; gap: 24px;
+        }
+        
+        .legend-box h4 { 
+            margin: 0 0 12px 0; font-size: 12px; color: var(--text-muted); 
+            letter-spacing: 0.5px; text-transform: uppercase; font-weight: 700;
+            border-bottom: 1px solid var(--border-color); padding-bottom: 6px;
+        }
+
+        .legend-item {
+            display: flex; align-items: center; margin-bottom: 8px;
+            font-size: 13px; font-weight: 500; color: var(--text-main);
+        }
+
+        .legend-color {
+            width: 14px; height: 14px; border-radius: 4px; 
+            margin-right: 10px; border: 1px solid rgba(0,0,0,0.15);
+        }
+
+        .btn {
+            background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-main);
+            padding: 8px 12px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; cursor: pointer;
+        }
+        
+        .btn-primary { background: #007aff; color: #fff; border: none; margin-left: auto;}
+        .btn-primary:hover { background: #0062cc; color: #fff; transform: translateY(-1px); }
+        .btn-success { background: #10b981; color: #fff; border: none; }
+        .btn-success:hover { background: #059669; color: #fff; transform: translateY(-1px); }
+        .btn-success-dark { background: #047857; color: #fff; border: none; }
+        .btn-success-dark:hover { background: #065f46; color: #fff; transform: translateY(-1px); }
+        .btn-success-ultra { background: #064e3b; color: #fff; border: none; }
+        .btn-success-ultra:hover { background: #022c22; color: #fff; transform: translateY(-1px); }
+    </style>
 </head>
 <body>
-  <div class="breadcrumb" id="trail"></div>
-  <div id="chart"></div>
+    <header>
+        <strong>Circle Packing Visualizer</strong>
+        <span id="trail" class="crumbs"></span>
+        
+        <button onclick="exportChart('svg')" class="btn btn-primary" title="Preferred for journals (Infinite Resolution Vector)">⬇ Journal SVG</button>
+        <button onclick="exportChart('png', 4)" class="btn btn-success" title="Standard Print Quality (~380 DPI)">⬇ ~400 DPI PNG</button>
+        <button onclick="exportChart('png', 8)" class="btn btn-success-dark" title="Professional journal quality (~760 DPI)">⬇ ~800 DPI PNG</button>
+        <button onclick="exportChart('png', 12.5)" class="btn btn-success-ultra" title="Ultra resolution (~1200 DPI)">⬇ 1200 DPI PNG</button>
+    </header>
 
-  <!-- Legends -->
-  <div id="legends">
-    <div id="struct-legend" class="legend-box"></div>
-    <div id="ion-legend" class="legend-box"></div>
-  </div>
+    <div id="wrap">
+        <div id="chartCard">
+            <div id="chart" class="chartBody card-panel"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-  <script>
-  d3.csv("data.csv").then(raw => {
-    raw = raw.filter(d => d["Structure Group"] && d["Ion Type"])
-             .map(d => ({
-               group: String(d["Structure Group"]).trim(),
-               ion:   String(d["Ion Type"]).trim()
-             }));
+            <div class="legend card-panel">
+                <div id="struct-legend" class="legend-box"></div>
+                <div id="ion-legend" class="legend-box"></div>
+            </div>
+        </div>
+    </div>
 
-    // Build hierarchy
-    const grouped = d3.group(raw, d => d.group);
-    const rootData = {
-      name: "All",
-      children: Array.from(grouped, ([group, rows]) => ({
-        name: group,
-        children: Array.from(
-          d3.rollup(rows, v => v.length, d => d.ion),
-          ([ion, count]) => ({ name: ion, value: count })
-        )
-      }))
-    };
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script>
+        const ION_COLORS = {
+            "Li+": "#ff5252", "Na+": "#81d4fa", "K+": "#004d40", "Ag+": "#f48fb1",
+            "O2-": "#6d4c41", "Zn2+": "#c2185b", "H+": "#ffd54f", "Rb+": "#43a047",
+            "F-": "#ff8a65", "Cu+": "#5c6bc0", "Mg2+": "#26c6da", "In3+": "#c0ca33",
+            "I-": "#ec407a", "Sn4+": "#7e57c2"
+        };
+        const STRUCT_COLORS = {
+            "Others": "#9e9e9e", "Polymeric": "#ff7043", "Argyrodite": "#ab47bc", "Halide": "#26a69a",
+            "Amorphous": "#f6bf26", "NASICON": "#66bb6a", "Anti-perovskite": "#0d47a1", "Spinel": "#8d6e63"
+        };
+        const getIonColor = ion => ION_COLORS[ion] || "#cbd5e1";
+        const getStructColor = group => STRUCT_COLORS[group] || "#e2e8f0";
 
-    // Palettes
-    const ION_COLORS = {
-      "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
-      "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
-      "F-":   "#ff8a65","Cu+":  "#5c6bc0","Mg2+": "#26c6da","In3+": "#c0ca33",
-      "I-":   "#ec407a","Sn4+": "#7e57c2"
-    };
-    const STRUCT_COLORS = {
-      "Others":"#9e9e9e","Polymeric":"#ff7043","Argyrodite":"#ab47bc","Halide":"#26a69a",
-      "Amorphous":"#f6bf26","NASICON":"#66bb6a","Anti-perovskite":"#0d47a1","Spinel":"#8d6e63"
-    };
-    const getIonColor    = ion   => ION_COLORS[ion]      || "#ccc";
-    const getStructColor = group => STRUCT_COLORS[group] || "#ccc";
+        document.addEventListener('DOMContentLoaded', () => {
+            d3.csv("data.csv").then(raw => {
+                raw = raw.filter(d => d["Structure Group"] && d["Ion Type"])
+                    .map(d => ({
+                        group: String(d["Structure Group"]).trim(),
+                        ion: String(d["Ion Type"]).trim()
+                    }));
 
-    draw(rootData);
+                const grouped = d3.group(raw, d => d.group);
+                const rootData = {
+                    name: "All Structures",
+                    children: Array.from(grouped, ([group, rows]) => ({
+                        name: group,
+                        children: Array.from(
+                            d3.rollup(rows, v => v.length, d => d.ion),
+                            ([ion, count]) => ({ name: ion, value: count })
+                        )
+                    }))
+                };
 
-    function draw(data) {
-      const size = Math.min(window.innerWidth, window.innerHeight);
-      const pack = d3.pack().size([size, size]).padding(3);
-      const root = pack(d3.hierarchy(data)
-        .sum(d => d.value || 0)
-        .sort((a,b) => (b.value||0) - (a.value||0)));
-
-      let focus = root, view;
-
-      const svg = d3.select("#chart").append("svg")
-        .attr("viewBox", `${-size/2} ${-size/2} ${size} ${size}`)
-        .attr("width","100%").attr("height","100%")
-        .style("cursor","pointer");
-
-      const g = svg.append("g");
-      const nodes = root.descendants();
-
-      // Circles
-      const circles = g.selectAll("circle")
-        .data(nodes)
-        .join("circle")
-          // Make main (outermost) circle white with dark border
-          .attr("fill", d => d.depth === 0 ? "#ffffff"
-            : (d.children ? getStructColor(d.data.name) : getIonColor(d.data.name)))
-          .attr("stroke", d => d.depth === 0 ? "#000000" : "rgba(0,0,0,0.2)")
-          .attr("stroke-width", d => d.depth === 0 ? 3 : (d.children ? 1 : 0.75))
-          .style("pointer-events", d => d.depth === 0 ? "none" : null)
-          .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
-
-      // Structure labels
-      const structLabels = g.selectAll("text.struct-label")
-        .data(nodes.filter(d => d.children && d.depth > 0))
-        .join("text")
-          .attr("class","struct-label")
-          .text(d => d.data.name);
-
-      // Ion (leaf) labels with type + count
-      const leafLabels = g.selectAll("text.leaf-label")
-        .data(nodes.filter(d => !d.children && d.depth > 0))
-        .join("text")
-          .attr("class","leaf-label");
-
-      svg.on("click", e => zoom(e, root));
-      zoomTo([root.x, root.y, root.r*2]);
-      updateTrail(root);
-
-      function zoomTo(v) {
-        const k = size / v[2];
-        view = v;
-
-        circles
-          .attr("transform", d => `translate(${(d.x - v[0])*k},${(d.y - v[1])*k})`)
-          .attr("r", d => d.r * k);
-
-        structLabels
-          .style("display", d => (d.parent === focus ? "inline" : "none"))
-          .attr("transform", d => `translate(${(d.x - v[0])*k},${(d.y - v[1])*k - d.r*k*0.5})`)
-          .style("font-size", d => `${Math.max(10, (d.r*k)/5)}px`)
-          .text(d => d.data.name);
-
-        leafLabels
-          .attr("transform", d => `translate(${(d.x - v[0])*k},${(d.y - v[1])*k})`)
-          .style("display", d => (d.r*k >= 8 ? "inline" : "none"))
-          .style("font-size", d => `${Math.max(7, Math.min(12, (d.r*k)/3.8))}px`)
-          .text(d => `${d.data.name} (${d.value})`);
-      }
-
-      function zoom(event, d){
-        focus = d;
-        const t = svg.transition().duration(650)
-          .tween("zoom", () => {
-            const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r*2]);
-            return t => zoomTo(i(t));
-          });
-        updateTrail(d);
-      }
-
-      function updateTrail(d){
-        const trail = document.getElementById('trail');
-        const ancestors = d.ancestors().reverse().slice(1);
-        trail.innerHTML = ancestors.length
-          ? ancestors.map((a,i)=>
-              i===ancestors.length-1
-                ? `<strong>${a.data.name}</strong>`
-                : `<a data-depth="${i}">${a.data.name}</a>`
-            ).join('<span class="sep">›</span>')
-          : "";
-        [...trail.querySelectorAll('a')].forEach(a=>{
-          a.addEventListener('click', ()=>{
-            const depth = +a.getAttribute('data-depth');
-            const target = ancestors[depth];
-            if(target) zoom(null, target);
-          });
+                draw(rootData);
+                renderLegends();
+            }).catch(err => {
+                document.getElementById('chart').innerHTML = `
+                    <div style="padding: 30px; color: #dc2626; text-align: center;">
+                        <h2>⚠️ Error Loading Data</h2>
+                        <p>Could not load data.csv. Please ensure you are running this via a Local Web Server.</p>
+                    </div>`;
+            });
         });
-      }
 
-      window.addEventListener('resize', ()=>{
-        const s = Math.min(window.innerWidth, window.innerHeight);
-        svg.attr("viewBox", `${-s/2} ${-s/2} ${s} ${s}`);
-        zoomTo([focus.x, focus.y, focus.r*2]);
-      });
-    }
+        function renderLegends() {
+            const structLegend = d3.select("#struct-legend");
+            structLegend.html("<h4>Structure Group</h4>");
+            Object.entries(STRUCT_COLORS).forEach(([name, color]) => {
+                structLegend.append("div").attr("class", "legend-item")
+                    .html(`<div class="legend-color" style="background:${color}"></div>${name}`);
+            });
 
-    // === Legends ===
-    function renderLegends() {
-      // Structure Group Legend
-      const structLegend = d3.select("#struct-legend");
-      structLegend.html("<h4>Structure Group</h4>");
-      Object.entries(STRUCT_COLORS).forEach(([name, color]) => {
-        structLegend.append("div")
-          .attr("class", "legend-item")
-          .html(`<div class="legend-color" style="background:${color}"></div>${name}`);
-      });
+            const ionLegend = d3.select("#ion-legend");
+            ionLegend.html("<h4>Ion Type</h4>");
+            Object.entries(ION_COLORS).forEach(([name, color]) => {
+                ionLegend.append("div").attr("class", "legend-item")
+                    .html(`<div class="legend-color" style="background:${color}"></div>${name}`);
+            });
+        }
 
-      // Ion Type Legend
-      const ionLegend = d3.select("#ion-legend");
-      ionLegend.html("<h4>Ion Type</h4>");
-      Object.entries(ION_COLORS).forEach(([name, color]) => {
-        ionLegend.append("div")
-          .attr("class", "legend-item")
-          .html(`<div class="legend-color" style="background:${color}"></div>${name}`);
-      });
-    }
+        function draw(data) {
+            const container = document.getElementById('chart');
+            const rect = container.getBoundingClientRect();
+            const size = Math.min(rect.width, rect.height) * 0.95;
 
-    renderLegends();
-  }).catch(()=>{
-    document.getElementById('trail').textContent =
-      "⚠️ Failed to load data.csv — open via a local web server (python3 -m http.server)";
-  });
-  </script>
+            const pack = d3.pack().size([size, size]).padding(5);
+            const root = pack(d3.hierarchy(data).sum(d => d.value || 0).sort((a, b) => (b.value || 0) - (a.value || 0)));
+
+            let focus = root, view;
+
+            const svg = d3.select("#chart").append("svg")
+                .attr("viewBox", `${-size / 2} ${-size / 2} ${size} ${size}`)
+                .style("cursor", "pointer")
+                .on("click", (event) => zoom(event, root));
+
+            const g = svg.append("g");
+            const nodes = root.descendants();
+
+            const circles = g.selectAll("circle")
+                .data(nodes).join("circle")
+                .attr("fill", d => d.depth === 0 ? "#f8fafc" : (d.children ? getStructColor(d.data.name) : getIonColor(d.data.name)))
+                .attr("stroke", d => d.depth === 0 ? "#cbd5e1" : "rgba(0,0,0,0.15)")
+                .attr("stroke-width", d => d.depth === 0 ? 2 : (d.children ? 1.5 : 1))
+                .style("pointer-events", d => d.depth === 0 ? "none" : null)
+                .on("click", (event, d) => focus !== d ? (zoom(event, d), event.stopPropagation()) : null);
+
+            const structLabels = g.selectAll("text.struct-label")
+                .data(nodes.filter(d => d.children && d.depth > 0)).join("text")
+                .attr("class", "struct-label").text(d => d.data.name);
+
+            const leafLabels = g.selectAll("text.leaf-label")
+                .data(nodes.filter(d => !d.children && d.depth > 0)).join("text")
+                .attr("class", "leaf-label");
+
+            zoomTo([root.x, root.y, root.r * 2]);
+            updateTrail(root);
+
+            function zoomTo(v) {
+                const k = size / v[2];
+                view = v;
+
+                circles.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`).attr("r", d => d.r * k);
+
+                structLabels
+                    .style("display", d => (d.parent === focus ? "inline" : "none"))
+                    .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k - d.r * k * 0.65})`)
+                    .style("font-size", d => `${Math.max(12, (d.r * k) / 6)}px`)
+                    .text(d => d.data.name);
+
+                leafLabels
+                    .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
+                    .style("display", d => (d.r * k >= 14 ? "inline" : "none"))
+                    .style("font-size", d => `${Math.max(9, Math.min(16, (d.r * k) / 3.5))}px`)
+                    .text(d => `${d.data.name} (${d.value})`);
+            }
+
+            function zoom(event, d) {
+                focus = d;
+                const t = svg.transition().duration(750).tween("zoom", () => {
+                    const i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2.1]); // 2.1 gives slight padding
+                    return t => zoomTo(i(t));
+                });
+                updateTrail(d);
+            }
+
+            function updateTrail(d) {
+                const trail = document.getElementById('trail');
+                const ancestors = d.ancestors().reverse();
+                trail.innerHTML = ancestors.length ? ancestors.map((a, i) =>
+                    i === ancestors.length - 1
+                        ? `<strong>${a.data.name}</strong>`
+                        : `<a data-depth="${i}">${a.data.name}</a>`
+                ).join('<span class="sep">›</span>') : "";
+
+                [...trail.querySelectorAll('a')].forEach(a => {
+                    a.addEventListener('click', () => {
+                        const target = ancestors[+a.getAttribute('data-depth')];
+                        if (target) zoom(null, target);
+                    });
+                });
+            }
+
+            window.addEventListener('resize', () => {
+                const s = Math.min(container.getBoundingClientRect().width, container.getBoundingClientRect().height) * 0.95;
+                svg.attr("viewBox", `${-s / 2} ${-s / 2} ${s} ${s}`);
+                zoomTo([focus.x, focus.y, focus.r * 2.1]);
+            });
+        }
+
+        // ============================================================================
+        // NATIVE D3 EXPORT PIPELINE
+        // ============================================================================
+        function getSVGString(svgNode) {
+            svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
+            let cssStyleText = "";
+            for (let i = 0; i < document.styleSheets.length; i++) {
+                try {
+                    for (let j = 0; j < document.styleSheets[i].cssRules.length; j++) {
+                        cssStyleText += document.styleSheets[i].cssRules[j].cssText;
+                    }
+                } catch (e) {}
+            }
+            const styleElement = document.createElement("style");
+            styleElement.setAttribute("type", "text/css");
+            styleElement.innerHTML = cssStyleText;
+            const refNode = svgNode.hasChildNodes() ? svgNode.children[0] : null;
+            svgNode.insertBefore(styleElement, refNode);
+            
+            const serializer = new XMLSerializer();
+            let svgString = serializer.serializeToString(svgNode);
+            svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink=').replace(/NS\d+:href/g, 'xlink:href');
+            
+            svgNode.removeChild(styleElement);
+            return svgString;
+        }
+
+        async function exportChart(format, scale = 4) {
+            const svgEl = document.querySelector("#chart svg");
+            const d3Svg = d3.select(svgEl);
+
+            // Capture the current viewBox to restore it later
+            const currentViewBox = svgEl.getAttribute("viewBox").split(" ").map(Number);
+            const [origX, origY, origW, origH] = currentViewBox;
+
+            // Add padding for the export frame
+            const pad = 40; 
+            const exportMinX = origX - pad;
+            const exportMinY = origY - pad;
+            const exportW = origW + (pad * 2);
+            const exportH = origH + (pad * 2);
+
+            d3Svg.attr("viewBox", `${exportMinX} ${exportMinY} ${exportW} ${exportH}`);
+
+            // explicitly inject a white background so PNGs don't become transparent
+            d3Svg.insert("rect", ":first-child")
+                .attr("id", "export-bg")
+                .attr("x", exportMinX).attr("y", exportMinY)
+                .attr("width", exportW).attr("height", exportH)
+                .attr("fill", "#ffffff");
+
+            const svgString = getSVGString(svgEl);
+
+            if (format === 'svg') {
+                const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url; link.download = "CirclePacking_Publication.svg";
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            } else {
+                const canvas = document.createElement("canvas");
+                const ctx = canvas.getContext("2d"); 
+                
+                canvas.width = exportW * scale; 
+                canvas.height = exportH * scale;
+                
+                const img = new Image();
+                const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+                const url = URL.createObjectURL(svgBlob);
+
+                await new Promise(resolve => { 
+                    img.onload = () => { 
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height); 
+                        URL.revokeObjectURL(url); 
+                        const link = document.createElement("a"); 
+                        link.download = `CirclePacking_${Math.round(scale * 96)}DPI.png`; 
+                        link.href = canvas.toDataURL("image/png"); 
+                        document.body.appendChild(link); link.click(); document.body.removeChild(link); 
+                        resolve(); 
+                    }; 
+                    img.src = url; 
+                });
+            }
+
+            // Cleanup: remove the background and restore the original viewport so the UI doesn't jump
+            d3Svg.select("#export-bg").remove();
+            d3Svg.attr("viewBox", currentViewBox.join(" "));
+        }
+    </script>
 </body>
 </html>
