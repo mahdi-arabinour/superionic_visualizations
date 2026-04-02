@@ -96,9 +96,6 @@
         .btn-success-ultra { background: #064e3b; color: #fff; border: none; }
         .btn-success-ultra:hover { background: #022c22; color: #fff; transform: translateY(-1px); }
 
-        .btn-success-max { background: #022c22; color: #fff; border: none; }
-        .btn-success-max:hover { background: #011f18; color: #fff; transform: translateY(-1px); }
-
         .tooltip {
             position: fixed; pointer-events: none; background: rgba(15, 23, 42, 0.95);
             color: #fff; padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; 
@@ -363,10 +360,13 @@
             return STRUCT_COLORS[names.struct] || STRUCT_COLORS["Others"];
         }
 
+        // FIX: The outer rings get standard white borders so they look like one uniform color wedge
         function getSliceStroke(d) {
-            if (d.depth === 0) return '#ffffff';
-            const names = absoluteNames(d);
-            return getIonColor(names.ion || '(Other)');
+            if (d.depth === 1) {
+                const names = absoluteNames(d);
+                return getIonColor(names.ion || '(Other)');
+            }
+            return '#ffffff';
         }
 
         function getSliceStrokeWidth(d, side) {
@@ -408,14 +408,17 @@
             const nodes = root.descendants().filter(d => d.depth > 0);
             _nodesCache = nodes;
 
-            const paths = _g.selectAll('path.slice').data(nodes, d => d.data._uid).join('path').attr('class', 'slice').attr('d', arc).attr('fill', d => {
-                const base = getSliceFill(d);
-                if (!d.children && !d.data.hasCond) { const c = d3.color(base); c.opacity = 0.7; return c.formatRgb(); }
-                return base;
-            })
-            .attr('stroke', d => getSliceStroke(d))
-            .attr('stroke-opacity', 0.9)
-            .attr('stroke-width', d => (d.x1 - d.x0) < 0.002 ? 0 : getSliceStrokeWidth(d, side));
+            const paths = _g.selectAll('path.slice').data(nodes, d => d.data._uid).join('path')
+                .attr('class', 'slice')
+                .attr('d', arc)
+                .attr('fill', d => {
+                    const base = getSliceFill(d);
+                    if (!d.children && !d.data.hasCond) { const c = d3.color(base); c.opacity = 0.7; return c.formatRgb(); }
+                    return base;
+                })
+                .attr('stroke', d => getSliceStroke(d))
+                .attr('stroke-opacity', 0.9)
+                .attr('stroke-width', d => (d.x1 - d.x0) < 0.002 ? 0 : getSliceStrokeWidth(d, side));
 
             paths.each(function(d) {
                 const names = absoluteNames(d);
@@ -476,7 +479,7 @@
                 
                 if (depth === 0) {
                     sw.style.background = '#ffffff';
-                    sw.style.border = `3px solid ${getIonColor(node.data.name)}`;
+                    sw.style.border = `2px solid ${getIonColor(node.data.name)}`;
                     sw.style.borderRadius = '50%';
                 } else if (depth === 1) {
                     sw.style.background = STRUCT_COLORS[node.data.name] || STRUCT_COLORS['Others'];
@@ -673,9 +676,9 @@
             curY += 24;
             exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Inner to Outer: Ion → Struct → Strat → Form").attr("font-size", "13px").attr("fill", "#64748b");
             curY += 20;
-            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Fill Color = Structure Group").attr("font-size", "13px").attr("fill", "#64748b");
+            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Inner Ring: Border = Ion Type").attr("font-size", "13px").attr("fill", "#64748b");
             curY += 20;
-            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Border Color = Ion Type").attr("font-size", "13px").attr("fill", "#64748b");
+            exportGroup.append("text").attr("x", legX).attr("y", curY).text("• Outer Rings: Fill = Structure Group").attr("font-size", "13px").attr("fill", "#64748b");
             curY += 40;
 
             exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group (Fill)").attr("font-weight", "bold").attr("font-size", "16px").attr("fill", "#111");
