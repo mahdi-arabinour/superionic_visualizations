@@ -490,8 +490,9 @@ async function exportChart(format, scale = 4) {
         ionCounts[d.ion] = (ionCounts[d.ion] || 0) + 1;
     });
 
-    const legendWidth = 240;  
-    const pad = 160; 
+    const legendWidth = 280;  
+    // FIX: Drastically increased padding to prevent long formulas from clipping off the sides.
+    const pad = 400; 
     
     const origViewBox = svgEl.getAttribute("viewBox");
     
@@ -513,7 +514,7 @@ async function exportChart(format, scale = 4) {
 
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    // EXPORT SPECIFIC KEY (Anchored to top-left bounds without the main title)
+    // EXPORT SPECIFIC KEY
     exportGroup.append("text")
         .attr("x", minX + 40) 
         .attr("y", minY + 60) 
@@ -522,7 +523,7 @@ async function exportChart(format, scale = 4) {
         .attr("font-family", "Arial, sans-serif")
         .attr("fill", "#64748b");
 
-    const legX = textRingR + pad; 
+    const legX = textRingR + (pad * 0.7); 
     let curY = minY + 60; 
 
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
