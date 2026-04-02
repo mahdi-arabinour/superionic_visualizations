@@ -359,7 +359,7 @@ d3.csv("data.csv").then(raw => {
 });
 
 // ============================================================================
-// NATIVE D3 EXPORT PIPELINE - DYNAMIC BBOX OVERLAP FIX
+// NATIVE D3 EXPORT PIPELINE - LEGEND AT BOTTOM
 // ============================================================================
 function getSVGString(svgNode) {
     svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
@@ -389,49 +389,58 @@ async function exportChart(format, scale = 4) {
     const svgEl = document.getElementById("sankey");
     const d3Svg = d3.select(svgEl);
 
+    // 1. Calculate the true width just to ensure no labels are cut off
+    const bbox = svgEl.getBBox();
     const origWidth = +svgEl.getAttribute("width") || 1100;
     const origHeight = +svgEl.getAttribute("height") || 720;
-    
-    // Calculate the TRUE physical boundary of the SVG (including overflowing Cathode text)
-    const bbox = svgEl.getBBox();
-    const truePhysicalWidth = Math.max(origWidth, bbox.x + bbox.width);
+    const truePhysicalWidth = Math.max(origWidth, bbox.x + bbox.width + 20);
 
-    // Expand the viewBox starting from the true boundary to guarantee no overlap
-    const legendWidth = 260; 
-    const exportWidth = truePhysicalWidth + legendWidth;
+    // 2. Expand the viewBox HEIGHT to make room for the legend at the bottom
+    const legendHeight = 130; 
+    const exportWidth = truePhysicalWidth;
+    const exportHeight = origHeight + legendHeight;
 
-    d3Svg.attr("viewBox", `0 0 ${exportWidth} ${origHeight}`);
-    d3Svg.attr("width", exportWidth); // temporarily widen canvas
+    d3Svg.attr("viewBox", `0 0 ${exportWidth} ${exportHeight}`);
+    d3Svg.attr("width", exportWidth);
+    d3Svg.attr("height", exportHeight); // temporarily heighten canvas
 
-    // Inject a white background
+    // 3. Inject a white background
     d3Svg.insert("rect", ":first-child")
         .attr("id", "export-bg")
         .attr("x", 0).attr("y", 0)
-        .attr("width", exportWidth).attr("height", origHeight)
+        .attr("width", exportWidth).attr("height", exportHeight)
         .attr("fill", "#ffffff");
 
-    // Dynamically draw the SVG Legend 
+    // 4. Dynamically draw the SVG Legend at the BOTTOM
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    // Safely place the legend mathematically beyond the longest overflowing label
-    const legX = truePhysicalWidth + 40; 
-    let curY = 60; 
+    const legXStart = 90; // Align with the left margin of the chart
+    let legX = legXStart;
+    let curY = origHeight + 30; // Start below the chart
 
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
-    curY += 28;
+    curY += 30;
 
+    // Draw legend items horizontally, wrapping to a new line if it gets too wide
+    const columnWidth = 200; 
     globalAllGroups.forEach(group => {
-        // Only draw the legend item if it is currently enabled/visible on the chart
         if(globalActiveGroups.has(group)) {
-            exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
-                .attr("width", 14).attr("height", 14).attr("rx", 3)
+            // Wrap to next line if we run out of width
+            if (legX > exportWidth - columnWidth) {
+                legX = legXStart; 
+                curY += 28;
+            }
+            
+            exportGroup.append("rect").attr("x", legX).attr("y", curY - 14)
+                .attr("width", 16).attr("height", 16).attr("rx", 3)
                 .attr("fill", structureColors(group)).attr("stroke", "rgba(0,0,0,0.4)");
                 
-            exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
+            exportGroup.append("text").attr("x", legX + 26).attr("y", curY)
                 .text(group)
-                .attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
-            curY += 24;
+                .attr("font-size", "15px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+            
+            legX += columnWidth;
         }
     });
 
@@ -448,7 +457,7 @@ async function exportChart(format, scale = 4) {
         const ctx = canvas.getContext("2d"); 
         
         canvas.width = exportWidth * scale; 
-        canvas.height = origHeight * scale;
+        canvas.height = exportHeight * scale;
         
         const img = new Image();
         const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
@@ -472,7 +481,8 @@ async function exportChart(format, scale = 4) {
     d3Svg.select("#export-elements").remove();
     d3Svg.select("#export-bg").remove();
     d3Svg.attr("viewBox", null);
-    d3Svg.attr("width", origWidth); // Restore width to original
+    d3Svg.attr("width", origWidth);
+    d3Svg.attr("height", origHeight); // Restore height to original
 }
 </script>
 </body>
