@@ -389,10 +389,12 @@ async function exportChart(format, scale = 4) {
     const svgEl = document.getElementById("sankey");
     const d3Svg = d3.select(svgEl);
 
-    // 1. Expand the viewBox to make room for the legend on the right
+    // 1. Expand the viewBox to make more room for the legend on the far right
     const origWidth = +svgEl.getAttribute("width") || 1100;
     const origHeight = +svgEl.getAttribute("height") || 720;
-    const legendWidth = 220;
+    
+    // FIX: Drastically increased the padding/legend width to push it clear of the cathode text
+    const legendWidth = 320; 
     const exportWidth = origWidth + legendWidth;
 
     d3Svg.attr("viewBox", `0 0 ${exportWidth} ${origHeight}`);
@@ -408,24 +410,25 @@ async function exportChart(format, scale = 4) {
     // 3. Dynamically draw the SVG Legend so it appears in the downloaded image
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    const legX = origWidth + 10; 
+    // FIX: Shifted the starting X position for the legend text further to the right
+    const legX = origWidth + 80; 
     let curY = 60; 
 
     exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group")
-        .attr("font-weight", "bold").attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
-    curY += 24;
+        .attr("font-weight", "bold").attr("font-size", "18px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+    curY += 28;
 
     globalAllGroups.forEach(group => {
         // Only draw the legend item if it is currently enabled/visible on the chart
         if(globalActiveGroups.has(group)) {
             exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
-                .attr("width", 14).attr("height", 14).attr("rx", 3)
+                .attr("width", 16).attr("height", 16).attr("rx", 3)
                 .attr("fill", structureColors(group)).attr("stroke", "rgba(0,0,0,0.4)");
                 
-            exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
+            exportGroup.append("text").attr("x", legX + 28).attr("y", curY)
                 .text(group)
-                .attr("font-size", "13px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
-            curY += 24;
+                .attr("font-size", "15px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
+            curY += 26;
         }
     });
 
