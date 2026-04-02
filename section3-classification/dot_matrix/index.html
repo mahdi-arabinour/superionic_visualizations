@@ -64,8 +64,10 @@
     <input id="sizeSlider" type="range" min="0.6" max="2.0" step="0.05" value="1.0">
     <span id="sizeVal">1.00×</span>
     <button id="sizeReset" class="btn">Reset</button>
-    <button onclick="downloadSVG()" class="btn" style="margin-left:16px; background:#2563eb; color:#fff; font-weight:bold; border-color:#1d4ed8;">⬇ Journal SVG (Vector)</button>
-    <button onclick="downloadPNG()" class="btn" style="background:#10b981; color:#fff; font-weight:bold; border-color:#059669;">⬇ 300DPI PNG</button>
+    <button onclick="downloadSVG()" class="btn" style="margin-left:16px; background:#2563eb; color:#fff; font-weight:bold; border-color:#1d4ed8;">⬇ SVG</button>
+    <button onclick="downloadPNG(3.125)" class="btn" style="background:#10b981; color:#fff; font-weight:bold; border-color:#059669;">⬇ 300 DPI</button>
+    <button onclick="downloadPNG(8.33)" class="btn" style="background:#047857; color:#fff; font-weight:bold; border-color:#065f46;">⬇ 800 DPI</button>
+    <button onclick="downloadPNG(12.5)" class="btn" style="background:#064e3b; color:#fff; font-weight:bold; border-color:#022c22;">⬇ 1200 DPI</button>
   </div>
 </div>
 
@@ -470,7 +472,7 @@ function prepareSVGForExport(svgNode) {
   const titleText = titleEl ? titleEl.innerText : "Data Chart";
   
   const titleOffset = 60;  
-  const legendWidth = 220; // increased slightly for size legend
+  const legendWidth = 220; 
   
   const totalWidth = baseWidth + legendWidth;
   const totalHeight = baseHeight + titleOffset;
@@ -641,10 +643,9 @@ function downloadSVG() {
   URL.revokeObjectURL(url);
 }
 
-function downloadPNG() {
+function downloadPNG(scale = 4) {
   const svgNode = document.getElementById('chart');
   const { clone, totalWidth, totalHeight } = prepareSVGForExport(svgNode);
-  const scale = 4; // 300dpi equivalent
   
   clone.setAttribute("width", totalWidth * scale);
   clone.setAttribute("height", totalHeight * scale);
@@ -654,8 +655,11 @@ function downloadPNG() {
   
   const img = new Image();
   img.crossOrigin = "anonymous";
-  const svg64 = btoa(unescape(encodeURIComponent(source)));
-  img.src = 'data:image/svg+xml;base64,' + svg64;
+  
+  // Use a Blob to encode the SVG instead of btoa() to prevent memory crashes on 800+ DPI
+  const svgBlob = new Blob([source], {type: "image/svg+xml;charset=utf-8"});
+  const url = URL.createObjectURL(svgBlob);
+  img.src = url;
 
   img.onload = function() {
     const canvas = document.createElement("canvas");
@@ -667,10 +671,15 @@ function downloadPNG() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     
+    URL.revokeObjectURL(url);
+    
     const pngUrl = canvas.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = pngUrl;
-    a.download = "chart_super_300dpi.png";
+    
+    const dpi = Math.round(scale * 96);
+    a.download = `chart_super_${dpi}dpi.png`;
+    
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
