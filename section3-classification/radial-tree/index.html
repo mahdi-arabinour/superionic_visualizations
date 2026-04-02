@@ -334,12 +334,17 @@ function drawTree(rows){
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
 
-  // FIX: Move caption safely to the top left so it never overlaps the tree
-  g.append('text').attr('class', 'ui-text')
-    .attr('x', -WIDTH/2 + 20).attr('y', -HEIGHT/2 + 30)
-    .attr('text-anchor', 'start').attr('fill', '#64748b').attr('font-size', 13)
+  // FIX: Moved text to the top left so it never overlaps the circular tree.
+  // We use the class "chart-caption" so we can easily hide it during export.
+  g.append('text')
+    .attr('class', 'chart-caption')
+    .attr('x', -WIDTH/2 + 20)
+    .attr('y', -HEIGHT/2 + 30)
+    .attr('text-anchor', 'start')
+    .attr('fill', '#64748b')
+    .attr('font-size', 13)
     .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • Fill = Structure • Border = Ion');
-  
+
   say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length}`);
 }
 
@@ -349,10 +354,10 @@ function showTip(e,d){
   const ion=a[1]?.data?.name||'(ion)';
   const st=a[2]?.data?.name||'(structure)';
   const dop=a[3]?.data?.name||'(doping)';
-  let html=`<b>${ion}</b> → ${st} → ${dop}`;
+  let html=`<span style="color:${getIonColor(ion)}"><b>${ion}</b></span> → <span style="color:${getStructColor(st)}"><b>${st}</b></span> → ${dop}`;
   if(!d.children){
     const v=Number(d.data?.sigma), def=parseFloat(document.getElementById('sigmaDefault').value)||1e-6;
-    html+=`<br><b>${d.data?.name}</b>`;
+    html+=`<br><br><b>${d.data?.name}</b>`;
     html+=`<br>σ: ${Number.isFinite(v)&&v>0? v.toExponential(3): ('default '+def.toExponential(3))} S·cm⁻¹`;
   }
   tip.html(html).style('left',(e.clientX+12)+'px').style('top',(e.clientY+12)+'px').style('opacity',1);
@@ -441,15 +446,14 @@ async function exportChart(format, scale = 4) {
     const d3Svg = d3.select(svgEl);
     const origViewBox = svgEl.getAttribute("viewBox");
 
-    // 1. Calculate the TRUE physical boundary of the SVG (including all text)
+    // 1. Calculate the TRUE physical boundary of the SVG
     const bbox = svgEl.getBBox();
     const pad = 60;
     const truePhysicalWidth = bbox.width + (pad * 2);
-    // Ensure height is at least the original HEIGHT to maintain scaling
     const truePhysicalHeight = Math.max(HEIGHT, bbox.height + (pad * 2));
 
     // 2. Expand width to make room for legends on the RIGHT
-    const legendWidth = 280; 
+    const legendWidth = 260; 
     const exportWidth = truePhysicalWidth + legendWidth;
     const exportHeight = truePhysicalHeight;
     
@@ -458,8 +462,8 @@ async function exportChart(format, scale = 4) {
 
     d3Svg.attr("viewBox", `${minX} ${minY} ${exportWidth} ${exportHeight}`);
 
-    // Hide interactive text
-    d3Svg.selectAll(".ui-text").style("display", "none");
+    // FIX: Hide the interactive corner text before rendering so it doesn't double up
+    d3Svg.selectAll(".chart-caption").style("display", "none");
 
     // 3. Inject a white background
     d3Svg.insert("rect", ":first-child")
@@ -558,10 +562,10 @@ async function exportChart(format, scale = 4) {
         });
     }
 
-    // Cleanup: Remove background, legends, and restore normal viewport
+    // Cleanup: Remove background, legends, restore normal viewport, and unhide text
     d3Svg.select("#export-elements").remove();
     d3Svg.select("#export-bg").remove();
-    d3Svg.selectAll(".ui-text").style("display", null);
+    d3Svg.selectAll(".chart-caption").style("display", null);
     d3Svg.attr("viewBox", origViewBox);
 }
 
