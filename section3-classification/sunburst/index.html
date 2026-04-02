@@ -1,182 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<title>Sunburst</title>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<style>
-  html, body { height:100%; margin:0; }
-  body {
-    font-family:system-ui, Segoe UI, Roboto, sans-serif;
-    background:#ffffff; color:#0f172a;
-    display:flex; flex-direction:column;
-  }
-  header {
-    padding:10px 14px; background:#f8fafc;
-    display:flex; gap:16px; align-items:center; flex-wrap:wrap;
-    border-bottom:1px solid #e5e7eb;
-  }
-  #wrap { flex:1; display:flex; padding:10px 12px; gap:12px; min-height:0; }
-  #chartCard {
-    flex:1; display:grid; grid-template-columns:minmax(640px,1.7fr) 360px;
-    gap:12px; align-items:start; min-height:0;
-  }
-  
-  /* UPDATED: Made the container scrollable for the massive canvas */
-  .chartBody {
-    background:#ffffff; border:1px dashed #e2e8f0; border-radius:12px;
-    position:relative; height:min(88vh,900px); min-height:560px;
-    overflow: auto; 
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  
-  /* UPDATED: Allowed SVG to break past 100% width/height */
-  svg { display:block; margin: auto; }
-
-  /* Legend + controls (light) */
-  .legend {
-    background:#ffffff; border:1px solid #e5e7eb; border-radius:12px;
-    padding:10px; overflow:auto; max-height:calc(100vh - 150px);
-    display:flex; flex-direction:column; gap:10px;
-  }
-  .legend h4 { margin:0 0 8px 0; font-size:12px; color:#334155; letter-spacing:.4px; text-transform:uppercase; }
-  .legendGroup { display:flex; flex-direction:column; gap:6px; }
-
-  .ionRow {
-    display:grid; grid-template-columns:18px 1fr auto;
-    gap:8px; align-items:center; padding:6px 8px; border-radius:8px;
-    user-select:none;
-  }
-  .ionRow:hover { background:#f1f5f9; }
-  .swatch { width:18px; height:18px; border-radius:4px; border:1px solid rgba(0,0,0,.25); }
-
-  .controls { border-top:1px solid #e5e7eb; padding-top:8px; display:flex; flex-direction:column; gap:10px; }
-  .controls h4 { margin:4px 0 0 0; font-size:12px; color:#334155; letter-spacing:.4px; text-transform:uppercase; }
-  .toggleRow { display:flex; align-items:center; gap:8px; font-size:13px; color:#0f172a; }
-  fieldset { border:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
-  .levelRow { display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:center; }
-  .levelRow input[type="range"] { width:100%; }
-  .legendBtns { display:flex; gap:8px; margin-top:6px; }
-  .btn {
-    background:#f1f5f9; border:1px solid #e2e8f0; color:#0f172a;
-    padding:6px 10px; border-radius:8px; font-size:12px; cursor:pointer;
-  }
-  .btn:hover { background:#e2e8f0; }
-
-  /* PUBLICATION EXPORT BUTTON STYLES */
-  .btn-primary { background: #007aff; color: #fff; border:none; margin-left: auto; font-weight: bold; }
-  .btn-primary:hover { background: #0062cc; color: #fff; }
-  .btn-success { background: #10b981; color: #fff; border:none; font-weight: bold; }
-  .btn-success:hover { background: #059669; color: #fff; }
-
-  .tooltip {
-    position:fixed; pointer-events:none; background:rgba(0,0,0,.92);
-    color:#fff; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.3;
-    display:none; z-index:10; box-shadow:0 6px 18px rgba(0,0,0,.25);
-  }
-
-  /* Labels: dark text with white halo on light background */
-  .label, .leafLabel {
-    fill:#0f172a; pointer-events:none;
-    paint-order:stroke; stroke:#ffffff; stroke-width:3;
-  }
-  .hiddenLabel { opacity:0; transition:opacity .12s ease; }
-  .visibleLabel { opacity:1; transition:opacity .12s ease; }
-
-  /* Dim for non-selected */
-  .dimmed { opacity: .18; transition: opacity .12s ease; }
-
-  /* Ring captions */
-  .cap { pointer-events:none; }
-  .cap text {
-    font-size: 11px; fill: #475569; letter-spacing: .3px;
-    paint-order: stroke; stroke: #ffffff; stroke-width:3px;
-  }
-
-  .crumbs { font-size:12px; color:#475569; }
-  .crumbs a { color:#0ea5e9; text-decoration:none; cursor:pointer; }
-  .crumbs a:hover { text-decoration:underline; }
-  
-  /* Scrollbar styling for the massive canvas */
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-</style>
-</head>
-<body>
-  <header>
-    <strong>Sunburst</strong>
-    <label class="toggleRow">
-      <input type="checkbox" id="toggleAll" checked>
-      Show labels
-    </label>
-    <span id="rtStats" style="font-size:12px;color:#475569;"></span>
-    <span id="crumbs" class="crumbs"></span>
-    
-    <button onclick="exportChart('svg')" class="btn btn-primary">⬇ Journal SVG</button>
-    <button onclick="exportChart('png')" class="btn btn-success">⬇ 300DPI PNG</button>
-  </header>
-
-  <div id="wrap">
-    <div id="chartCard">
-      <div id="chart" class="chartBody"></div>
-
-      <div class="legend">
-        <h4>Legend</h4>
-        <div id="ionLegend" class="legendGroup"></div>
-
-        <div class="controls">
-          <h4>Label controls</h4>
-          <fieldset id="levelsFs">
-            <div class="levelRow">
-              <label class="lvlLabel" for="showIon">
-                <input type="checkbox" id="showIon" checked> Ion
-              </label>
-              <input id="fsIon" type="range" min="8" max="48" step="1" value="28">
-            </div>
-
-            <div class="levelRow">
-              <label class="lvlLabel" for="showStruct">
-                <input type="checkbox" id="showStruct" checked> Structure
-              </label>
-              <input id="fsStruct" type="range" min="8" max="36" step="1" value="22">
-            </div>
-
-            <div class="levelRow">
-              <label class="lvlLabel" for="showStrat">
-                <input type="checkbox" id="showStrat" checked> Doping strategy
-              </label>
-              <input id="fsStrat" type="range" min="8" max="28" step="1" value="16">
-            </div>
-
-            <div class="levelRow">
-              <label class="lvlLabel" for="showFormula">
-                <input type="checkbox" id="showFormula"> Formula
-              </label>
-              <input id="fsFormula" type="range" min="7" max="30" step="1" value="14">
-            </div>
-          </fieldset>
-
-          <div class="legendBtns">
-            <button id="btnClearSel" class="btn">Clear selection</button>
-          </div>
-
-          <label class="toggleRow" style="margin-top:4px;">
-            <input type="checkbox" id="hideUnsel" checked>
-            Hide unselected labels
-          </label>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="tooltip" class="tooltip"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-  <script>
+<script>
   // ---------------- Tunables ----------------
   const DEF_COND = 1e-6;
   const SCALE_MODE = 'log';
@@ -184,11 +6,7 @@
   const LEAF_SCALE = [1.0, 1.45, 1.6];
   const CAP_ARC_DEG = 90;
 
-  // ---------------- Format for Axes ----------------
-  const SUPERSCRIPTS = {
-    "-10":"⁻¹⁰", "-9":"⁻⁹", "-8":"⁻⁸", "-7":"⁻⁷", "-6":"⁻⁶", 
-    "-5":"⁻⁵", "-4":"⁻⁴", "-3":"⁻³", "-2":"⁻²", "-1":"⁻¹", "0":"⁰"
-  };
+  const SUPERSCRIPTS = { "-10":"⁻¹⁰", "-9":"⁻⁹", "-8":"⁻⁸", "-7":"⁻⁷", "-6":"⁻⁶", "-5":"⁻⁵", "-4":"⁻⁴", "-3":"⁻³", "-2":"⁻²", "-1":"⁻¹", "0":"⁰" };
   const formatLogLabel = val => `10${SUPERSCRIPTS[Math.round(Math.log10(val))] || '^' + Math.round(Math.log10(val))}`;
 
   // ---------------- State ----------------
@@ -196,19 +14,12 @@
   let maxRGlobal=0, labelsVisible=true;
   let _nodesCache=null, _outerR=null, _defs=null, _g=null, _focusDepth=0, _ringThickness=0, _leafBase=0;
 
-  // Label level toggles + Default Font Sizes increased for the massive canvas
+  // Formula OFF by default.
   let SHOW_ION=true, SHOW_STRUCT=true, SHOW_STRAT=true, SHOW_FORM=false;
   let FS_ION=28, FS_STRUCT=22, FS_STRAT=16, FS_FORM=14;
 
-  // Legend multi-select state
   const selIons    = new Set();
-  const selStructs = new Set(); 
-  const selStrats  = new Set(); 
-
-  // Label filtering mode
   let HIDE_UNSEL = true;
-
-  // UI refs
   const ui = {};
 
   // ---------------- Boot ----------------
@@ -226,26 +37,23 @@
     ui.hideUnsel   = document.getElementById('hideUnsel');
 
     ui.toggleAll.onchange = ()=>{ labelsVisible = ui.toggleAll.checked; applyLabelVisibility(); };
-
     ui.showIon.onchange     = ()=>{ SHOW_ION     = ui.showIon.checked;     layoutLabels(); applyLegendFilter(); };
     ui.showStruct.onchange  = ()=>{ SHOW_STRUCT  = ui.showStruct.checked;  layoutLabels(); applyLegendFilter(); };
     ui.showStrat.onchange   = ()=>{ SHOW_STRAT   = ui.showStrat.checked;   layoutLabels(); applyLegendFilter(); };
     ui.showFormula.onchange = ()=>{ SHOW_FORM    = ui.showFormula.checked; layoutLabels(); applyLegendFilter(); };
-
     ui.fsIon.oninput     = ()=>{ FS_ION   = +ui.fsIon.value;     layoutLabels(true); };
     ui.fsStruct.oninput  = ()=>{ FS_STRUCT= +ui.fsStruct.value;  layoutLabels(true); };
     ui.fsStrat.oninput   = ()=>{ FS_STRAT = +ui.fsStrat.value;   layoutLabels(true); };
     ui.fsFormula.oninput = ()=>{ FS_FORM  = +ui.fsFormula.value; layoutLabels(true); };
 
     ui.btnClearSel.onclick = ()=>{
-      selIons.clear(); selStructs.clear(); selStrats.clear();
+      selIons.clear(); 
       document.querySelectorAll('.legendGroup input[type="checkbox"]').forEach(cb=>{ cb.checked=false; });
       applyLegendFilter();
     };
 
     ui.hideUnsel.onchange = ()=>{ HIDE_UNSEL = ui.hideUnsel.checked; applyLegendFilter(); };
 
-    // Data + draw
     try {
         const csvRows = await d3.csv('data.csv', d3.autoType);
         const dataObj = rowsToNested(csvRows);
@@ -254,9 +62,6 @@
     } catch(e) {
         document.getElementById('chart').innerHTML = `<div style="padding:20px;color:red;font-weight:bold;">Error loading data.csv. Please ensure you are running a local web server to bypass CORS.</div>`;
     }
-
-    // Chart no longer dynamically resizes, it remains massive to support the text
-    // window.addEventListener('resize', ()=>{ ... });
   });
 
   // ---------------- Build hierarchy ----------------
@@ -337,11 +142,10 @@ function buildHierarchy(dataObj){
     return clone;
   }
   function cloneData(node){
-    return { name:node.data.name, values:node.data.values, _uid:node.data._uid,
-             children: node.children?.map(c=>cloneData(c)) };
+    return { name:node.data.name, values:node.data.values, _uid:node.data._uid, children: node.children?.map(c=>cloneData(c)) };
   }
 
-  // ---------------- Color Maps (Strictly by Ion) ----------------
+  // ---------------- Color Maps ----------------
   const ION_COLORS = {
     "Li+":  "#ff5252","Na+":  "#81d4fa","K+":   "#004d40","Ag+":  "#f48fb1",
     "O2-":  "#6d4c41","Zn2+": "#c2185b","H+":   "#ffd54f","Rb+":  "#43a047",
@@ -372,7 +176,7 @@ function buildHierarchy(dataObj){
 
   function levelOf(d){
     const orig = idMap.get(d.data._uid);
-    const od = orig?.depth ?? 0; // 0=root, 1=ion, 2=structure, 3=strategy, 4=formula
+    const od = orig?.depth ?? 0; 
     return od===1 ? 'ion' : od===2 ? 'struct' : od===3 ? 'strat' : 'formula';
   }
 
@@ -380,19 +184,15 @@ function buildHierarchy(dataObj){
   function draw(){
     const chartEl=document.getElementById('chart');
     const legendEl=document.getElementById('ionLegend');
-    const tt=document.getElementById('tooltip');
-    chartEl.innerHTML=''; legendEl.innerHTML='';
+    chartEl.innerHTML=''; 
 
-    // THE MASSIVE CANVAS FIX: Hardcode a giant size instead of adapting to the screen
-    const side = 2800; // This gives us 2,800 pixels of circumference!
-
+    const side = 2800; // Massive canvas
     const root = makeFocusRoot();
     _focusDepth = (focusNode?.depth ?? 0);
 
     const ringScale=RING_SCALE[Math.min(_focusDepth, RING_SCALE.length-1)];
     const leafScale=LEAF_SCALE[Math.min(_focusDepth, LEAF_SCALE.length-1)];
     
-    // Scale up the ring thickness significantly for the massive canvas
     _ringThickness = Math.max(120, side*0.06)*ringScale;
     _leafBase = Math.max(30, side*0.02);
     const extraLeafMax = Math.max(300, side*0.15)*leafScale;
@@ -408,13 +208,11 @@ function buildHierarchy(dataObj){
     _outerR = d => d.children ? d.y1 : d.y1 + _leafBase + condScale(d.data.cond || DEF_COND);
     const maxR = d3.max(root.descendants(), d=>_outerR(d)) + 6; maxRGlobal = maxR;
 
-    // ViewPad provides buffer so formulas at the edge don't get chopped off
     const viewPad = 400; 
     const totalSize = (maxR + viewPad) * 2;
 
     const svg=d3.select(chartEl).append('svg')
-      .attr('width', totalSize)
-      .attr('height', totalSize)
+      .attr('width', totalSize).attr('height', totalSize)
       .attr('viewBox', `${-(maxR + viewPad)} ${-(maxR + viewPad)} ${totalSize} ${totalSize}`);
     _g=svg.append('g'); _defs=svg.append('defs');
 
@@ -434,7 +232,7 @@ function buildHierarchy(dataObj){
         return base;
       })
       .attr('stroke','#ffffff').attr('stroke-opacity',0.9)
-      .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : 2); // Thicker borders for the massive canvas
+      .attr('stroke-width', d => (d.x1-d.x0) < 0.002 ? 0 : 2);
 
     paths.each(function(d){
       const names = absoluteNames(d);
@@ -474,46 +272,26 @@ function buildHierarchy(dataObj){
       .style('font-size','28px').style('fill','#334155')
       .text(focusNode ? focusNode.data.name : 'All ions');
 
-    // DRAWING ORDER: Labels -> Caps -> Axes (So axes are on top)
     layoutLabels();
     renderRingCaptions(root);
 
-    // CONCENTRIC LOG RINGS ON TOP
     const axesGroup = _g.append('g').attr('class', 'axes');
     const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; 
-    
     let d3Node = root.descendants().find(d => d.depth === 3);
     let baseLeafY = d3Node ? d3Node.y1 : (3 * _ringThickness);
 
     tickVals.forEach(v => {
         if (v < cmin || v > cmax) return;
         const r = baseLeafY + _leafBase + condScale(v);
-        
-        axesGroup.append('circle')
-            .attr('r', r)
-            .attr('fill', 'none')
-            .attr('stroke', '#cbd5e1')
-            .attr('stroke-width', 2)
-            .attr('stroke-dasharray', '8,8');
-            
-        axesGroup.append('text')
-            .attr('y', -r - 10) 
-            .attr('x', 0)
-            .attr('text-anchor', 'middle')
-            .attr('fill', '#64748b')
-            .attr('font-size', '20px')
-            .attr('font-family', 'system-ui, Segoe UI, Roboto, sans-serif')
-            .text(formatLogLabel(v));
+        axesGroup.append('circle').attr('r', r).attr('fill', 'none').attr('stroke', '#cbd5e1').attr('stroke-width', 2).attr('stroke-dasharray', '8,8');
+        axesGroup.append('text').attr('y', -r - 10).attr('x', 0).attr('text-anchor', 'middle').attr('fill', '#64748b').attr('font-size', '20px').attr('font-family', 'system-ui, Segoe UI, Roboto, sans-serif').text(formatLogLabel(v));
     });
 
     renderCrumbs();
-    
     if(legendEl && !legendEl.hasChildNodes()) buildLegend(legendEl, root);
-    
     applyLabelVisibility();
     applyLegendFilter();
 
-    // Automatically scroll to the center of the massive canvas on load
     setTimeout(() => {
         const chartBody = document.getElementById('chart');
         chartBody.scrollTop = (totalSize - chartBody.clientHeight) / 2;
@@ -521,68 +299,43 @@ function buildHierarchy(dataObj){
     }, 50);
   }
 
-  // ---------------- Legend (multiselect) ----------------
-  function chainName(n, rel){
-    if (!n) return '';
-    const anc = n.ancestors().reverse();
-    if (n.depth===1){ if (rel===1) return n.data.name; return ''; }
-    if (n.depth===2){ if (rel===1) return anc[1]?.data?.name||''; if (rel===0) return n.data.name; }
-    return '';
-  }
+  // ---------------- Legend ----------------
   function buildLegend(container, subtreeRoot){
     if(!container) return;
     container.innerHTML='';
-    
     const ions = Array.from(new Set(fullHierarchy.leaves().map(d => absoluteNames(d).ion))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
-
     ions.forEach(ion=>{
       const row = document.createElement('label'); row.className='ionRow';
-      const sw  = document.createElement('div');  sw.className='swatch';
-      const title = document.createElement('div');
-      const pick  = document.createElement('input'); pick.type='checkbox';
-
-      sw.style.background = getIonColor(ion);
-      title.textContent = ion;
-
-      pick.checked = selIons.has(ion);
+      const sw  = document.createElement('div');  sw.className='swatch'; sw.style.background = getIonColor(ion);
+      const title = document.createElement('div'); title.textContent = ion;
+      const pick  = document.createElement('input'); pick.type='checkbox'; pick.checked = selIons.has(ion);
 
       pick.onchange = ()=>{
         if (pick.checked) selIons.add(ion); else selIons.delete(ion);
         applyLegendFilter();
       };
-
-      row.append(sw, title, pick);
-      container.appendChild(row);
+      row.append(sw, title, pick); container.appendChild(row);
     });
   }
 
-  // ---------------- Selection filter ----------------
   function applyLegendFilter(){
-    const depth = (focusNode?.depth ?? 0);
     const hasSel = (selIons.size > 0);
-
     d3.selectAll('path.slice').each(function(){
       const ion = this.dataset.ion || '';
       let on = true;
-      if (hasSel){ on = selIons.has(ion); }
+      if (hasSel) on = selIons.has(ion); 
       this.classList.toggle('dimmed', hasSel && !on);
     });
-
     d3.selectAll('.labels text.levelLabel').each(function(d){
       const names = absoluteNames(d);
       let on = true;
-      if (hasSel){ on = selIons.has(names.ion||''); }
-
+      if (hasSel) on = selIons.has(names.ion||''); 
       const sel = d3.select(this);
-      if (hasSel && !on && HIDE_UNSEL){
-        sel.style('display','none').classed('dimmed', false);
-      } else {
-        sel.style('display', null).classed('dimmed', hasSel && !on && !HIDE_UNSEL);
-      }
+      if (hasSel && !on && HIDE_UNSEL){ sel.style('display','none').classed('dimmed', false); } 
+      else { sel.style('display', null).classed('dimmed', hasSel && !on && !HIDE_UNSEL); }
     });
   }
 
-  // ---------------- Breadcrumbs ----------------
   function renderCrumbs(){
     const el=document.getElementById('crumbs');
     if (!focusNode || focusNode.depth===0){
@@ -591,15 +344,9 @@ function buildHierarchy(dataObj){
       return;
     }
     const chain=focusNode.ancestors().reverse().slice(1);
-    el.innerHTML=['<a data-ix="root">All ions</a>',
-      ...chain.map((n,i)=>` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
+    el.innerHTML=['<a data-ix="root">All ions</a>', ...chain.map((n,i)=>` / <a data-ix="${i}">${n.data.name}</a>`)].join('');
     el.querySelectorAll('a').forEach(a=>{
-      a.onclick=()=>{
-        const ix=a.getAttribute('data-ix');
-        focusNode = (ix==='root') ? null : chain[Number(ix)];
-        selIons.clear();
-        draw();
-      };
+      a.onclick=()=>{ const ix=a.getAttribute('data-ix'); focusNode = (ix==='root') ? null : chain[Number(ix)]; selIons.clear(); draw(); };
     });
   }
 
@@ -618,42 +365,56 @@ function buildHierarchy(dataObj){
       .data(data, d=>`${d.data._uid}-${levelOf(d)}`)
       .join('text')
       .attr('class', d=> (levelOf(d)==='formula' ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'))
-      .text(d=> d.data.name)
       .style('font-size', d=>{
         const lv = levelOf(d);
-        return lv==='ion' ? (FS_ION+'px')
-             : lv==='struct' ? (FS_STRUCT+'px')
-             : lv==='strat' ? (FS_STRAT+'px')
-             : (FS_FORM+'px'); 
+        return lv==='ion' ? (FS_ION+'px') : lv==='struct' ? (FS_STRUCT+'px') : lv==='strat' ? (FS_STRAT+'px') : (FS_FORM+'px'); 
       })
       .style('font-weight', d=>{
-        const lv = levelOf(d);
-        return lv==='ion' ? 700 : lv==='struct' ? 600 : lv==='strat' ? 500 : 400;
+        const lv = levelOf(d); return lv==='ion' ? 700 : lv==='struct' ? 600 : lv==='strat' ? 500 : 400;
       });
 
     placeRadial(sel);
     applyLegendFilter();
   }
 
-  // ---------------- Radial placement ----------------
   function placeRadial(selection){
     selection.each(function(d){
       const el = d3.select(this);
       const lv = levelOf(d);
-      
+      const fs = lv==='ion' ? FS_ION : lv==='struct' ? FS_STRUCT : lv==='strat' ? FS_STRAT : FS_FORM;
       const isLeaf = (lv === 'formula');
       
-      let rMid;
-      if (isLeaf) {
-        // Push formula outward a bit
-        rMid = _outerR(d) + 12; 
-      } else {
-        rMid = (d.y0 + d.y1) / 2; 
+      let rMid = isLeaf ? _outerR(d) + 12 : (d.y0 + d.y1) / 2;
+
+      // 1. VERTICAL ANTI-OVERLAP (The circumference check)
+      const arcLengthPx = rMid * (d.x1 - d.x0);
+      if (arcLengthPx < (fs + 1)) { 
+          el.style('display', 'none');
+          return;
       }
+
+      // 2. HORIZONTAL ANTI-BLEED (The strict truncation check)
+      let textStr = d.data.name;
+      if (!isLeaf) {
+          // Calculate the exact width of the ring in pixels.
+          // Subtract padding to keep text comfortably inside the ring boundaries.
+          const ringWidth = (d.y1 - d.y0) - 20; 
+          
+          // Estimate max characters based on font size (approx 0.6 times font size per char)
+          const maxChars = Math.floor(ringWidth / (fs * 0.6));
+          
+          if (textStr.length > maxChars && maxChars > 3) {
+              textStr = textStr.substring(0, maxChars - 3) + '...';
+          } else if (maxChars <= 3) {
+              el.style('display', 'none');
+              return;
+          }
+      }
+      
+      el.text(textStr);
 
       let amid = (d.x0 + d.x1) / 2;
       if (d.x0 < 0 && d.x1 > 0) amid += 0.01;
-
       const deg = amid * 180 / Math.PI;
       const upright = !(amid > Math.PI/2 && amid < 3*Math.PI/2);
 
@@ -701,7 +462,6 @@ function buildHierarchy(dataObj){
     const rIon    = midForDepth(partitionRoot, 1);
     const rStruct = midForDepth(partitionRoot, 2);
     const rStrat  = midForDepth(partitionRoot, 3);
-
     const maxDepth = partitionRoot.height;
     const lastBand = partitionRoot.descendants().find(d => d.depth === maxDepth);
     const rFormula = (lastBand?.y1 ?? ((maxDepth+1) * _ringThickness)) + (_leafBase * 0.55);
@@ -724,22 +484,16 @@ function buildHierarchy(dataObj){
         .attr('href', '#'+id)
         .attr('startOffset','50%')
         .attr('text-anchor','middle')
-        // Bump font size for captions due to massive canvas
         .style('font-size', '20px')
         .text(it.text);
     });
 
-    _capLayers.ion.raise();
-    _capLayers.struct.raise();
-    _capLayers.strat.raise();
-    _capLayers.formula.raise();
+    _capLayers.ion.raise(); _capLayers.struct.raise(); _capLayers.strat.raise(); _capLayers.formula.raise();
   }
 
   function applyLabelVisibility(){
     const show = labelsVisible;
-    d3.selectAll('.label, .leafLabel')
-      .classed('hiddenLabel', !show)
-      .classed('visibleLabel', show);
+    d3.selectAll('.label, .leafLabel').classed('hiddenLabel', !show).classed('visibleLabel', show);
   }
 
   /* ---------- NATIVE D3 EXPORT PIPELINE ---------- */
@@ -748,79 +502,42 @@ function buildHierarchy(dataObj){
       let cssStyleText = "";
       for (let i = 0; i < document.styleSheets.length; i++) {
           try {
-              for (let j = 0; j < document.styleSheets[i].cssRules.length; j++) {
-                  cssStyleText += document.styleSheets[i].cssRules[j].cssText;
-              }
+              for (let j = 0; j < document.styleSheets[i].cssRules.length; j++) { cssStyleText += document.styleSheets[i].cssRules[j].cssText; }
           } catch (e) {}
       }
-      const styleElement = document.createElement("style");
-      styleElement.setAttribute("type", "text/css");
-      styleElement.innerHTML = cssStyleText;
-      const refNode = svgNode.hasChildNodes() ? svgNode.children[0] : null;
-      svgNode.insertBefore(styleElement, refNode);
-      
+      const styleElement = document.createElement("style"); styleElement.setAttribute("type", "text/css"); styleElement.innerHTML = cssStyleText;
+      const refNode = svgNode.hasChildNodes() ? svgNode.children[0] : null; svgNode.insertBefore(styleElement, refNode);
       const serializer = new XMLSerializer();
       let svgString = serializer.serializeToString(svgNode);
-      svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink='); 
-      svgString = svgString.replace(/NS\d+:href/g, 'xlink:href');
-      
-      svgNode.removeChild(styleElement);
-      return svgString;
+      svgString = svgString.replace(/(\w+)?:?xlink=/g, 'xmlns:xlink='); svgString = svgString.replace(/NS\d+:href/g, 'xlink:href');
+      svgNode.removeChild(styleElement); return svgString;
   }
 
   async function exportChart(format) {
-      const svgEl = document.querySelector("#chart svg");
-      const d3Svg = d3.select(svgEl);
-
-      const pad = 200; 
-      const legendWidth = 600; 
+      const svgEl = document.querySelector("#chart svg"); const d3Svg = d3.select(svgEl);
+      const pad = 200; const legendWidth = 600; 
       const currentViewBox = svgEl.getAttribute("viewBox").split(" ").map(Number);
       const [origX, origY, origW, origH] = currentViewBox;
 
-      const exportMinX = origX - pad;
-      const exportMinY = origY - pad;
-      const exportW = origW + (pad * 2) + legendWidth;
-      const exportH = origH + (pad * 2);
+      const exportMinX = origX - pad; const exportMinY = origY - pad;
+      const exportW = origW + (pad * 2) + legendWidth; const exportH = origH + (pad * 2);
 
       d3Svg.attr("viewBox", `${exportMinX} ${exportMinY} ${exportW} ${exportH}`);
-
-      d3Svg.insert("rect", ":first-child")
-          .attr("id", "export-bg")
-          .attr("x", exportMinX).attr("y", exportMinY)
-          .attr("width", exportW).attr("height", exportH)
-          .attr("fill", "#ffffff");
+      d3Svg.insert("rect", ":first-child").attr("id", "export-bg").attr("x", exportMinX).attr("y", exportMinY).attr("width", exportW).attr("height", exportH).attr("fill", "#ffffff");
 
       const exportGroup = d3Svg.append("g").attr("id", "export-elements");
-      
-      exportGroup.append("text")
-          .attr("x", exportMinX + 100) 
-          .attr("y", exportMinY + 100) 
-          .text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type")
-          .attr("font-size", "40px")
-          .attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif")
-          .attr("fill", "#64748b");
+      exportGroup.append("text").attr("x", exportMinX + 100).attr("y", exportMinY + 100).text("Ion → Structure → Doping → Formula • slice length ∝ log₁₀(σ) • color = Ion Type").attr("font-size", "40px").attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif").attr("fill", "#64748b");
 
-      const legX = origX + origW + pad; 
-      let curY = exportMinY + 140; 
-
-      exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type")
-          .attr("font-weight", "bold").attr("font-size", "46px").attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif");
+      const legX = origX + origW + pad; let curY = exportMinY + 140; 
+      exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type").attr("font-weight", "bold").attr("font-size", "46px").attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif");
       curY += 60;
 
       const ionCounts = {};
-      fullHierarchy.leaves().forEach(d => {
-          const ion = absoluteNames(d).ion || 'Other';
-          ionCounts[ion] = (ionCounts[ion] || 0) + 1;
-      });
+      fullHierarchy.leaves().forEach(d => { const ion = absoluteNames(d).ion || 'Other'; ionCounts[ion] = (ionCounts[ion] || 0) + 1; });
 
       Object.keys(ionCounts).sort().forEach(ion => {
-          exportGroup.append("rect").attr("x", legX).attr("y", curY - 30)
-              .attr("width", 36).attr("height", 36).attr("rx", 6)
-              .attr("fill", getIonColor(ion)).attr("stroke", "rgba(0,0,0,0.15)");
-              
-          exportGroup.append("text").attr("x", legX + 60).attr("y", curY)
-              .text(`${ion} (${ionCounts[ion]})`)
-              .attr("font-size", "36px").attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif").attr("fill", "#0f172a");
+          exportGroup.append("rect").attr("x", legX).attr("y", curY - 30).attr("width", 36).attr("height", 36).attr("rx", 6).attr("fill", getIonColor(ion)).attr("stroke", "rgba(0,0,0,0.15)");
+          exportGroup.append("text").attr("x", legX + 60).attr("y", curY).text(`${ion} (${ionCounts[ion]})`).attr("font-size", "36px").attr("font-family", "system-ui, Segoe UI, Roboto, sans-serif").attr("fill", "#0f172a");
           curY += 60;
       });
 
@@ -829,39 +546,19 @@ function buildHierarchy(dataObj){
       if(format === 'svg') {
           const blob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
           const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url; link.download = "Sunburst_Publication.svg";
+          const link = document.createElement("a"); link.href = url; link.download = "Sunburst_Publication.svg";
           document.body.appendChild(link); link.click(); document.body.removeChild(link);
       } else {
-          // Note: Because the canvas is already naturally huge, a scale of 1 or 2 is enough to hit 300DPI equivalent
-          const scale = 2; 
-          const canvas = document.createElement("canvas");
-          canvas.width = exportW * scale;
-          canvas.height = exportH * scale;
-          const ctx = canvas.getContext("2d");
-          
-          const img = new Image();
-          const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
-          const url = URL.createObjectURL(svgBlob);
-
+          const scale = 2; const canvas = document.createElement("canvas"); canvas.width = exportW * scale; canvas.height = exportH * scale; const ctx = canvas.getContext("2d");
+          const img = new Image(); const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"}); const url = URL.createObjectURL(svgBlob);
           await new Promise(resolve => {
               img.onload = () => {
-                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                  URL.revokeObjectURL(url);
-                  const link = document.createElement("a");
-                  link.download = "Sunburst_HighRes.png";
-                  link.href = canvas.toDataURL("image/png");
-                  document.body.appendChild(link); link.click(); document.body.removeChild(link);
-                  resolve();
-              };
-              img.src = url;
+                  ctx.drawImage(img, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url);
+                  const link = document.createElement("a"); link.download = "Sunburst_HighRes.png"; link.href = canvas.toDataURL("image/png");
+                  document.body.appendChild(link); link.click(); document.body.removeChild(link); resolve();
+              }; img.src = url;
           });
       }
-
-      d3Svg.select("#export-elements").remove();
-      d3Svg.select("#export-bg").remove();
-      d3Svg.attr("viewBox", currentViewBox.join(" "));
+      d3Svg.select("#export-elements").remove(); d3Svg.select("#export-bg").remove(); d3Svg.attr("viewBox", currentViewBox.join(" "));
   }
   </script>
-</body>
-</html>
