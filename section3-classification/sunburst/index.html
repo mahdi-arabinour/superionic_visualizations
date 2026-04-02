@@ -242,6 +242,8 @@ function buildHierarchy(dataObj){
     });
 
     const tipVal=v=>(!Number.isFinite(v)?'n/a':(v<0.01?`${(v*1000).toFixed(3)} mS·cm⁻¹`:`${Number(v).toPrecision(3)} S·cm⁻¹`));
+    
+    // PUBLISH-READY FIX: Prevent Tooltip Clipping
     paths.on('mousemove',(evt,d)=>{
       const trail=d.ancestors().reverse().slice(1).map(n=>n.data.name).join(' → ');
       let html=`<strong>${trail}</strong>`;
@@ -249,8 +251,19 @@ function buildHierarchy(dataObj){
                          : (d.data.hasCond ? `<br/>σ: ${tipVal(d.data.cond)}<br/><small>RT preferred; else first</small>`
                                            : `<br/><em>No conductivity — default height</em>`);
       const tt=document.getElementById('tooltip');
-      tt.style.display='block'; tt.innerHTML=html;
-      tt.style.left=(evt.clientX+10)+'px'; tt.style.top=(evt.clientY+10)+'px';
+      tt.innerHTML=html;
+      tt.style.display='block'; 
+      
+      const tipRect = tt.getBoundingClientRect();
+      let left = evt.clientX + 15;
+      let top = evt.clientY + 15;
+
+      // Boundary checks
+      if (left + tipRect.width > window.innerWidth) left = evt.clientX - tipRect.width - 15;
+      if (top + tipRect.height > window.innerHeight) top = evt.clientY - tipRect.height - 15;
+
+      tt.style.left= left + 'px'; 
+      tt.style.top= top + 'px';
     }).on('mouseleave',()=>{ document.getElementById('tooltip').style.display='none'; });
 
     paths.on('click',(evt,d)=>{
@@ -275,10 +288,10 @@ function buildHierarchy(dataObj){
     layoutLabels();
     renderRingCaptions(root);
 
+    // PUBLISH-READY FIX: Anchor baseLeafY dynamically to avoid axis jumping
     const axesGroup = _g.append('g').attr('class', 'axes');
     const tickVals = [1e-8, 1e-6, 1e-4, 1e-2]; 
-    let d3Node = root.descendants().find(d => d.depth === 3);
-    let baseLeafY = d3Node ? d3Node.y1 : (3 * _ringThickness);
+    const baseLeafY = 3 * _ringThickness; // Consistent absolute anchor instead of depth-based
 
     tickVals.forEach(v => {
         if (v < cmin || v > cmax) return;
@@ -318,22 +331,41 @@ function buildHierarchy(dataObj){
     });
   }
 
+  // PUBLISH-READY FIX: Smooth transitions and grayscale filtering for ambiguous states
   function applyLegendFilter(){
     const hasSel = (selIons.size > 0);
-    d3.selectAll('path.slice').each(function(){
-      const ion = this.dataset.ion || '';
-      let on = true;
-      if (hasSel) on = selIons.has(ion); 
-      this.classList.toggle('dimmed', hasSel && !on);
-    });
-    d3.selectAll('.labels text.levelLabel').each(function(d){
-      const names = absoluteNames(d);
-      let on = true;
-      if (hasSel) on = selIons.has(names.ion||''); 
-      const sel = d3.select(this);
-      if (hasSel && !on && HIDE_UNSEL){ sel.style('display','none').classed('dimmed', false); } 
-      else { sel.style('display', null).classed('dimmed', hasSel && !on && !HIDE_UNSEL); }
-    });
+    
+    d3.selectAll('path.slice')
+      .transition().duration(400)
+      .style('opacity', function() {
+        const ion = this.dataset.ion || '';
+        const on = hasSel ? selIons.has(ion) : true;
+        return on ? 1 : 0.15; 
+      })
+      .style('filter', function() {
+        const ion = this.dataset.ion || '';
+        const on = hasSel ? selIons.has(ion) : true;
+        return on ? 'none' : 'grayscale(80%)'; 
+      });
+
+    d3.selectAll('.labels text.levelLabel')
+      .transition().duration(400)
+      .style('opacity', function(d) {
+        const names = absoluteNames(d);
+        const on = hasSel ? selIons.has(names.ion||'') : true;
+        if (hasSel && !on && HIDE_UNSEL) return 0;
+        return on ? 1 : 0.15;
+      })
+      .on('start', function(d) {
+        const names = absoluteNames(d);
+        const on = hasSel ? selIons.has(names.ion||'') : true;
+        if (!(hasSel && !on && HIDE_UNSEL)) d3.select(this).style('display', null);
+      })
+      .on('end', function(d) {
+        const names = absoluteNames(d);
+        const on = hasSel ? selIons.has(names.ion||'') : true;
+        if (hasSel && !on && HIDE_UNSEL) d3.select(this).style('display', 'none');
+      });
   }
 
   function renderCrumbs(){
@@ -386,21 +418,15 @@ function buildHierarchy(dataObj){
       
       let rMid = isLeaf ? _outerR(d) + 12 : (d.y0 + d.y1) / 2;
 
-      // 1. VERTICAL ANTI-OVERLAP (The circumference check)
       const arcLengthPx = rMid * (d.x1 - d.x0);
       if (arcLengthPx < (fs + 1)) { 
           el.style('display', 'none');
           return;
       }
 
-      // 2. HORIZONTAL ANTI-BLEED (The strict truncation check)
       let textStr = d.data.name;
       if (!isLeaf) {
-          // Calculate the exact width of the ring in pixels.
-          // Subtract padding to keep text comfortably inside the ring boundaries.
           const ringWidth = (d.y1 - d.y0) - 20; 
-          
-          // Estimate max characters based on font size (approx 0.6 times font size per char)
           const maxChars = Math.floor(ringWidth / (fs * 0.6));
           
           if (textStr.length > maxChars && maxChars > 3) {
