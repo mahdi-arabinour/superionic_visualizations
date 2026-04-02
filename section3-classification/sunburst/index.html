@@ -453,48 +453,36 @@
             const layer = _g.append('g').attr('class', 'labels');
 
             const depthState = (focusNode?.depth ?? 0);
-            const hasSel = (depthState === 0 && selIons.size > 0) || (depthState === 1 && selStructs.size > 0) || (depthState === 2 && selStrats.size > 0);
+            const hasSel = (selIons.size > 0) || (selStructs.size > 0) || (selStrats.size > 0);
 
-            let data = [];
-            _nodesCache.forEach(n => {
+            let data = _nodesCache.filter(n => {
                 const lv = levelOf(n);
-                const isRadial = (lv === 'formula');
-                if (!isRadial && !n.children) return; 
-
-                const names = absoluteNames(n);
+                const isToggled = (SHOW_ION && lv === 'ion') || 
+                                  (SHOW_STRUCT && lv === 'struct') || 
+                                  (SHOW_STRAT && lv === 'strat') || 
+                                  (SHOW_FORM && lv === 'formula');
+                
                 let isSel = false;
+                const names = absoluteNames(n);
                 if (hasSel) {
                     if (depthState === 0) isSel = selIons.has(names.ion);
                     else if (depthState === 1) isSel = selStructs.has(`ION:${focusNode?.data?.name || ''}|STRUCT:${names.struct}`);
                     else if (depthState === 2) isSel = selStrats.has(`ION:${chainName(focusNode, 1)}|STRUCT:${chainName(focusNode, 0)}|STRAT:${names.strat}`);
                 }
 
-                let inFocus = false;
-                if (focusNode && focusNode.depth > 0) {
-                    let curr = n;
-                    while(curr) { if (curr.data._uid === focusNode.data._uid) { inFocus = true; break; } curr = curr.parent; }
-                }
-
-                const isToggled = (SHOW_ION && lv === 'ion') || (SHOW_STRUCT && lv === 'struct') || (SHOW_STRAT && lv === 'strat') || (SHOW_FORM && lv === 'formula');
-                
-                // If it is globally toggled, explicitly selected, or we are zoomed into it, put it in the queue to be drawn
-                if (isToggled || isSel || inFocus) data.push(n);
+                return isToggled || isSel;
             });
 
-            const sel = layer.selectAll('text.levelLabel').data(data, d => `${d.data._uid}-${levelOf(d)}`).join('text')
+            const sel = layer.selectAll('text.levelLabel').data(data, d => d.data._uid).join('text')
                 .attr('class', d => (levelOf(d) === 'formula' ? 'leafLabel visibleLabel levelLabel' : 'label visibleLabel levelLabel'));
 
-            placeRadial(sel);
+            placeRadial(sel, hasSel, depthState);
         }
 
-        function placeRadial(selection) {
-            const depthState = (focusNode?.depth ?? 0);
-            const hasSel = (depthState === 0 && selIons.size > 0) || (depthState === 1 && selStructs.size > 0) || (depthState === 2 && selStrats.size > 0);
-
+        function placeRadial(selection, hasSel, depthState) {
             selection.each(function(d) {
                 const el = d3.select(this);
-                // Do not attempt to draw text on slices with absolute zero width
-                if (d.x1 - d.x0 < 0.00001) { el.style('display', 'none'); return; }
+                if (d.x1 - d.x0 <= 0.0001) { el.style('display', 'none'); return; }
 
                 const lv = levelOf(d);
                 const isRadial = (lv === 'formula');
@@ -507,14 +495,7 @@
                     else if (depthState === 2) isSel = selStrats.has(`ION:${chainName(focusNode, 1)}|STRUCT:${chainName(focusNode, 0)}|STRAT:${names.strat}`);
                 }
 
-                let inFocus = false;
-                if (focusNode && focusNode.depth > 0) {
-                    let curr = d;
-                    while(curr) { if (curr.data._uid === focusNode.data._uid) { inFocus = true; break; } curr = curr.parent; }
-                }
-
-                // Force show ignores overlap and truncation rules
-                const forceShow = isSel || inFocus;
+                const isToggled = (SHOW_ION && lv === 'ion') || (SHOW_STRUCT && lv === 'struct') || (SHOW_STRAT && lv === 'strat') || (SHOW_FORM && lv === 'formula');
 
                 if (hasSel && !isSel && HIDE_UNSEL) { el.style('display', 'none'); return; }
                 else if (hasSel && !isSel && !HIDE_UNSEL) { el.classed('dimmed', true); }
@@ -527,14 +508,16 @@
                 const rMid = rMidBase + (isRadial ? Math.max(12, _leafBase * 0.95) : 4);
                 const arcLengthPx = rMid * (d.x1 - d.x0);
 
-                // Ignore minimum arc length if we are forcing it to show
+                // Overlap strictness bypassed if we explicitly toggled or selected it
+                const forceShow = isToggled || isSel;
                 if (!forceShow && arcLengthPx < (fs + 1)) { el.style('display', 'none'); return; }
+                if (forceShow && arcLengthPx < 2) { el.style('display', 'none'); return; } // absolute hard limit to prevent smudging
 
                 let textStr = d.data.name || '';
+                
                 if (!isRadial) {
                     const maxChars = Math.floor(((d.y1 - d.y0) - 10) / (fs * 0.6));
                     if (textStr.length > maxChars && maxChars > 2) { 
-                        // Truncate only if NOT forcing show
                         textStr = forceShow ? textStr : textStr.substring(0, maxChars - 2) + '..'; 
                     } 
                     else if (maxChars <= 2 && !forceShow) { 
