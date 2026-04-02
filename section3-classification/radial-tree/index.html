@@ -125,6 +125,7 @@ const svg = d3.select('#chart');
 const tip = d3.select('#tooltip');
 const say = t => (document.getElementById('status').textContent = t);
 let DATA=null, COLS=null, WIDTH=0, HEIGHT=0, R=0;
+let textRingR = 0; 
 let selectedIons = null;          
 let ionLegEl = null;
 let globalIonsList = []; 
@@ -266,6 +267,9 @@ function drawTree(rows){
   const rescale = d3.scaleLinear().domain([leafMin,leafMax]).range([leafMin,maxExtra]);
   H.each(n=>{ if(!n.children) n.y = rFormula + rescale(extra(n.data.sigma)); });
 
+  // textRingR tracks the maximum boundary of the text for safe layout
+  textRingR = d3.max(H.leaves(), d => d.y);
+
   if(spread>0){
     H.descendants().filter(d=>d.depth===3).forEach(p=>{
       const kids=(p.children||[]).filter(c=>!c.children);
@@ -333,8 +337,16 @@ function drawTree(rows){
       .on('click',(e,d)=>{ if(L.depth===1){ setFocusIon(d.data.name); zoomToIon(d); } });
   }
 
-  g.append('text').attr('x',0).attr('y',HEIGHT/2-10).attr('text-anchor','middle').attr('fill','#64748b').attr('font-size',12)
+  // FIX: Move caption dynamically BELOW the maximum extent of the tree
+  g.append('text')
+    .attr('class', 'ui-text')
+    .attr('x', 0)
+    .attr('y', textRingR + 60) 
+    .attr('text-anchor', 'middle')
+    .attr('fill', '#64748b')
+    .attr('font-size', 13)
     .text('Ion → Structure → Doping → Formula • leaf length ∝ σ • Fill = Structure • Border = Ion');
+    
   say(`Nodes: ${H.descendants().length} • Leaves: ${H.leaves().length}`);
 }
 
@@ -406,7 +418,7 @@ function buildLegends(rows){
   applyChipVisuals();
 }
 
-/* ---------- NATIVE D3 EXPORT PIPELINE - LEGEND AT BOTTOM ---------- */
+/* ---------- NATIVE D3 EXPORT PIPELINE - LEGEND ON THE RIGHT ---------- */
 function getSVGString(svgNode) {
     svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
     let cssStyleText = "";
@@ -436,18 +448,16 @@ async function exportChart(format, scale = 4) {
     const d3Svg = d3.select(svgEl);
     const origViewBox = svgEl.getAttribute("viewBox");
 
-    // 1. Calculate the TRUE physical boundary of the SVG (including overflowing text on all sides)
+    // 1. Calculate the TRUE physical boundary of the SVG (including the newly moved text)
     const bbox = svgEl.getBBox();
-    
-    // Add extra padding to ensure nothing is clipped
     const pad = 60;
     const truePhysicalWidth = bbox.width + (pad * 2);
     const truePhysicalHeight = bbox.height + (pad * 2);
 
-    // 2. Expand the viewBox HEIGHT to make room for the legends AT THE BOTTOM
-    const legendHeight = 240; 
-    const exportWidth = Math.max(truePhysicalWidth, 1200); // Ensure it's wide enough for the legend columns
-    const exportHeight = truePhysicalHeight + legendHeight;
+    // 2. Expand width to make room for legends on the RIGHT
+    const legendWidth = 260; 
+    const exportWidth = truePhysicalWidth + legendWidth;
+    const exportHeight = truePhysicalHeight;
     
     const minX = bbox.x - pad;
     const minY = bbox.y - pad;
@@ -461,72 +471,48 @@ async function exportChart(format, scale = 4) {
         .attr("width", exportWidth).attr("height", exportHeight)
         .attr("fill", "#ffffff");
 
-    // 4. Dynamically draw the SVG Legends safely at the BOTTOM
+    // 4. Dynamically draw the SVG Legends safely on the RIGHT
     const exportGroup = d3Svg.append("g").attr("id", "export-elements");
     
-    // Calculate the starting position for the legends below the chart
-    const legendStartY = minY + truePhysicalHeight + 20;
-    
-    // --- DRAW STRUCTURE LEGEND (Bottom Left) ---
-    let curX = minX + 60; 
-    let curY = legendStartY; 
+    // Start drawing the legend immediately to the right of the actual tree boundary
+    const legX = bbox.x + bbox.width + pad; 
+    let curY = minY + 60; 
 
-    exportGroup.append("text").attr("x", curX).attr("y", curY).text("Structure Group (Fill)")
+    // --- DRAW STRUCTURE LEGEND ---
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Structure Group (Fill)")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
     curY += 28;
 
-    // Arrange in columns
-    const structCols = 4;
-    const structColWidth = 180;
-    let startY = curY;
-    let col = 0;
-    let row = 0;
-
     Object.keys(STRUCT_COLORS).filter(k=>k!=='Others').forEach(st => {
-        let x = curX + (col * structColWidth);
-        let y = startY + (row * 24);
-
-        exportGroup.append("rect").attr("x", x).attr("y", y - 12)
+        exportGroup.append("rect").attr("x", legX).attr("y", curY - 12)
             .attr("width", 14).attr("height", 14).attr("rx", 3)
             .attr("fill", STRUCT_COLORS[st]).attr("stroke", "rgba(0,0,0,0.15)");
             
-        exportGroup.append("text").attr("x", x + 24).attr("y", y)
+        exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
             .text(st)
             .attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
         
-        row++;
-        if (row > 3) { row = 0; col++; }
+        curY += 24;
     });
 
-    // --- DRAW ION LEGEND (Bottom Right) ---
-    // Start the Ion legend to the right of the Structure legend columns
-    curX = minX + 60 + (structCols * structColWidth) + 80;
-    curY = legendStartY;
+    curY += 30;
 
-    exportGroup.append("text").attr("x", curX).attr("y", curY).text("Ion Type (Border)")
+    // --- DRAW ION LEGEND ---
+    exportGroup.append("text").attr("x", legX).attr("y", curY).text("Ion Type (Border)")
         .attr("font-weight", "bold").attr("font-size", "16px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
     curY += 28;
 
-    startY = curY;
-    col = 0;
-    row = 0;
-    const ionColWidth = 120;
-
     globalIonsList.forEach(ion => {
         if(selectedIons === null || selectedIons.has(ion)) {
-            let x = curX + (col * ionColWidth);
-            let y = startY + (row * 24);
-
             exportGroup.append("circle")
-                .attr("cx", x + 7).attr("cy", y - 5).attr("r", 6)
+                .attr("cx", legX + 7).attr("cy", curY - 5).attr("r", 6)
                 .attr("fill", "#ffffff").attr("stroke", getIonColor(ion)).attr("stroke-width", 2.5);
                 
-            exportGroup.append("text").attr("x", x + 24).attr("y", y)
+            exportGroup.append("text").attr("x", legX + 24).attr("y", curY)
                 .text(ion)
                 .attr("font-size", "14px").attr("font-family", "system-ui, sans-serif").attr("fill", "#111");
             
-            row++;
-            if (row > 3) { row = 0; col++; }
+            curY += 24;
         }
     });
 
