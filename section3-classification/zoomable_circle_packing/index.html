@@ -194,7 +194,8 @@
             const rect = container.getBoundingClientRect();
             const size = Math.min(rect.width, rect.height) * 0.95;
 
-            const pack = d3.pack().size([size, size]).padding(5);
+            // FIX: Added generous padding to create a physical gap for labels so they never overlap inner circles
+            const pack = d3.pack().size([size, size]).padding(14);
             const root = pack(d3.hierarchy(data).sum(d => d.value || 0).sort((a, b) => (b.value || 0) - (a.value || 0)));
 
             let focus = root, view;
@@ -217,7 +218,7 @@
 
             const structLabels = g.selectAll("text.struct-label")
                 .data(nodes.filter(d => d.children && d.depth > 0)).join("text")
-                .attr("class", "struct-label").text(d => d.data.name);
+                .attr("class", "struct-label");
 
             const leafLabels = g.selectAll("text.leaf-label")
                 .data(nodes.filter(d => !d.children && d.depth > 0)).join("text")
@@ -232,21 +233,48 @@
 
                 circles.attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`).attr("r", d => d.r * k);
 
+                // FIX: Structure Group Labels logic to prevent horizontal spilling and vertical overlapping
                 structLabels
                     .style("display", d => (d.parent === focus ? "inline" : "none"))
-                    .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k - d.r * k * 0.65})`)
-                    .style("font-size", d => `${Math.max(12, (d.r * k) / 6)}px`)
-                    .text(d => d.data.name);
+                    .text(d => d.data.name)
+                    .style("font-size", function(d) {
+                        const r = d.r * k;
+                        const textStr = d3.select(this).text();
+                        const chars = textStr.length || 1;
+                        
+                        // Dynamically calculate width limits so long words never spill over the borders
+                        const maxFsByWidth = (1.4 * r) / (chars * 0.6); 
+                        const maxFsByHeight = Math.max(10, r / 4.5);
+                        
+                        return `${Math.max(10, Math.min(26, Math.min(maxFsByHeight, maxFsByWidth)))}px`;
+                    })
+                    .attr("transform", function(d) {
+                        // Place safely in the top gap created by the d3 padding constraint
+                        return `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k - d.r * k * 0.72})`;
+                    });
 
-                // FORCE ALL LABELS TO SHOW
+                // FIX: Inner circle (Ion) Labels
                 leafLabels
                     .attr("transform", d => `translate(${(d.x - v[0]) * k},${(d.y - v[1]) * k})`)
-                    .style("display", "inline") 
-                    .style("font-size", d => {
-                        // Mathematically constrain the font size so it never exceeds the radius boundary
-                        return `${(d.r * k) / 3.2}px`;
+                    .style("display", "inline")
+                    .text(d => {
+                        const r = d.r * k;
+                        // Drop the count value only if the circle is extremely small and we aren't zoomed in
+                        if (r < 25 && focus !== d.parent && focus !== d) return d.data.name;
+                        return `${d.data.name} (${d.value})`;
                     })
-                    .text(d => `${d.data.name} (${d.value})`);
+                    .style("font-size", function(d) {
+                        const r = d.r * k;
+                        const textStr = d3.select(this).text();
+                        const chars = textStr.length || 1;
+                        
+                        // Constraint math to force the text to perfectly fit the circle boundary
+                        const maxFsByWidth = (1.8 * r) / (chars * 0.6);
+                        const maxFsByHeight = r / 2.5;
+                        
+                        // Font will shrink infinitely, ensuring all labels are visible without spilling
+                        return `${Math.max(6, Math.min(maxFsByHeight, maxFsByWidth))}px`;
+                    });
             }
 
             function zoom(event, d) {
@@ -283,7 +311,7 @@
         }
 
         // ============================================================================
-        // NATIVE D3 EXPORT PIPELINE - CIRCLE PACKING SPECIFIC
+        // NATIVE D3 EXPORT PIPELINE 
         // ============================================================================
         function getSVGString(svgNode) {
             svgNode.setAttribute('xlink', 'http://www.w3.org/1999/xlink');
